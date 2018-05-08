@@ -402,7 +402,7 @@ class OrderManager:
                     return self.place_orders()
                 else:
                     logger.error("Unknown error on amend: %s. Exiting" % errorObj)
-                    sys.exit(1)
+                    raise IOError("Unknown error on amend: %s" % errorObj)
 
         if len(to_create) > 0:
             logger.info("Creating %d orders:" % (len(to_create)))
