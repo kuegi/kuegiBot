@@ -16,6 +16,11 @@ from future.standard_library import hooks
 with hooks():  # Python 2/3 compat
     from urllib.parse import urlparse, urlunparse
 
+class OnTickHook():
+
+    def tick_happened(self):
+        pass
+
 
 # Connects to BitMEX websocket for streaming realtime data.
 # The Marketmaker still interacts with this as if it were a REST Endpoint, but now it can get
@@ -37,16 +42,20 @@ class BitMEXWebsocket():
     def __del__(self):
         self.exit()
 
-    def connect(self, endpoint="", symbol="XBTN15", shouldAuth=True):
+    def register_on_tick_hook(self, hook):
+        self.on_tick_hook = hook
+
+    def connect(self, endpoint="", symbol="XBTN15", shouldAuth=True, onTickHook:OnTickHook= None):
         '''Connect to the websocket and initialize data stores.'''
 
         self.logger.debug("Connecting WebSocket.")
         self.symbol = symbol
         self.shouldAuth = shouldAuth
+        self.on_tick_hook= onTickHook
 
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"]]
+        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade", "tradeBin1h"]]
         subscriptions += ["instrument"]  # We want all of them
         if self.shouldAuth:
             subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
@@ -126,6 +135,9 @@ class BitMEXWebsocket():
 
     def recent_trades(self):
         return self.data['trade']
+
+    def recent_H1_bars(self):
+        return self.data['tradeBin1h']
 
     #
     # Lifecycle methods
@@ -286,6 +298,8 @@ class BitMEXWebsocket():
                         self.data[table].remove(item)
                 else:
                     raise Exception("Unknown action: %s" % action)
+
+                self.on_tick_hook.tick_happened()
         except:
             self.logger.error(traceback.format_exc())
 

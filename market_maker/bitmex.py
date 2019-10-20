@@ -9,16 +9,15 @@ import uuid
 import logging
 from market_maker.auth import APIKeyAuthWithExpires
 from market_maker.utils import constants, errors
-from market_maker.ws.ws_thread import BitMEXWebsocket
+from market_maker.ws.ws_thread import BitMEXWebsocket, OnTickHook
 
 
 # https://www.bitmex.com/api/explorer/
 class BitMEX(object):
-
     """BitMEX API Connector."""
 
     def __init__(self, base_url=None, symbol=None, apiKey=None, apiSecret=None,
-                 orderIDPrefix='mm_bitmex_', shouldWSAuth=True, postOnly=False, timeout=7):
+                 orderIDPrefix='mm_bitmex_', shouldWSAuth=True, postOnly=False, timeout=7, onTickHook:OnTickHook=None):
         """Init connector."""
         self.logger = logging.getLogger('root')
         self.base_url = base_url
@@ -44,7 +43,7 @@ class BitMEX(object):
 
         # Create websocket for streaming data
         self.ws = BitMEXWebsocket()
-        self.ws.connect(base_url, symbol, shouldAuth=shouldWSAuth)
+        self.ws.connect(base_url, symbol, shouldAuth=shouldWSAuth, onTickHook= onTickHook)
 
         self.timeout = timeout
 
@@ -96,12 +95,14 @@ class BitMEX(object):
     #
     def authentication_required(fn):
         """Annotation for methods that require auth."""
+
         def wrapped(self, *args, **kwargs):
             if not (self.apiKey):
                 msg = "You must be authenticated to use this method"
                 raise errors.AuthenticationError(msg)
             else:
                 return fn(self, *args, **kwargs)
+
         return wrapped
 
     @authentication_required
@@ -217,6 +218,21 @@ class BitMEX(object):
         }
         return self._curl_bitmex(path=path, postdict=postdict, verb="POST", max_retries=0)
 
+    def get_bars(self, timeframe, start_time,reverse='true'):
+        path = "trade/bucketed"
+        return self._curl_bitmex(
+            path=path,
+            query={
+                "binSize": timeframe,
+                "partial": "true",
+                "symbol": self.symbol,
+                "reverse": reverse,
+                'count': 500,
+                'startTime': start_time
+            },
+            verb="GET"
+        )
+
     def _curl_bitmex(self, path, query=None, postdict=None, timeout=None, verb=None, rethrow_errors=False,
                      max_retries=None):
         """Send a request to BitMEX Servers."""
@@ -329,16 +345,16 @@ class BitMEX(object):
                                 order['side'] != ('Buy' if postdict['orderQty'] > 0 else 'Sell') or
                                 order['price'] != postdict['price'] or
                                 order['symbol'] != postdict['symbol']):
-                            raise Exception('Attempted to recover from duplicate clOrdID, but order returned from API ' +
-                                            'did not match POST.\nPOST data: %s\nReturned order: %s' % (
-                                                json.dumps(orders[i]), json.dumps(order)))
+                            raise Exception(
+                                'Attempted to recover from duplicate clOrdID, but order returned from API ' +
+                                'did not match POST.\nPOST data: %s\nReturned order: %s' % (
+                                    json.dumps(orders[i]), json.dumps(order)))
                     # All good
                     return orderResults
 
                 elif 'insufficient available balance' in message:
                     self.logger.error('Account out of funds. The message: %s' % error['message'])
                     exit_or_throw(Exception('Insufficient Funds'))
-
 
             # If we haven't returned or re-raised yet, we get here.
             self.logger.error("Unhandled Error: %s: %s" % (e, response.text))
@@ -360,3 +376,4 @@ class BitMEX(object):
         self.retries = 0
 
         return response.json()
+
