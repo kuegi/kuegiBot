@@ -227,7 +227,7 @@ class BitMEX(object):
                 "partial": "true",
                 "symbol": self.symbol,
                 "reverse": reverse,
-                'count': 500,
+                'count': 1000,
                 'startTime': start_time
             },
             verb="GET"

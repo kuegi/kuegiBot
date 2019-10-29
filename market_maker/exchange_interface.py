@@ -7,9 +7,33 @@ from market_maker import bitmex
 from market_maker.bitmex import OnTickHook
 from market_maker.settings import settings
 from market_maker.utils import log, errors
+from market_maker.trade_engine import Bar
 
 logger = log.setup_custom_logger('root')
 
+def process_low_tf_bars(bars,timeframe_minutes):
+    result: list = []
+    for b in bars:
+        b['tstamp'] = datetime.strptime(b['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
+        bar_start = int(b['tstamp'] / (60 * timeframe_minutes)) * (60 * timeframe_minutes)
+        if result and result[-1].tstamp == bar_start:
+            # add to bar
+            result[-1].high = max(result[-1].high, b['high'])
+            result[-1].low = max(result[-1].low, b['low'])
+            result[-1].close = b['close']
+            result[-1].volume += b['volume']
+            result[-1].subbars.append(b)
+        else:
+            # create new bar
+            result.append(Bar(tstamp=bar_start, open=b['open'], high=b['high'], low=b['low'], close=b['close'],
+                              volume=b['volume'], subbars=[b]))
+
+    # sort subbars
+    for bar in result:
+        bar.subbars.sort(key=lambda b: b['tstamp'], reverse=True)
+
+    result.reverse()
+    return result
 
 class ExchangeInterface(OnTickHook):
     def __init__(self, dry_run=False,timeframes=[], onTickHook:OnTickHook=None):
@@ -174,28 +198,7 @@ class ExchangeInterface(OnTickHook):
 
         bars = self.bitmex.get_bars(timeframe,start_time,reverse='false')
         # aggregate bars
-        result = []
-        for b in bars:
-            b['tstamp'] = datetime.strptime(b['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
-            bar_start= int(b['tstamp'] / (60*timeframe_minutes))*(60*timeframe_minutes)
-            if result and result[-1]['tstamp'] == bar_start:
-                #add to bar
-                result[-1]['high'] = max(result[-1]['high'], b['high'])
-                result[-1]['low'] = max(result[-1]['low'], b['low'])
-                result[-1]['close'] = b['close']
-                result[-1]['volume'] += b['volume']
-                result[-1]['subbars'].append(b)
-            else:
-                #create new bar
-                result.append(dict(tstamp=bar_start, open=b['open'], high=b['high'], low=b['low'], close=b['close'],
-                                   volume=b['volume'], subbars=[b]))
-
-        # sort subbars
-        for bar in result:
-            bar['subbars'].sort(key=lambda b: b['tstamp'], reverse=True)
-
-        result.reverse()
-        return result
+        return process_low_tf_bars(bars,timeframe_minutes)
 
     def get_highest_buy(self):
         buys = [o for o in self.get_orders() if o['side'] == 'Buy']

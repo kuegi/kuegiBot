@@ -10,9 +10,21 @@ from market_maker.utils import log, constants, errors
 
 from market_maker.market_maker import ExchangeInterface
 
-logger = log.setup_custom_logger('root')
+logger = log.setup_custom_logger('trade_engine')
 
 watched_files_mtimes = [(f, getmtime(f)) for f in settings.WATCHED_FILES]
+
+
+class Bar:
+    def __init__(self, tstamp: int, open: float, high: float, low: float, close: float, volume: float, subbars: list):
+        self.tstamp = tstamp
+        self.open = open
+        self.high = high
+        self.low = low
+        self.close = close
+        self.volume = volume
+        self.subbars = subbars
+        self.bot_data= {}
 
 
 class Account:
@@ -24,8 +36,8 @@ class Account:
 
 
 class Order:
-    def __init__(self, id, stop, limit, amount, direction):
-        self.id = id
+    def __init__(self, orderId= None, stop= None, limit= None, amount=0):
+        self.id = orderId
         self.stop_price = stop
         self.limit_price = limit
         self.amount = amount
@@ -36,6 +48,9 @@ class Order:
 
 class OrderInterface:
     def send_order(self, order: Order):
+        pass
+
+    def update_order(self, order: Order):
         pass
 
     def cancel_order(self, orderId):
@@ -77,60 +92,131 @@ class BackTest(OrderInterface):
         self.bot = bot
         self.bot.order_interface = self
 
+        self.market_slipage = 5
+        self.maker_fee = -0.00025
+        self.taker_fee = 0.00075
+
+        self.account:Account
+
+        self.reset()
+
+    def reset(self):
         self.account = Account()
         self.account.equity = 100000
         self.account.open_position = 0
 
         self.current_bars = []
-
-        self.market_slipage = 5
-
     # implementing OrderInterface
 
     def send_order(self, order: Order):
         # check if order is val
-        order.tstamp= self.current_bars[0]['tstamp']
+        if order.amount == 0:
+            logger.error("trying to send order without amount")
+            return
+        order.tstamp = self.current_bars[0].tstamp
         self.account.open_orders.append(order)
+
+    def update_order(self, order: Order):
+        for existing_order in self.account.open_orders:
+            if existing_order.id == order.id:
+                self.account.open_orders.remove(existing_order)
+                self.account.open_orders.append(order)
+                break
+
 
     def cancel_order(self, orderId):
         for order in self.account.open_orders:
             if order.id == orderId:
                 order.active = False
-                order.final_tstamp= self.current_bars[0]['tstamp']
-                order.final_reason= 'cancel'
+                order.final_tstamp = self.current_bars[0].tstamp
+                order.final_reason = 'cancel'
 
                 self.account.order_history.append(order)
                 self.account.open_orders.remove(order)
                 break
 
     # ----------
+    def handle_order_execution(self, order: Order, bar: Bar):
+        amount = order.amount - order.executed_amount
+        order.executed_amount = order.amount
+        fee= self.taker_fee
+        if order.limit_price:
+            price = order.limit_price
+            fee= self.maker_fee
+        elif order.stop_price:
+            price = order.stop_price + math.copysign(self.market_slipage, order.amount)
+        else:
+            price = bar.open + math.copysign(self.market_slipage, order.amount)
+        price = min(bar.high, max(bar.low, price))  # only prices within the bar. might mean less slipage
+        self.account.open_position += amount
+        self.account.equity -= amount * price
+        self.account.equity -= amount*price*fee
 
-    def handle_open_orders(self,barsSinceLastCheck:list):
+        order.active = False
+        order.final_tstamp = bar.tstamp
+        order.final_reason = 'executed'
+        self.account.order_history.append(order)
+        self.account.open_orders.remove(order)
+
+    def handle_open_orders(self, barsSinceLastCheck: list):
         for order in self.account.open_orders:
+            if order.limit_price is None and order.stop_price is None:
+                self.handle_order_execution(order, barsSinceLastCheck[0])
+                continue
+
             for bar in barsSinceLastCheck:
-                if ( order.amount > 0 and order.stop_price < bar['high'] ) or (order.amount < 0 and order.stop_price > bar['low'] ):
-                    order.stop_triggered = True
-                    if order.limit_price == None :
-                        #execute stop market
-                        amount= order.amount - order.executed_amount
-                        price = order.stop_price + math.copysign(self.market_slipage,order.amount)
-                        price = min(bar['high'],max(bar['low'] , price)) # only prices within the bar. might mean less slipage
+                if order.stop_price and not order.stop_triggered:
+                    if (order.amount > 0 and order.stop_price < bar.high) or (
+                            order.amount < 0 and order.stop_price > bar.low):
+                        order.stop_triggered = True
+                        if order.limit_price is None:
+                            # execute stop market
+                            self.handle_order_execution(order, bar)
+                        else:
+                            # check if stop limit was filled after stop was triggered
+                            reached_trigger = False
+                            filled_limit = False
+                            for sub in bar.subbars:
+                                if reached_trigger:
+                                    if ((order.amount > 0 and order.limit_price > sub['low']) or (
+                                            order.amount < 0 and order.limit_price < sub['high'])):
+                                        filled_limit = True
+                                        break
+                                else:
+                                    if (order.amount > 0 and order.stop_price < sub['high']) or (
+                                            order.amount < 0 and order.stop_price > sub['low']):
+                                        reached_trigger = True
+                            if filled_limit:
+                                self.handle_order_execution(order, bar)
+
+                else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
+                    # check for limit execution
+                    if (order.amount > 0 and order.limit_price > bar.low) or (
+                            order.amount < 0 and order.limit_price < bar.high):
+                        self.handle_order_execution(order, bar)
 
     def run(self):
+        self.reset()
+        logger.info("starting backtest with "+str(len(self.bars))+" bars and "+str(self.account.equity)+" equity")
         for i in range(len(self.bars)):
-            if i == len(self.bars)-1:
+            if i == len(self.bars) - 1:
                 continue  # ignore last bar
 
             # slice bars. TODO: also slice intrabar to simulate tick
-            self.current_bars = self.bars[-(i+1):]
+            self.current_bars = self.bars[-(i + 1):]
             # add one bar with 1 tick on open to show to bot that the old one is closed
-            next_bar = self.bars[-i-2]
-            self.current_bars.insert(0, dict(tstamp=next_bar['tstamp'], open=next_bar['open'], high=next_bar['open'],
-                                             low=next_bar['open'], close=next_bar['open'],
-                                             volume=1, subbars=[]))
+            next_bar = self.bars[-i - 2]
+            self.current_bars.insert(0, Bar(tstamp=next_bar.tstamp, open=next_bar.open, high=next_bar.open,
+                                            low=next_bar.open, close=next_bar.open,
+                                            volume=1, subbars=[]))
             # check open orders & update account
             self.handle_open_orders([self.current_bars[1]])
             self.bot.on_tick(self.current_bars, self.account)
+            next_bar.bot_data = self.current_bars[0].bot_data
+
+        logger.info("finished with "+str(len(self.account.order_history))+" done orders\n"
+                    +str(self.account.equity)+" equity\n"
+                    +str(self.account.open_position)+" open position")
 
 
 class LiveTrading:
