@@ -1,21 +1,20 @@
-import json
-
-from market_maker.exchange_interface import process_low_tf_bars
-from market_maker.trade_engine import BackTest, TradingBot
+from market_maker.trade_engine import BackTest, Bar, load_bars, prepare_plot
+from market_maker.indicator import SMA
 from market_maker.random_bot import RandomBot
 from market_maker.utils import log
+from typing import List
+
 
 logger = log.setup_custom_logger('backtest')
 
-start = 33 # 33
-end = 42
-m1_bars= []
-logger.info("loading "+str(end-start)+" history files")
-for i in range(start, end+1):
-    with open('history/M1_'+str(i)+'.json') as f:
-        m1_bars += json.load(f)
+bars:List[Bar]= load_bars(30*3,240)
 
-bars= process_low_tf_bars(m1_bars,240)
+forplot= bars[:]
+
+indis = [SMA(13), SMA(21), SMA(50)]
+
+fig= prepare_plot(forplot, indis)
+fig.show()
 
 bot= RandomBot()
 backtest= BackTest(bot,bars)

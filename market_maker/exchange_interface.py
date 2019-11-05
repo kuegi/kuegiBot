@@ -19,7 +19,7 @@ def process_low_tf_bars(bars,timeframe_minutes):
         if result and result[-1].tstamp == bar_start:
             # add to bar
             result[-1].high = max(result[-1].high, b['high'])
-            result[-1].low = max(result[-1].low, b['low'])
+            result[-1].low = min(result[-1].low, b['low'])
             result[-1].close = b['close']
             result[-1].volume += b['volume']
             result[-1].subbars.append(b)

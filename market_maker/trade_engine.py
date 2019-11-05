@@ -17,14 +17,15 @@ watched_files_mtimes = [(f, getmtime(f)) for f in settings.WATCHED_FILES]
 
 class Bar:
     def __init__(self, tstamp: int, open: float, high: float, low: float, close: float, volume: float, subbars: list):
-        self.tstamp = tstamp
-        self.open = open
-        self.high = high
-        self.low = low
-        self.close = close
-        self.volume = volume
-        self.subbars = subbars
-        self.bot_data= {}
+        self.tstamp:int = tstamp
+        self.open:float = open
+        self.high:float = high
+        self.low:float = low
+        self.close:float = close
+        self.volume:float = volume
+        self.subbars:list = subbars
+        self.bot_data = { "indicators":{} }
+        self.did_change:bool = True
 
 
 class Account:
@@ -311,3 +312,42 @@ class LiveTrading:
     def restart(self):
         logger.info("Restarting the market maker...")
         os.execv(sys.executable, [sys.executable] + sys.argv)
+
+import json
+from market_maker.exchange_interface import process_low_tf_bars
+
+
+def load_bars(days_in_history,wanted_tf):
+    end= 42
+    start= end - int(days_in_history*1440/50000)
+    m1_bars = []
+    logger.info("loading " + str(end - start) + " history files")
+    for i in range(start, end + 1):
+        with open('history/M1_' + str(i) + '.json') as f:
+            m1_bars += json.load(f)
+
+    return process_low_tf_bars(m1_bars, wanted_tf)
+
+
+import plotly.graph_objects as go
+from datetime import datetime
+
+
+def prepare_plot(bars, indis):
+    for indi in indis:
+        indi.on_tick(bars)
+
+    time = list(map(lambda b: datetime.fromtimestamp(b.tstamp), bars))
+    open = list(map(lambda b: b.open, bars))
+    high = list(map(lambda b: b.high, bars))
+    low = list(map(lambda b: b.low, bars))
+    close = list(map(lambda b: b.close, bars))
+
+    fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name="XBTUSD")])
+    for indi in bars[0].bot_data['indicators'].keys():
+        data = list(map(lambda b: b.bot_data['indicators'][indi], bars))
+        fig.add_scatter(x=time, y=data, mode='lines', line_width=1, name=indi)
+
+    fig.update_layout(xaxis_rangeslider_visible=False)
+    return fig
+
