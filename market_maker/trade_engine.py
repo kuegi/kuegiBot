@@ -313,6 +313,7 @@ class LiveTrading:
         logger.info("Restarting the market maker...")
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
+
 import json
 from market_maker.exchange_interface import process_low_tf_bars
 
@@ -331,22 +332,31 @@ def load_bars(days_in_history,wanted_tf):
 
 import plotly.graph_objects as go
 from datetime import datetime
+from typing import List
+from market_maker.indicator import Indicator
 
 
-def prepare_plot(bars, indis):
+def prepare_plot(bars, indis:List[Indicator]):
+    logger.info("calculating "+str(len(indis))+" indicators on "+str(len(bars))+" bars")
     for indi in indis:
         indi.on_tick(bars)
 
+    logger.info("running timelines")
     time = list(map(lambda b: datetime.fromtimestamp(b.tstamp), bars))
     open = list(map(lambda b: b.open, bars))
     high = list(map(lambda b: b.high, bars))
     low = list(map(lambda b: b.low, bars))
     close = list(map(lambda b: b.close, bars))
 
+    logger.info("creating plot")
     fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name="XBTUSD")])
-    for indi in bars[0].bot_data['indicators'].keys():
-        data = list(map(lambda b: b.bot_data['indicators'][indi], bars))
-        fig.add_scatter(x=time, y=data, mode='lines', line_width=1, name=indi)
+
+    logger.info("adding indicators")
+    for indi in indis:
+        elements=len(indi.get_data_for_plot(bars[0]))
+        for idx in range(0,elements):
+            sub_data= list(map(lambda b:indi.get_data_for_plot(b)[idx],bars))
+            fig.add_scatter(x=time, y=sub_data, mode='lines', line_width=1, name=indi.id+"_"+str(idx))
 
     fig.update_layout(xaxis_rangeslider_visible=False)
     return fig

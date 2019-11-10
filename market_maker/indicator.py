@@ -3,7 +3,37 @@ from market_maker.trade_engine import Bar
 
 from typing import List
 
+from enum import Enum
+
+
+class BarSeries(Enum):
+    OPEN = "open"
+    HIGH = "high"
+    LOW = "low"
+    CLOSE = "close"
+    VOLUME = "volume"
+
 logger = log.setup_custom_logger('indicator')
+
+
+def get_bar_value(bar:Bar,series:BarSeries):
+    return getattr(bar,series.value)
+
+
+def highest(bars: List[Bar], length: int, offset: int, series: BarSeries):
+    result: float = get_bar_value(bars[offset], series)
+    for idx in range(offset, offset + length):
+        if result < get_bar_value(bars[idx], series):
+            result = get_bar_value(bars[idx], series)
+    return result
+
+
+def lowest(bars: List[Bar], length: int, offset: int, series: BarSeries):
+    result: float = get_bar_value(bars[offset], series)
+    for idx in range(offset, offset + length):
+        if result > get_bar_value(bars[idx], series):
+            result = get_bar_value(bars[idx], series)
+    return result
 
 
 class Indicator:
@@ -21,7 +51,14 @@ class Indicator:
         bar.bot_data["indicators"][self.id] = data
 
     def get_data(self,bar:Bar):
-        return bar.bot_data["indicators"][self.id]
+        if 'indicators' in bar.bot_data.keys() and self.id in bar.bot_data['indicators'].keys():
+            return bar.bot_data["indicators"][self.id]
+        else:
+            return None
+
+    def get_data_for_plot(self,bar:Bar):
+        return self.get_data(bar) #default
+
 
 class SMA(Indicator):
     def __init__(self, period: int):
