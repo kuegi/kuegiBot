@@ -59,6 +59,12 @@ class Indicator:
     def get_data_for_plot(self,bar:Bar):
         return self.get_data(bar) #default
 
+    def get_plot_offset(self):
+        return 0
+
+    def get_number_of_lines(self):
+        return 1
+
 
 class SMA(Indicator):
     def __init__(self, period: int):

@@ -22,13 +22,14 @@ def clean_range(bars: List[Bar], offset: int, length: int):
 
 
 class Data:
-    def __init__(self,sinceLongReset, sinceShortReset, longTrail, shortTrail, buffer, plotData=None):
+    def __init__(self,sinceLongReset, sinceShortReset, longTrail, shortTrail, longSwing, shortSwing, buffer):
         self.sinceLongReset = sinceLongReset
         self.sinceShortReset= sinceShortReset
         self.longTrail = longTrail
         self.shortTrail= shortTrail
+        self.longSwing= longSwing
+        self.shortSwing= shortSwing
         self.buffer= buffer
-        self.plotData= plotData
 
 
 class KuegiChannel(Indicator):
@@ -47,14 +48,19 @@ class KuegiChannel(Indicator):
         for idx in range(len(bars) - self.max_look_back, -1, -1):
             if bars[idx].did_change:
                 self.process_bar(bars[idx:])
-                # we are plotting 1 in the future
-                prevData:Data= self.get_data(bars[idx+1])
-                data:Data= self.get_data(bars[idx])
-                data.plotData= [prevData.longTrail,prevData.shortTrail] if prevData is not None else None
 
     def get_data_for_plot(self, bar: Bar):
         data: Data = self.get_data(bar)
-        return data.plotData if data is not None and data.plotData is not None else [bar.close,bar.close]
+        if data is not None:
+            return [data.longTrail,data.shortTrail,data.longSwing,data.shortSwing]
+        else:
+            return [bar.close,bar.close,bar.close,bar.close]
+
+    def get_plot_offset(self):
+        return 1
+
+    def get_number_of_lines(self):
+        return 4
 
     def process_bar(self, bars: List[Bar]):
         atr = clean_range(bars, offset=0, length=self.max_look_back * 2)
@@ -72,7 +78,41 @@ class KuegiChannel(Indicator):
         [sinceLongReset, longTrail] = self.calc_trail(bars, offset, 1, move_length, threshold, maxDist)
         [sinceShortReset, shortTrail] = self.calc_trail(bars, offset, -1, move_length, threshold, maxDist)
 
-        self.write_data(bars[0], Data(sinceLongReset, sinceShortReset, longTrail, shortTrail, buffer, None))
+        sinceReset = min(sinceLongReset, sinceShortReset)
+
+        if sinceReset >= 3:
+            last_data: Data = self.get_data(bars[1])
+            lastLongSwing = self.calc_swing(bars, 1, last_data.longSwing, sinceReset, buffer)
+            lastShortSwing = self.calc_swing(bars, -1, last_data.shortSwing, sinceReset, buffer)
+            if lastLongSwing is not None and lastLongSwing < bars[0].high:
+                lastLongSwing = None
+            if lastShortSwing is not None and lastShortSwing > bars[0].low:
+                lastShortSwing = None
+        else:
+            lastLongSwing = None
+            lastShortSwing = None
+
+        self.write_data(bars[0],
+                        Data(sinceLongReset=sinceLongReset, sinceShortReset=sinceShortReset, longTrail=longTrail,
+                             shortTrail=shortTrail, longSwing=lastLongSwing, shortSwing=lastShortSwing, buffer=buffer))
+
+    def calc_swing(self,bars: List[Bar],direction,default, maxLookBack, minDelta):
+        series= BarSeries.HIGH if direction > 0 else BarSeries.LOW
+        for length in range(1,min(3,maxLookBack-1)):
+            cex = lowest(bars,length,1,series)
+            ex = highest(bars,length,1,series)
+            preRange= highest(bars,2,length+1,series)
+            e= ex
+            if direction < 0:
+                e = cex
+                preRange = lowest(bars,2,length+1,series)
+            if direction *(e-preRange) > 0 \
+                    and direction*(e-get_bar_value(bars[length+1],series)) > minDelta\
+                    and direction*(e-get_bar_value(bars[0],series)) > minDelta:
+                return e + direction*minDelta
+
+        return default
+
 
     def calc_trail(self, bars: List[Bar], offset, direction, move_length, threshold, maxDist):
         if direction > 0:

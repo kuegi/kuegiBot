@@ -19,7 +19,7 @@ indis = [KuegiChannel()]
 
 logger.info("preparing plot")
 fig= prepare_plot(forplot, indis)
-#fig.show()
+fig.show()
 
 # bot= RandomBot()
 # backtest= BackTest(bot,bars)

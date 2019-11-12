@@ -353,10 +353,11 @@ def prepare_plot(bars, indis:List[Indicator]):
 
     logger.info("adding indicators")
     for indi in indis:
-        elements=len(indi.get_data_for_plot(bars[0]))
-        for idx in range(0,elements):
+        lines=indi.get_number_of_lines()
+        offset= indi.get_plot_offset()
+        for idx in range(0,lines):
             sub_data= list(map(lambda b:indi.get_data_for_plot(b)[idx],bars))
-            fig.add_scatter(x=time, y=sub_data, mode='lines', line_width=1, name=indi.id+"_"+str(idx))
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line_width=1, name=indi.id+"_"+str(idx))
 
     fig.update_layout(xaxis_rangeslider_visible=False)
     return fig
