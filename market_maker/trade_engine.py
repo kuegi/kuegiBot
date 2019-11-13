@@ -3,6 +3,7 @@ import sys
 import os
 import atexit
 import signal
+from typing import List
 from time import sleep
 from os.path import getmtime
 from market_maker.settings import settings
@@ -30,7 +31,7 @@ class Bar:
 
 class Account:
     def __init__(self):
-        self.equity = 0
+        self.balance = 0
         self.open_position = 0
         self.open_orders = []
         self.order_history = []
@@ -61,11 +62,16 @@ class OrderInterface:
 class TradingBot:
     def __init__(self):
         self.order_interface: OrderInterface
+        self.last_time= 0
 
     def on_tick(self, bars: list, account: Account):
         """checks price and levels to manage current orders and set new ones"""
+        self.prep_bars(bars)
         self.manage_open_orders(bars, account)
         self.open_orders(bars, account)
+
+    def prep_bars(self,bars:list):
+        pass
 
     ###
     # Order Management
@@ -78,18 +84,20 @@ class TradingBot:
         # new_bar= check_for_new_bar(bars)
         pass
 
-    def check_for_new_bar(self, bars: list) -> bool:
+    def check_for_new_bar(self, bars: List[Bar]) -> bool:
         """checks if this tick started a new bar.
-
         only works on the first call of a bar"""
-        # TODO: implement
-        pass
+        if bars[0].tstamp != self.last_time:
+            self.last_time= bars[0].tstamp
+            return True
+        else:
+            return False
 
 
 class BackTest(OrderInterface):
 
     def __init__(self, bot: TradingBot, bars: list):
-        self.bars = bars
+        self.bars :List[Bar] = bars
         self.bot = bot
         self.bot.order_interface = self
 
@@ -103,10 +111,12 @@ class BackTest(OrderInterface):
 
     def reset(self):
         self.account = Account()
-        self.account.equity = 100000
+        self.account.balance = 100000
         self.account.open_position = 0
 
         self.current_bars = []
+        for b in self.bars:
+            b.did_change= True
     # implementing OrderInterface
 
     def send_order(self, order: Order):
@@ -150,8 +160,8 @@ class BackTest(OrderInterface):
             price = bar.open + math.copysign(self.market_slipage, order.amount)
         price = min(bar.high, max(bar.low, price))  # only prices within the bar. might mean less slipage
         self.account.open_position += amount
-        self.account.equity -= amount * price
-        self.account.equity -= amount*price*fee
+        self.account.balance -= amount * price
+        self.account.balance -= amount*price*fee
 
         order.active = False
         order.final_tstamp = bar.tstamp
@@ -198,7 +208,7 @@ class BackTest(OrderInterface):
 
     def run(self):
         self.reset()
-        logger.info("starting backtest with "+str(len(self.bars))+" bars and "+str(self.account.equity)+" equity")
+        logger.info("starting backtest with "+str(len(self.bars))+" bars and "+str(self.account.balance)+" balance")
         for i in range(len(self.bars)):
             if i == len(self.bars) - 1:
                 continue  # ignore last bar
@@ -214,9 +224,11 @@ class BackTest(OrderInterface):
             self.handle_open_orders([self.current_bars[1]])
             self.bot.on_tick(self.current_bars, self.account)
             next_bar.bot_data = self.current_bars[0].bot_data
+            for b in self.current_bars:
+                b.did_change= False
 
         logger.info("finished with "+str(len(self.account.order_history))+" done orders\n"
-                    +str(self.account.equity)+" equity\n"
+                    +str(self.account.balance)+" balance\n"
                     +str(self.account.open_position)+" open position")
 
 
