@@ -44,6 +44,7 @@ class Order:
         self.limit_price = limit
         self.amount = amount
         self.executed_amount = 0
+        self.executed_price = None
         self.active = True
         self.stop_triggered = False
 
@@ -61,7 +62,7 @@ class OrderInterface:
 
 class TradingBot:
     def __init__(self):
-        self.order_interface: OrderInterface
+        self.order_interface: OrderInterface= None
         self.last_time= 0
 
     def on_tick(self, bars: list, account: Account):
@@ -124,6 +125,7 @@ class BackTest(OrderInterface):
         if order.amount == 0:
             logger.error("trying to send order without amount")
             return
+        logger.debug("added order "+order.id)
         order.tstamp = self.current_bars[0].tstamp
         self.account.open_orders.append(order)
 
@@ -132,6 +134,7 @@ class BackTest(OrderInterface):
             if existing_order.id == order.id:
                 self.account.open_orders.remove(existing_order)
                 self.account.open_orders.append(order)
+                logger.debug("updated order "+order.id)
                 break
 
 
@@ -144,6 +147,7 @@ class BackTest(OrderInterface):
 
                 self.account.order_history.append(order)
                 self.account.open_orders.remove(order)
+                logger.debug("canceled order "+orderId)
                 break
 
     # ----------
@@ -159,6 +163,7 @@ class BackTest(OrderInterface):
         else:
             price = bar.open + math.copysign(self.market_slipage, order.amount)
         price = min(bar.high, max(bar.low, price))  # only prices within the bar. might mean less slipage
+        order.executed_price= price
         self.account.open_position += amount
         self.account.balance -= amount * price
         self.account.balance -= amount*price*fee
@@ -168,6 +173,7 @@ class BackTest(OrderInterface):
         order.final_reason = 'executed'
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
+        logger.debug("executed order " + order.id+" | "+str(self.account.balance)+" "+str(self.account.open_position))
 
     def handle_open_orders(self, barsSinceLastCheck: list):
         for order in self.account.open_orders:
@@ -226,6 +232,10 @@ class BackTest(OrderInterface):
             next_bar.bot_data = self.current_bars[0].bot_data
             for b in self.current_bars:
                 b.did_change= False
+
+        if self.account.open_position != 0:
+            self.send_order(Order(orderId="endOfTest",amount=-self.account.open_position))
+            self.handle_open_orders([self.bars[0]])
 
         logger.info("finished with "+str(len(self.account.order_history))+" done orders\n"
                     +str(self.account.balance)+" balance\n"
