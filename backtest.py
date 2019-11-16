@@ -1,6 +1,4 @@
 from market_maker.trade_engine import BackTest, Bar, load_bars, prepare_plot
-from market_maker.indicator import SMA
-from market_maker.random_bot import RandomBot
 from market_maker.utils import log
 from market_maker.kuegi_channel import KuegiChannel
 from market_maker.kuegi_bot import KuegiBot
@@ -27,5 +25,5 @@ def backtest(bars):
 
 
 logger.info("loading bars")
-bars: List[Bar] = load_bars(30 * 3, 240)
+bars: List[Bar] = load_bars(30 * 12, 240)
 backtest(bars)

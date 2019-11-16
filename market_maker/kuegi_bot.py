@@ -1,4 +1,4 @@
-from market_maker.trade_engine import TradingBot, Order, Account, Bar, OrderInterface
+from market_maker.trade_engine import TradingBot, Order, Account, Bar, OrderInterface, Position
 from market_maker.kuegi_channel import KuegiChannel, Data, clean_range
 from market_maker.utils import log
 
@@ -6,13 +6,6 @@ from typing import List
 
 logger = log.setup_custom_logger('kuegi_bot')
 
-class Position:
-    def __init__(self, id, entry, stop, amount):
-        self.id= id
-        self.status= "pending"
-        self.wanted_entry= entry
-        self.initial_stop= stop
-        self.amount= amount
 
 class KuegiBot(TradingBot):
 
@@ -20,12 +13,14 @@ class KuegiBot(TradingBot):
                  max_dist_factor: float = 2,
                  max_channel_size_factor : float = 6, risk_factor : float = 0.01):
         super().__init__()
-        self.channel= KuegiChannel(max_look_back,threshold_factor,buffer_factor,max_dist_factor)
+        self.myId = "KuegiBot_" + str(max_look_back) + '_' + str(threshold_factor) + '_' + str(
+            buffer_factor) + '_' + str(max_dist_factor) + '__' + str(max_channel_size_factor)
+        self.channel = KuegiChannel(max_look_back, threshold_factor, buffer_factor, max_dist_factor)
         self.max_channel_size_factor = max_channel_size_factor
-        self.risk_factor= risk_factor
-        self.open_positions = {}
-        self.known_order_history = 0
-        self.position_history= []
+        self.risk_factor = risk_factor
+
+    def uid(self) -> str:
+        return self.myId
 
     def prep_bars(self,bars:list):
         self.channel.on_tick(bars)
@@ -38,7 +33,7 @@ class KuegiBot(TradingBot):
         for o in to_cancel:
             self.order_interface.cancel_order(o.id)
 
-    def manage_open_orders(self, bars: list, account: Account):
+    def sync_executions(self,account: Account):
         for order in account.order_history[self.known_order_history:]:
             if order.executed_amount == 0:
                 continue
@@ -51,6 +46,7 @@ class KuegiBot(TradingBot):
                 if id_parts[2] == "entry" and position.status == "pending":
                     position.status= "open"
                     position.filled_entry= order.executed_price
+                    position.entry_tstamp= order.execution_tstamp
                     # clear other side
                     self.cancel_other_orders(id_parts[0],account)
                     other = "short" if id_parts[1] == "long" else "long"
@@ -61,11 +57,15 @@ class KuegiBot(TradingBot):
                 if id_parts[2] == "exit" and position.status == "open":
                     position.status = "closed"
                     position.filled_exit = order.executed_price
+                    position.exit_tstamp= order.execution_tstamp
                     self.position_history.append(position)
                     del self.open_positions[position.id]
                     self.cancel_other_orders(id_parts[0],account)
 
         self.known_order_history= len(account.order_history)
+
+    def manage_open_orders(self, bars: list, account: Account):
+        self.sync_executions(account)
 
         data:Data= self.channel.get_data(bars[1])
         if data is not None:
@@ -99,18 +99,18 @@ class KuegiBot(TradingBot):
 
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             if 0 < range < atr*self.max_channel_size_factor:
-                risk = account.balance*self.risk_factor
-                stopLong= max(data.shortSwing,data.longTrail)
-                stopShort= min(data.longSwing,data.shortTrail)
+                risk = account.equity*self.risk_factor
+                stopLong= int(max(data.shortSwing,data.longTrail))
+                stopShort= int(min(data.longSwing,data.shortTrail))
 
-                longEntry= data.longSwing
-                shortEntry= data.shortSwing
+                longEntry= int(data.longSwing)
+                shortEntry= int(data.shortSwing)
 
                 diffLong= longEntry-stopLong if longEntry > stopLong else range
                 diffShort= stopShort - shortEntry if stopShort > shortEntry else range
 
                 posId= str(bars[0].tstamp)
                 self.order_interface.send_order(Order(orderId= posId+"_long_entry", amount=risk/diffLong,stop = longEntry, limit=longEntry-1))
-                self.open_positions[posId+"_long"]=Position(id=posId+"_long",entry=longEntry,amount=risk/diffLong,stop=stopLong)
+                self.open_positions[posId+"_long"]=Position(id=posId+"_long",entry=longEntry,amount=risk/diffLong,stop=stopLong,tstamp=bars[0].tstamp)
                 self.order_interface.send_order(Order(orderId= posId+"_short_entry",amount=-risk/diffShort,stop = shortEntry, limit=shortEntry+1))
-                self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=-risk/diffShort,stop=stopShort)
+                self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=-risk/diffShort,stop=stopShort,tstamp=bars[0].tstamp)

@@ -3,6 +3,7 @@ import sys
 import os
 import atexit
 import signal
+import csv
 from typing import List
 from time import sleep
 from os.path import getmtime
@@ -32,6 +33,7 @@ class Bar:
 class Account:
     def __init__(self):
         self.balance = 0
+        self.equity = 0
         self.open_position = 0
         self.open_orders = []
         self.order_history = []
@@ -47,6 +49,8 @@ class Order:
         self.executed_price = None
         self.active = True
         self.stop_triggered = False
+        self.tstamp= 0
+        self.execution_tstamp= 0
 
 
 class OrderInterface:
@@ -59,11 +63,29 @@ class OrderInterface:
     def cancel_order(self, orderId):
         pass
 
+class Position:
+    def __init__(self, id, entry, stop, amount, tstamp):
+        self.id= id
+        self.signal_tstamp= tstamp
+        self.status= "pending"
+        self.wanted_entry= entry
+        self.initial_stop= stop
+        self.amount= amount
+        self.filled_entry:float= None
+        self.filled_exit:float= None
+        self.entry_tstamp=0
+        self.exit_tstamp= 0
 
 class TradingBot:
     def __init__(self):
         self.order_interface: OrderInterface= None
         self.last_time= 0
+        self.open_positions = {}
+        self.known_order_history = 0
+        self.position_history= []
+
+    def uid(self)-> str:
+        return "GenericBot"
 
     def on_tick(self, bars: list, account: Account):
         """checks price and levels to manage current orders and set new ones"""
@@ -93,6 +115,7 @@ class TradingBot:
             return True
         else:
             return False
+
 
 
 class BackTest(OrderInterface):
@@ -169,13 +192,13 @@ class BackTest(OrderInterface):
         self.account.balance -= amount*price*fee
 
         order.active = False
-        order.final_tstamp = bar.tstamp
+        order.execution_tstamp = bar.tstamp
         order.final_reason = 'executed'
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
-        logger.debug("executed order " + order.id+" | "+str(self.account.balance)+" "+str(self.account.open_position))
+        logger.debug("executed order " + order.id+" | "+str(self.account.equity)+" "+str(self.account.open_position))
 
-    def handle_open_orders(self, barsSinceLastCheck: list):
+    def handle_open_orders(self, barsSinceLastCheck: List[Bar]):
         for order in self.account.open_orders:
             if order.limit_price is None and order.stop_price is None:
                 self.handle_order_execution(order, barsSinceLastCheck[0])
@@ -211,10 +234,12 @@ class BackTest(OrderInterface):
                     if (order.amount > 0 and order.limit_price > bar.low) or (
                             order.amount < 0 and order.limit_price < bar.high):
                         self.handle_order_execution(order, bar)
+        # update equity = balance + current value of open position
+        self.account.equity = self.account.balance + self.account.open_position*barsSinceLastCheck[-1].close
 
     def run(self):
         self.reset()
-        logger.info("starting backtest with "+str(len(self.bars))+" bars and "+str(self.account.balance)+" balance")
+        logger.info("starting backtest with "+str(len(self.bars))+" bars and "+str(self.account.equity)+" equity")
         for i in range(len(self.bars)):
             if i == len(self.bars) - 1:
                 continue  # ignore last bar
@@ -228,6 +253,7 @@ class BackTest(OrderInterface):
                                             volume=1, subbars=[]))
             # check open orders & update account
             self.handle_open_orders([self.current_bars[1]])
+
             self.bot.on_tick(self.current_bars, self.account)
             next_bar.bot_data = self.current_bars[0].bot_data
             for b in self.current_bars:
@@ -238,9 +264,34 @@ class BackTest(OrderInterface):
             self.handle_open_orders([self.bars[0]])
 
         logger.info("finished with "+str(len(self.account.order_history))+" done orders\n"
-                    +str(self.account.balance)+" balance\n"
+                    +str(self.account.equity)+" equity\n"
                     +str(self.account.open_position)+" open position")
 
+        self.write_results_to_files()
+
+    def write_results_to_files(self):
+        # positions
+        base= 'results/'+self.bot.uid()+'/'
+        try:
+            os.makedirs(base)
+        except Exception:
+            pass
+
+        uid= str(int(datetime.utcnow().timestamp()))+'_'+str(len(self.bars))
+        tradesfilename= base+uid+'_trades.csv'
+        logger.info("writing" + str(len(self.bot.position_history))+" trades to file "+tradesfilename)
+        with open(tradesfilename,'w',newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            csv_columns = ['openTime', 'openPrice', 'size', 'closeTime', 'closePrice']
+            writer.writerow(csv_columns)
+            for position in self.bot.position_history:
+                writer.writerow([
+                    datetime.fromtimestamp(position.entry_tstamp).isoformat(),
+                    position.filled_entry,
+                    position.amount,
+                    datetime.fromtimestamp(position.exit_tstamp).isoformat(),
+                    position.filled_exit
+                ])
 
 class LiveTrading:
 
