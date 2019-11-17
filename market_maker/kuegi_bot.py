@@ -10,17 +10,19 @@ logger = log.setup_custom_logger('kuegi_bot')
 class KuegiBot(TradingBot):
 
     def __init__(self,max_look_back: int = 15, threshold_factor: float = 0.9, buffer_factor: float = 0.05,
-                 max_dist_factor: float = 2,
+                 max_dist_factor: float = 2, max_swing_length:int = 3,
                  max_channel_size_factor : float = 6, risk_factor : float = 0.01,
-                 stop_entry: bool = False, trail_to_swing : bool = False):
+                 stop_entry: bool = False, trail_to_swing : bool = False,delayed_entry:bool = True):
         super().__init__()
         self.myId = "KuegiBot_" + str(max_look_back) + '_' + str(threshold_factor) + '_' + str(
-            buffer_factor) + '_' + str(max_dist_factor) + '__' + str(max_channel_size_factor)+'_'+str(stop_entry)+'_'+str(trail_to_swing)
-        self.channel = KuegiChannel(max_look_back, threshold_factor, buffer_factor, max_dist_factor)
+            buffer_factor) + '_' + str(max_dist_factor) +'_' + str(max_swing_length) + '__' + str(max_channel_size_factor) + '_' + str(
+            int(stop_entry)) + '_' + str(int(trail_to_swing)) + '_' + str(int(delayed_entry))
+        self.channel = KuegiChannel(max_look_back, threshold_factor, buffer_factor, max_dist_factor, max_swing_length)
         self.max_channel_size_factor = max_channel_size_factor
         self.risk_factor = risk_factor
         self.stop_entry= stop_entry
         self.trail_to_swing= trail_to_swing
+        self.delayed_entry= delayed_entry
 
     def uid(self) -> str:
         return self.myId
@@ -106,8 +108,8 @@ class KuegiBot(TradingBot):
             stopShort= data.shortTrail
             if self.trail_to_swing and \
                     data.longSwing is not None and data.shortSwing is not None and \
-                    last_data is not None and \
-                    last_data.longSwing is not None and last_data.shortSwing is not None:
+                    (not self.delayed_entry or (last_data is not None and \
+                    last_data.longSwing is not None and last_data.shortSwing is not None)):
                 stopLong= max(data.shortSwing, stopLong)
                 stopShort= min(data.longSwing, stopShort)
 
@@ -134,7 +136,7 @@ class KuegiBot(TradingBot):
         data:Data= self.channel.get_data(bars[1])
         if data is not None and last_data is not None and \
                 data.shortSwing is not None and data.longSwing is not None and \
-                last_data.shortSwing is not None and last_data.longSwing is not None:
+                (not self.delayed_entry or (last_data.shortSwing is not None and last_data.longSwing is not None)):
             range= data.longSwing - data.shortSwing
 
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)

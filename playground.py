@@ -35,6 +35,19 @@ while True:
                 idx += 1
 
 
+from datetime import datetime
+import json
+
+for idx in range(43):
+    with open('history/M1_'+str(idx)+'.json','r') as file:
+        bars = json.load(file)
+
+    for b in bars:
+        b['tstamp'] = datetime.strptime(b['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
+
+    with open('history/M1_' + str(idx) + '.json', 'w') as file:
+        json.dump(bars,file)
+
 
 
 

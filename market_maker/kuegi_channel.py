@@ -34,7 +34,7 @@ class Data:
 
 class KuegiChannel(Indicator):
     def __init__(self, max_look_back: int = 15, threshold_factor: float = 0.9, buffer_factor: float = 0.05,
-                 max_dist_factor: float = 2):
+                 max_dist_factor: float = 2, max_swing_length:int=3):
         super().__init__(
             'KuegiChannel(' + str(max_look_back) + ',' + str(threshold_factor) + ',' + str(buffer_factor) + ',' + str(
                 max_dist_factor) + ')')
@@ -42,6 +42,7 @@ class KuegiChannel(Indicator):
         self.threshold_factor = threshold_factor
         self.buffer_factor = buffer_factor
         self.max_dist_factor = max_dist_factor
+        self.max_swing_length= max_swing_length
 
     def on_tick(self, bars: List[Bar]):
         # ignore first 5 bars
@@ -98,7 +99,7 @@ class KuegiChannel(Indicator):
 
     def calc_swing(self,bars: List[Bar],direction,default, maxLookBack, minDelta):
         series= BarSeries.HIGH if direction > 0 else BarSeries.LOW
-        for length in range(1,min(3,maxLookBack-1)):
+        for length in range(1,min(self.max_swing_length+1,maxLookBack-1)):
             cex = lowest(bars,length,1,series)
             ex = highest(bars,length,1,series)
             preRange= highest(bars,2,length+1,series)

@@ -125,19 +125,29 @@ class BackTest(OrderInterface):
         self.bot = bot
         self.bot.order_interface = self
 
-        self.market_slipage = 5
+        self.market_slipage_percent = 0.15
         self.maker_fee = -0.00025
         self.taker_fee = 0.00075
 
         self.account:Account
+        self.initialEquity= 100000
+
+        self.hh = self.initialEquity
+        self.maxDD = 0
+        self.max_underwater = 0
+        self.underwater = 0
 
         self.reset()
 
     def reset(self):
         self.account = Account()
-        self.account.balance = 100000
+        self.account.balance = self.initialEquity
         self.account.open_position = 0
         self.account.equity = self.account.balance
+        self.hh= self.account.equity
+        self.maxDD= 0
+        self.max_underwater= 0
+        self.underwater= 0
 
         self.current_bars = []
         for b in self.bars:
@@ -183,9 +193,9 @@ class BackTest(OrderInterface):
             price = order.limit_price
             fee= self.maker_fee
         elif order.stop_price:
-            price = order.stop_price + math.copysign(self.market_slipage, order.amount)
+            price = order.stop_price *(1 + math.copysign(self.market_slipage_percent, order.amount)/100)
         else:
-            price = bar.open + math.copysign(self.market_slipage, order.amount)
+            price = bar.open *(1 + math.copysign(self.market_slipage_percent, order.amount)/100)
         price = min(bar.high, max(bar.low, price))  # only prices within the bar. might mean less slipage
         order.executed_price= price
         self.account.open_position += amount
@@ -238,6 +248,16 @@ class BackTest(OrderInterface):
         # update equity = balance + current value of open position
         self.account.equity = self.account.balance + self.account.open_position*barsSinceLastCheck[-1].close
 
+        if self.account.equity < self.hh:
+            self.underwater += 1
+        else:
+            self.underwater= 0
+        self.hh = max(self.hh,self.account.equity)
+        dd= self.hh - self.account.equity
+        self.maxDD = max(self.maxDD,dd)
+        self.max_underwater= max(self.max_underwater,self.underwater)
+
+
     def run(self):
         self.reset()
         logger.info("starting backtest with "+str(len(self.bars))+" bars and "+str(self.account.equity)+" equity")
@@ -264,8 +284,10 @@ class BackTest(OrderInterface):
             self.send_order(Order(orderId="endOfTest",amount=-self.account.open_position))
             self.handle_open_orders([self.bars[0]])
 
-        logger.info("finished with "+str(len(self.bot.position_history))+" traded positions "
-                    +str(int(self.account.equity))+" equity ")
+        profit= self.account.equity-self.initialEquity
+        logger.info("finished with " + str(len(self.bot.position_history)) + " pos "
+                    + str(int(profit)) + " profit " + str(
+            int(self.maxDD)) + " maxDD relation: " + str(profit / self.maxDD) +" UW: "+str(self.max_underwater))
 
         self.write_results_to_files()
 
@@ -413,7 +435,7 @@ def load_bars(days_in_history,wanted_tf):
     for i in range(start, end + 1):
         with open('history/M1_' + str(i) + '.json') as f:
             m1_bars += json.load(f)
-
+    logger.info("done loading files, now preparing them")
     return process_low_tf_bars(m1_bars, wanted_tf)
 
 
