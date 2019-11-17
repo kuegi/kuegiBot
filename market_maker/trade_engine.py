@@ -137,6 +137,7 @@ class BackTest(OrderInterface):
         self.account = Account()
         self.account.balance = 100000
         self.account.open_position = 0
+        self.account.equity = self.account.balance
 
         self.current_bars = []
         for b in self.bars:
@@ -263,9 +264,8 @@ class BackTest(OrderInterface):
             self.send_order(Order(orderId="endOfTest",amount=-self.account.open_position))
             self.handle_open_orders([self.bars[0]])
 
-        logger.info("finished with "+str(len(self.account.order_history))+" done orders\n"
-                    +str(self.account.equity)+" equity\n"
-                    +str(self.account.open_position)+" open position")
+        logger.info("finished with "+str(len(self.bot.position_history))+" traded positions "
+                    +str(int(self.account.equity))+" equity ")
 
         self.write_results_to_files()
 
@@ -282,15 +282,29 @@ class BackTest(OrderInterface):
         logger.info("writing" + str(len(self.bot.position_history))+" trades to file "+tradesfilename)
         with open(tradesfilename,'w',newline='') as csvfile:
             writer = csv.writer(csvfile)
-            csv_columns = ['openTime', 'openPrice', 'size', 'closeTime', 'closePrice']
+            csv_columns = ['signalTStamp','size', 'wantedEntry','initialStop' ,'openTime', 'openPrice', 'closeTime', 'closePrice']
             writer.writerow(csv_columns)
             for position in self.bot.position_history:
                 writer.writerow([
+                    datetime.fromtimestamp(position.signal_tstamp).isoformat(),
+                    position.amount,
+                    position.wanted_entry,
+                    position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),
                     position.filled_entry,
-                    position.amount,
                     datetime.fromtimestamp(position.exit_tstamp).isoformat(),
                     position.filled_exit
+                ])
+            for position in self.bot.open_positions.values():
+                writer.writerow([
+                    datetime.fromtimestamp(position.signal_tstamp).isoformat(),
+                    position.amount,
+                    position.wanted_entry,
+                    position.initial_stop,
+                    datetime.fromtimestamp(position.entry_tstamp).isoformat(),
+                    position.filled_entry,
+                    "",
+                    self.bars[0].close
                 ])
 
 class LiveTrading:

@@ -19,11 +19,14 @@ def plot(bars):
     fig.show()
 
 def backtest(bars):
-    bot= KuegiBot()
-    backtest= BackTest(bot,bars)
-    backtest.run()
+    bots= [KuegiBot(stop_entry=True,trail_to_swing=True,risk_factor=1000),
+           KuegiBot(stop_entry=True,trail_to_swing=False,risk_factor=1000),
+           KuegiBot(stop_entry=False,trail_to_swing=True,risk_factor=1000),
+           KuegiBot(stop_entry=False,trail_to_swing=False,risk_factor=1000) ]
+    for bot in bots:
+        BackTest(bot,bars).run()
 
 
 logger.info("loading bars")
-bars: List[Bar] = load_bars(30 * 12, 240)
+bars: List[Bar] = load_bars(30 * 24, 240)
 backtest(bars)
