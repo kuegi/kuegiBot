@@ -11,12 +11,12 @@ from market_maker.trade_engine import Bar
 
 logger = log.setup_custom_logger('root')
 
-def process_low_tf_bars(bars,timeframe_minutes):
+def process_low_tf_bars(bars,timeframe_minutes,start_offset_minutes= 0):
     result: list = []
     for b in bars:
         if 'tstamp' not in b.keys():
             b['tstamp'] = datetime.strptime(b['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
-        bar_start = int(b['tstamp'] / (60 * timeframe_minutes)) * (60 * timeframe_minutes)
+        bar_start = int((b['tstamp']-start_offset_minutes*60) / (60 * timeframe_minutes)) * (60 * timeframe_minutes)
         if result and result[-1].tstamp == bar_start:
             # add to bar
             result[-1].high = max(result[-1].high, b['high'])

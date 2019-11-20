@@ -83,9 +83,16 @@ class TradingBot:
         self.open_positions = {}
         self.known_order_history = 0
         self.position_history= []
+        self.reset()
 
     def uid(self)-> str:
         return "GenericBot"
+
+    def reset(self):
+        self.last_time= 0
+        self.open_positions = {}
+        self.known_order_history = 0
+        self.position_history= []
 
     def on_tick(self, bars: list, account: Account):
         """checks price and levels to manage current orders and set new ones"""
@@ -148,6 +155,7 @@ class BackTest(OrderInterface):
         self.maxDD= 0
         self.max_underwater= 0
         self.underwater= 0
+        self.bot.reset()
 
         self.current_bars = []
         for b in self.bars:
@@ -210,9 +218,10 @@ class BackTest(OrderInterface):
         logger.debug("executed order " + order.id+" | "+str(self.account.equity)+" "+str(self.account.open_position))
 
     def handle_open_orders(self, barsSinceLastCheck: List[Bar]):
+        to_execute= []
         for order in self.account.open_orders:
             if order.limit_price is None and order.stop_price is None:
-                self.handle_order_execution(order, barsSinceLastCheck[0])
+                to_execute.append([order, barsSinceLastCheck[0]])
                 continue
 
             for bar in barsSinceLastCheck:
@@ -222,7 +231,7 @@ class BackTest(OrderInterface):
                         order.stop_triggered = True
                         if order.limit_price is None:
                             # execute stop market
-                            self.handle_order_execution(order, bar)
+                            to_execute.append([order,bar])
                         else:
                             # check if stop limit was filled after stop was triggered
                             reached_trigger = False
@@ -238,13 +247,16 @@ class BackTest(OrderInterface):
                                             order.amount < 0 and order.stop_price > sub['low']):
                                         reached_trigger = True
                             if filled_limit:
-                                self.handle_order_execution(order, bar)
+                                to_execute.append([order,bar])
 
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
                     if (order.amount > 0 and order.limit_price > bar.low) or (
                             order.amount < 0 and order.limit_price < bar.high):
-                        self.handle_order_execution(order, bar)
+                        to_execute.append([order,bar])
+
+        for [order,bar] in to_execute:
+            self.handle_order_execution(order, bar)
         # update equity = balance + current value of open position
         self.account.equity = self.account.balance + self.account.open_position*barsSinceLastCheck[-1].close
 
@@ -254,7 +266,8 @@ class BackTest(OrderInterface):
             self.underwater= 0
         self.hh = max(self.hh,self.account.equity)
         dd= self.hh - self.account.equity
-        self.maxDD = max(self.maxDD,dd)
+        if dd > self.maxDD:
+            self.maxDD = max(self.maxDD,dd)
         self.max_underwater= max(self.max_underwater,self.underwater)
 
 
@@ -427,7 +440,7 @@ import json
 from market_maker.exchange_interface import process_low_tf_bars
 
 
-def load_bars(days_in_history,wanted_tf):
+def load_bars(days_in_history,wanted_tf,start_offset_minutes= 0):
     end= 42
     start= end - int(days_in_history*1440/50000)
     m1_bars = []
@@ -436,7 +449,7 @@ def load_bars(days_in_history,wanted_tf):
         with open('history/M1_' + str(i) + '.json') as f:
             m1_bars += json.load(f)
     logger.info("done loading files, now preparing them")
-    return process_low_tf_bars(m1_bars, wanted_tf)
+    return process_low_tf_bars(m1_bars, wanted_tf,start_offset_minutes)
 
 
 import plotly.graph_objects as go

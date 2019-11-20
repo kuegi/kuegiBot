@@ -2,6 +2,8 @@ from market_maker.trade_engine import TradingBot, Order, Account, Bar, OrderInte
 from market_maker.kuegi_channel import KuegiChannel, Data, clean_range
 from market_maker.utils import log
 
+import math
+
 from typing import List
 
 logger = log.setup_custom_logger('kuegi_bot')
@@ -9,13 +11,13 @@ logger = log.setup_custom_logger('kuegi_bot')
 
 class KuegiBot(TradingBot):
 
-    def __init__(self,max_look_back: int = 15, threshold_factor: float = 0.9, buffer_factor: float = 0.05,
-                 max_dist_factor: float = 2, max_swing_length:int = 3,
-                 max_channel_size_factor : float = 6, risk_factor : float = 0.01,
+    def __init__(self,max_look_back: int = 13, threshold_factor: float = 2.5, buffer_factor: float = -0.0618,
+                 max_dist_factor: float = 1, max_swing_length:int = 3,
+                 max_channel_size_factor : float = 6, risk_factor : float = 0.01, entry_tightening= 0,
                  stop_entry: bool = False, trail_to_swing : bool = False,delayed_entry:bool = True):
         super().__init__()
         self.myId = "KuegiBot_" + str(max_look_back) + '_' + str(threshold_factor) + '_' + str(
-            buffer_factor) + '_' + str(max_dist_factor) +'_' + str(max_swing_length) + '__' + str(max_channel_size_factor) + '_' + str(
+            buffer_factor) + '_' + str(max_dist_factor) + '_' + str(max_swing_length) + '__' + str(max_channel_size_factor) + '_' + str(
             int(stop_entry)) + '_' + str(int(trail_to_swing)) + '_' + str(int(delayed_entry))
         self.channel = KuegiChannel(max_look_back, threshold_factor, buffer_factor, max_dist_factor, max_swing_length)
         self.max_channel_size_factor = max_channel_size_factor
@@ -23,6 +25,7 @@ class KuegiBot(TradingBot):
         self.stop_entry= stop_entry
         self.trail_to_swing= trail_to_swing
         self.delayed_entry= delayed_entry
+        self.entry_tightening= entry_tightening
 
     def uid(self) -> str:
         return self.myId
@@ -30,14 +33,6 @@ class KuegiBot(TradingBot):
     def prep_bars(self,bars:list):
         self.channel.on_tick(bars)
 
-    def cancel_other_orders(self,posId, account:Account,direction= None):
-        to_cancel= []
-        for o in account.open_orders:
-            split= o.id.split("_")
-            if split[0] == posId and (direction is None or split[1] == direction):
-                to_cancel.append(o)
-        for o in to_cancel:
-            self.order_interface.cancel_order(o.id)
 
     def sync_executions(self,account: Account):
         for order in account.order_history[self.known_order_history:]:
@@ -54,7 +49,7 @@ class KuegiBot(TradingBot):
                     position.filled_entry= order.executed_price
                     position.entry_tstamp= order.execution_tstamp
                     # clear other side
-                    self.cancel_other_side(id_parts[0],id_parts[1],account)
+                    self.cancel_other_entry(id_parts[0],id_parts[1],account)
                     # add stop
                     self.order_interface.send_order(Order(orderId=position.id+"_exit",stop=position.initial_stop,amount=-position.amount))
 
@@ -64,25 +59,34 @@ class KuegiBot(TradingBot):
                     position.exit_tstamp= order.execution_tstamp
                     self.position_history.append(position)
                     del self.open_positions[position.id]
-                    self.cancel_other_orders(id_parts[0],account)
 
         self.known_order_history= len(account.order_history)
 
-    def cancel_other_side(self, pos_id, direction ,account: Account):
+    def cancel_other_entry(self, pos_id, direction ,account: Account):
         other = "short" if direction == "long" else "long"
-        self.cancel_other_orders(pos_id,account,other)
-        if pos_id+"_"+other in self.open_positions.keys():
-            del self.open_positions[pos_id+"_"+other]
+        self.cancel_entry(pos_id,other,account)
+
+    def cancel_entry(self,pos_id,direction, account:Account):
+        to_cancel= pos_id+"_"+direction+"_entry"
+        for o in account.open_orders:
+            if o.id == to_cancel:
+                self.order_interface.cancel_order(o.id)
+                #only cancel position if entry was still there
+                if pos_id+"_"+direction in self.open_positions.keys():
+                    del self.open_positions[pos_id+"_"+direction]
+                break
+
 
     def manage_open_orders(self, bars: list, account: Account):
         self.sync_executions(account)
 
+        to_cancel= []
         # check for triggered but not filled
         for order in account.open_orders:
             if order.stop_triggered:
                 # clear other side
                 id_parts = order.id.split("_")
-                self.cancel_other_side(id_parts[0],id_parts[1],account)
+                self.cancel_other_entry(id_parts[0],id_parts[1],account)
                 wait= order.waitingToFill if hasattr(order, 'waitingToFill') else 0
                 if wait > 3 :
                     #cancel
@@ -93,7 +97,7 @@ class KuegiBot(TradingBot):
                     position.exit_tstamp= bars[0].tstamp
                     self.position_history.append(position)
                     del self.open_positions[position.id]
-                    self.order_interface.cancel_order(order.id)
+                    to_cancel.append(order.id)
                 else:
                     order.waitingToFill = wait +1
 
@@ -113,24 +117,30 @@ class KuegiBot(TradingBot):
                 stopLong= max(data.shortSwing, stopLong)
                 stopShort= min(data.longSwing, stopShort)
 
+            to_update= []
             for order in account.open_orders:
                 id_parts= order.id.split("_")
                 if id_parts[2] == "exit":
                     # trail
                     if order.amount < 0 and order.stop_price < stopLong:
                         order.stop_price = stopLong
-                        self.order_interface.update_order(order)
+                        to_update.append(order)
                     if order.amount > 0 and order.stop_price > stopShort:
                         order.stop_price = stopShort
-                        self.order_interface.update_order(order)
+                        to_update.append(order)
+            for order in to_update:
+                self.order_interface.update_order(order)
+
+    @staticmethod
+    def belongs_to(position:Position, order:Order) ->bool:
+        id_parts= order.id.split("_")
+        return id_parts[0]+'_'+id_parts[1] == position.id
+
 
     def open_orders(self, bars: List[Bar], account: Account):
         if not self.check_for_new_bar(bars) or  len(bars) < 5:
             return # only open orders on begining of bar
 
-        for position in self.open_positions.values() :
-            if position.status == "pending":
-                return #no new pendings
 
         last_data:Data= self.channel.get_data(bars[2])
         data:Data= self.channel.get_data(bars[1])
@@ -153,8 +163,46 @@ class KuegiBot(TradingBot):
                 diffLong= longEntry-stopLong if longEntry > stopLong else range
                 diffShort= stopShort - shortEntry if stopShort > shortEntry else range
 
+                #first check if we should update an existing one
+                longAmount= risk/diffLong
+                shortAmount= risk/diffShort
+
+                foundLong= False
+                foundShort= False
+                for position in self.open_positions.values():
+                    if position.status == "pending":
+                        if position.amount > 0:
+                            foundLong= True
+                            entry= longEntry
+                            stop= stopLong
+                        else:
+                            foundShort= True
+                            entry= shortEntry
+                            stop= stopShort
+
+                        for order in account.open_orders:
+                             if self.belongs_to(position,order):
+                                newEntry= position.wanted_entry*(1-self.entry_tightening)+entry*self.entry_tightening
+                                newStop= position.initial_stop*(1-self.entry_tightening)+stop*self.entry_tightening
+                                newDiff= newEntry - newStop
+                                amount= risk/newDiff
+                                order.stop_price = newEntry
+                                if not self.stop_entry:
+                                    order.limit_price= newEntry-math.copysign(1,amount)
+                                order.amount= amount
+                                self.order_interface.update_order(order)
+
+                                position.initial_stop= newStop
+                                position.amount= amount
+                                position.wanted_entry= newEntry
+                                break
+
+
+
                 posId= str(bars[0].tstamp)
-                self.order_interface.send_order(Order(orderId= posId+"_long_entry", amount=risk/diffLong,stop = longEntry, limit= longEntry-1 if not self.stop_entry else None))
-                self.open_positions[posId+"_long"]=Position(id=posId+"_long",entry=longEntry,amount=risk/diffLong,stop=stopLong,tstamp=bars[0].tstamp)
-                self.order_interface.send_order(Order(orderId= posId+"_short_entry",amount=-risk/diffShort,stop = shortEntry, limit= shortEntry+1 if not self.stop_entry else None))
-                self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=-risk/diffShort,stop=stopShort,tstamp=bars[0].tstamp)
+                if not foundLong:
+                    self.order_interface.send_order(Order(orderId= posId+"_long_entry", amount=longAmount,stop = longEntry, limit=longEntry-1 if not self.stop_entry else None))
+                    self.open_positions[posId+"_long"]=Position(id=posId+"_long",entry=longEntry,amount=longAmount,stop=stopLong,tstamp=bars[0].tstamp)
+                if not foundShort:
+                    self.order_interface.send_order(Order(orderId= posId+"_short_entry",amount=-shortAmount,stop = shortEntry, limit= shortEntry+1 if not self.stop_entry else None))
+                    self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=-shortAmount,stop=stopShort,tstamp=bars[0].tstamp)
