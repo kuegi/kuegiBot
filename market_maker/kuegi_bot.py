@@ -1,10 +1,13 @@
 from market_maker.trade_engine import TradingBot, Order, Account, Bar, OrderInterface, Position
 from market_maker.kuegi_channel import KuegiChannel, Data, clean_range
 from market_maker.utils import log
+import plotly.graph_objects as go
 
 import math
 
 from typing import List
+
+from datetime import datetime
 
 logger = log.setup_custom_logger('kuegi_bot')
 
@@ -13,8 +16,8 @@ class KuegiBot(TradingBot):
 
     def __init__(self,max_look_back: int = 13, threshold_factor: float = 2.5, buffer_factor: float = -0.0618,
                  max_dist_factor: float = 1, max_swing_length:int = 3,
-                 max_channel_size_factor : float = 6, risk_factor : float = 0.01, entry_tightening= 0,
-                 stop_entry: bool = False, trail_to_swing : bool = False,delayed_entry:bool = True):
+                 max_channel_size_factor : float = 6, risk_factor : float = 0.01, entry_tightening= 0, bars_till_cancel_triggered= 3,
+                 stop_entry: bool = False, trail_to_swing : bool = False,delayed_entry:bool = True,delayed_cancel:bool= False):
         super().__init__()
         self.myId = "KuegiBot_" + str(max_look_back) + '_' + str(threshold_factor) + '_' + str(
             buffer_factor) + '_' + str(max_dist_factor) + '_' + str(max_swing_length) + '__' + str(max_channel_size_factor) + '_' + str(
@@ -26,15 +29,19 @@ class KuegiBot(TradingBot):
         self.trail_to_swing= trail_to_swing
         self.delayed_entry= delayed_entry
         self.entry_tightening= entry_tightening
+        self.bars_till_cancel_triggered= bars_till_cancel_triggered
+        self.delayed_cancel= delayed_cancel
+        self.is_new_bar= False
 
     def uid(self) -> str:
         return self.myId
 
     def prep_bars(self,bars:list):
-        self.channel.on_tick(bars)
+        self.is_new_bar= self.check_for_new_bar(bars)
+        if self.is_new_bar:
+            self.channel.on_tick(bars)
 
-
-    def sync_executions(self,account: Account):
+    def sync_executions(self,bars:List[Bar], account: Account):
         for order in account.order_history[self.known_order_history:]:
             if order.executed_amount == 0:
                 continue
@@ -44,12 +51,14 @@ class KuegiBot(TradingBot):
             position= self.open_positions[id_parts[0]+"_"+id_parts[1]]
 
             if position is not None:
-                if id_parts[2] == "entry" and position.status == "pending":
+                if id_parts[2] == "entry" and (position.status == "pending" or position.status == "triggered"):
                     position.status= "open"
                     position.filled_entry= order.executed_price
                     position.entry_tstamp= order.execution_tstamp
                     # clear other side
-                    self.cancel_other_entry(id_parts[0],id_parts[1],account)
+                    other_id = id_parts[0] + "_" + ("short" if id_parts[1] == "long" else "long")
+                    if other_id in self.open_positions.keys():
+                        self.open_positions[other_id].markForCancel = bars[0].tstamp
                     # add stop
                     self.order_interface.send_order(Order(orderId=position.id+"_exit",stop=position.initial_stop,amount=-position.amount))
 
@@ -61,6 +70,12 @@ class KuegiBot(TradingBot):
                     del self.open_positions[position.id]
 
         self.known_order_history= len(account.order_history)
+        open_position= 0
+        for pos in self.open_positions.values():
+            if pos.status == "open":
+                open_position += pos.amount
+        if abs(open_position - account.open_position) > 0.1:
+            logger.error("open position doesnt match")
 
     def cancel_other_entry(self, pos_id, direction ,account: Account):
         other = "short" if direction == "long" else "long"
@@ -77,34 +92,51 @@ class KuegiBot(TradingBot):
                 break
 
 
-    def manage_open_orders(self, bars: list, account: Account):
-        self.sync_executions(account)
+    def manage_open_orders(self, bars: List[Bar], account: Account):
+        self.sync_executions(bars,account)
 
-        to_cancel= []
+        to_cancel_ids= []
         # check for triggered but not filled
         for order in account.open_orders:
             if order.stop_triggered:
                 # clear other side
                 id_parts = order.id.split("_")
-                self.cancel_other_entry(id_parts[0],id_parts[1],account)
-                wait= order.waitingToFill if hasattr(order, 'waitingToFill') else 0
-                if wait > 3 :
+                if id_parts[0] + "_" + id_parts[1] not in self.open_positions.keys():
+                    continue
+                other_id = id_parts[0]+"_"+ ("short" if id_parts[1] == "long" else "long")
+                if other_id in self.open_positions.keys():
+                    self.open_positions[other_id].markForCancel= bars[0].tstamp
+
+                position = self.open_positions[id_parts[0] + "_" + id_parts[1]]
+                position.status = "triggered"
+                if not hasattr(position, 'waitingToFillSince'):
+                    position.waitingToFillSince = bars[0].tstamp
+                if (bars[0].tstamp - position.waitingToFillSince) > self.bars_till_cancel_triggered*(bars[0].tstamp - bars[1].tstamp):
                     #cancel
-                    if id_parts[0] + "_" + id_parts[1] not in self.open_positions.keys():
-                        continue
-                    position = self.open_positions[id_parts[0] + "_" + id_parts[1]]
                     position.status = "notFilled"
                     position.exit_tstamp= bars[0].tstamp
                     self.position_history.append(position)
                     del self.open_positions[position.id]
-                    to_cancel.append(order.id)
-                else:
-                    order.waitingToFill = wait +1
+                    to_cancel_ids.append(order.id)
 
+        for id in to_cancel_ids:
+            self.order_interface.cancel_order(id)
 
-        if len(bars) < 5:
+        # cancel others
+        to_cancel=[]
+        for p in self.open_positions.values():
+            if hasattr(p,"markForCancel") and p.status == "pending" and (not self.delayed_cancel or p.markForCancel < bars[0].tstamp):
+                id_to_cancel= p.id+"_"+"entry"
+                self.order_interface.cancel_order(id_to_cancel)
+                to_cancel.append(p.id)
+
+        for key in to_cancel:
+            del self.open_positions[key]
+
+        if not self.is_new_bar or len(bars) < 5:
             return
-        # trail stop
+
+        # trail stop only on new bar
         last_data:Data= self.channel.get_data(bars[2])
         data:Data= self.channel.get_data(bars[1])
         if data is not None:
@@ -118,6 +150,7 @@ class KuegiBot(TradingBot):
                 stopShort= min(data.longSwing, stopShort)
 
             to_update= []
+            to_cancel= []
             for order in account.open_orders:
                 id_parts= order.id.split("_")
                 if id_parts[2] == "exit":
@@ -128,8 +161,15 @@ class KuegiBot(TradingBot):
                     if order.amount > 0 and order.stop_price > stopShort:
                         order.stop_price = stopShort
                         to_update.append(order)
+                if id_parts[2] == "entry" and (data.longSwing is None or data.shortSwing is None):
+                    pos= self.open_positions[id_parts[0]+"_"+id_parts[1]]
+                    if pos.status == "pending": #dont delete if triggered
+                        to_cancel.append(order.id)
+                        del self.open_positions[id_parts[0]+"_"+id_parts[1]]
             for order in to_update:
                 self.order_interface.update_order(order)
+            for id in to_cancel:
+                self.order_interface.cancel_order(id)
 
     @staticmethod
     def belongs_to(position:Position, order:Order) ->bool:
@@ -138,7 +178,7 @@ class KuegiBot(TradingBot):
 
 
     def open_orders(self, bars: List[Bar], account: Account):
-        if not self.check_for_new_bar(bars) or  len(bars) < 5:
+        if not self.is_new_bar or len(bars) < 5:
             return # only open orders on begining of bar
 
 
@@ -206,3 +246,45 @@ class KuegiBot(TradingBot):
                 if not foundShort:
                     self.order_interface.send_order(Order(orderId= posId+"_short_entry",amount=-shortAmount,stop = shortEntry, limit= shortEntry+1 if not self.stop_entry else None))
                     self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=-shortAmount,stop=stopShort,tstamp=bars[0].tstamp)
+
+    def add_to_plot(self,fig: go.Figure,bars:List[Bar],time):
+        lines = self.channel.get_number_of_lines()
+        styles= self.channel.get_line_styles()
+        names= self.channel.get_line_names()
+        offset = 1 #we take it with offset 1
+        logger.info("adding channel")
+        for idx in range(0, lines):
+            sub_data = list(map(lambda b: self.channel.get_data_for_plot(b)[idx], bars))
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[idx], name=self.channel.id + "_" + names[idx])
+
+        logger.info("adding trades")
+        #trades
+        for pos in self.position_history:
+            if pos.status == "closed":
+                fig.add_shape(go.layout.Shape(
+                    type="line",
+                    x0=datetime.fromtimestamp(pos.entry_tstamp),
+                    y0=pos.filled_entry,
+                    x1=datetime.fromtimestamp(pos.exit_tstamp),
+                    y1=pos.filled_exit,
+                    line=dict(
+                        color="Green" if pos.amount > 0 else "Red",
+                        width=2,
+                        dash="solid"
+                    )
+                ))
+            if pos.status == "notFilled":
+                fig.add_shape(go.layout.Shape(
+                    type="line",
+                    x0=datetime.fromtimestamp(pos.signal_tstamp),
+                    y0=pos.wanted_entry,
+                    x1=datetime.fromtimestamp(pos.exit_tstamp),
+                    y1=pos.wanted_entry,
+                    line=dict(
+                        color="Blue",
+                        width=1,
+                        dash="dot"
+                    )
+                ))
+
+        fig.update_shapes(dict(xref='x', yref='y'))

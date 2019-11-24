@@ -65,6 +65,12 @@ class Indicator:
     def get_number_of_lines(self):
         return 1
 
+    def get_line_styles(self):
+        return [{"width":1,"color":"blue"}]
+
+    def get_line_names(self):
+        return ["1"]
+
 
 class SMA(Indicator):
     def __init__(self, period: int):

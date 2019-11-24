@@ -10,6 +10,8 @@ from os.path import getmtime
 from market_maker.settings import settings
 from market_maker.utils import log, constants, errors
 
+import plotly.graph_objects as go
+
 from market_maker.market_maker import ExchangeInterface
 
 logger = log.setup_custom_logger('trade_engine')
@@ -29,6 +31,13 @@ class Bar:
         self.bot_data = { "indicators":{} }
         self.did_change:bool = True
 
+    def add_subbar(self,subbar):
+        self.high = max(self.high, subbar['high'])
+        self.low = min(self.low, subbar['low'])
+        self.close = subbar['close']
+        self.volume += subbar['volume']
+        self.subbars.insert(0,subbar)
+        self.did_change= True
 
 class Account:
     def __init__(self):
@@ -82,7 +91,7 @@ class TradingBot:
         self.last_time= 0
         self.open_positions = {}
         self.known_order_history = 0
-        self.position_history= []
+        self.position_history :List[Position]= []
         self.reset()
 
     def uid(self)-> str:
@@ -124,6 +133,12 @@ class TradingBot:
             return False
 
 
+    ####
+    # additional stuff
+    ###
+
+    def add_to_plot(self,fig,bars,time):
+        pass
 
 class BackTest(OrderInterface):
 
@@ -193,7 +208,7 @@ class BackTest(OrderInterface):
                 break
 
     # ----------
-    def handle_order_execution(self, order: Order, bar: Bar):
+    def handle_order_execution(self, order: Order, intrabar):
         amount = order.amount - order.executed_amount
         order.executed_amount = order.amount
         fee= self.taker_fee
@@ -203,72 +218,65 @@ class BackTest(OrderInterface):
         elif order.stop_price:
             price = order.stop_price *(1 + math.copysign(self.market_slipage_percent, order.amount)/100)
         else:
-            price = bar.open *(1 + math.copysign(self.market_slipage_percent, order.amount)/100)
-        price = min(bar.high, max(bar.low, price))  # only prices within the bar. might mean less slipage
+            price = intrabar["open"] *(1 + math.copysign(self.market_slipage_percent, order.amount)/100)
+        price = min(intrabar["high"], max(intrabar["low"], price))  # only prices within the bar. might mean less slipage
         order.executed_price= price
         self.account.open_position += amount
         self.account.balance -= amount * price
         self.account.balance -= amount*price*fee
 
         order.active = False
-        order.execution_tstamp = bar.tstamp
+        order.execution_tstamp = intrabar["tstamp"]
         order.final_reason = 'executed'
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
         logger.debug("executed order " + order.id+" | "+str(self.account.equity)+" "+str(self.account.open_position))
 
-    def handle_open_orders(self, barsSinceLastCheck: List[Bar]):
+    def handle_open_orders(self, intrabarToCheck) -> bool:
+        something_changed= False
         to_execute= []
         for order in self.account.open_orders:
             if order.limit_price is None and order.stop_price is None:
-                to_execute.append([order, barsSinceLastCheck[0]])
+                to_execute.append(order)
+                something_changed= True
                 continue
 
-            for bar in barsSinceLastCheck:
-                if order.stop_price and not order.stop_triggered:
-                    if (order.amount > 0 and order.stop_price < bar.high) or (
-                            order.amount < 0 and order.stop_price > bar.low):
-                        order.stop_triggered = True
-                        if order.limit_price is None:
-                            # execute stop market
-                            to_execute.append([order,bar])
-                        else:
-                            # check if stop limit was filled after stop was triggered
-                            reached_trigger = False
-                            filled_limit = False
-                            for sub in bar.subbars:
-                                if reached_trigger:
-                                    if ((order.amount > 0 and order.limit_price > sub['low']) or (
-                                            order.amount < 0 and order.limit_price < sub['high'])):
-                                        filled_limit = True
-                                        break
-                                else:
-                                    if (order.amount > 0 and order.stop_price < sub['high']) or (
-                                            order.amount < 0 and order.stop_price > sub['low']):
-                                        reached_trigger = True
-                            if filled_limit:
-                                to_execute.append([order,bar])
+            if order.stop_price and not order.stop_triggered:
+                if (order.amount > 0 and order.stop_price < intrabarToCheck["high"]) or (
+                        order.amount < 0 and order.stop_price > intrabarToCheck["low"]):
+                    order.stop_triggered = True
+                    something_changed= True
+                    if order.limit_price is None:
+                        # execute stop market
+                        to_execute.append(order)
+                    elif ((order.amount > 0 and order.limit_price > intrabarToCheck['close']) or (
+                            order.amount < 0 and order.limit_price < intrabarToCheck['close'])):
+                        #close below/above limit: got definitly executed
+                        to_execute.append(order)
 
-                else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
-                    # check for limit execution
-                    if (order.amount > 0 and order.limit_price > bar.low) or (
-                            order.amount < 0 and order.limit_price < bar.high):
-                        to_execute.append([order,bar])
+            else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
+                # check for limit execution
+                if (order.amount > 0 and order.limit_price > intrabarToCheck["low"]) or (
+                        order.amount < 0 and order.limit_price <intrabarToCheck["high"]):
+                    to_execute.append(order)
 
-        for [order,bar] in to_execute:
-            self.handle_order_execution(order, bar)
+        for order in to_execute:
+            something_changed= True
+            self.handle_order_execution(order, intrabarToCheck)
         # update equity = balance + current value of open position
-        self.account.equity = self.account.balance + self.account.open_position*barsSinceLastCheck[-1].close
+        self.account.equity = self.account.balance + self.account.open_position*intrabarToCheck["close"]
 
-        if self.account.equity < self.hh:
-            self.underwater += 1
-        else:
-            self.underwater= 0
         self.hh = max(self.hh,self.account.equity)
         dd= self.hh - self.account.equity
         if dd > self.maxDD:
             self.maxDD = max(self.maxDD,dd)
+
+        if self.account.equity < self.hh:
+            self.underwater += 1
+        else:
+            self.underwater = 0
         self.max_underwater= max(self.max_underwater,self.underwater)
+        return something_changed
 
 
     def run(self):
@@ -282,27 +290,56 @@ class BackTest(OrderInterface):
             self.current_bars = self.bars[-(i + 1):]
             # add one bar with 1 tick on open to show to bot that the old one is closed
             next_bar = self.bars[-i - 2]
-            self.current_bars.insert(0, Bar(tstamp=next_bar.tstamp, open=next_bar.open, high=next_bar.open,
+            forming_bar= Bar(tstamp=next_bar.tstamp, open=next_bar.open, high=next_bar.open,
                                             low=next_bar.open, close=next_bar.open,
-                                            volume=1, subbars=[]))
-            # check open orders & update account
-            self.handle_open_orders([self.current_bars[1]])
+                                            volume=0, subbars=[])
+            self.current_bars.insert(0, forming_bar)
+            self.current_bars[0].did_change= True
+            self.current_bars[1].did_change= True
+            #self.bot.on_tick(self.current_bars, self.account)
+            should_execute= True
+            for subbar in reversed(next_bar.subbars):
+                # check open orders & update account
+                should_execute= self.handle_open_orders(subbar) or should_execute
+                forming_bar.add_subbar(subbar)
+                if should_execute:
+                    self.bot.on_tick(self.current_bars, self.account)
+                self.current_bars[1].did_change= False
+                should_execute= False
 
-            self.bot.on_tick(self.current_bars, self.account)
-            next_bar.bot_data = self.current_bars[0].bot_data
+            next_bar.bot_data = forming_bar.bot_data
             for b in self.current_bars:
                 b.did_change= False
 
         if self.account.open_position != 0:
             self.send_order(Order(orderId="endOfTest",amount=-self.account.open_position))
-            self.handle_open_orders([self.bars[0]])
+            self.handle_open_orders(self.bars[0].subbars[-1])
 
         profit= self.account.equity-self.initialEquity
-        logger.info("finished with " + str(len(self.bot.position_history)) + " pos "
-                    + str(int(profit)) + " profit " + str(
-            int(self.maxDD)) + " maxDD relation: " + str(profit / self.maxDD) +" UW: "+str(self.max_underwater))
+        logger.info("finished | pos: " + str(len(self.bot.position_history)) + " | profit: "
+                    + str(int(profit)) + " | maxDD: " + str(
+            int(self.maxDD)) + " | rel: " + ("%.2f" % (profit / self.maxDD)) +" | UW days: "+ ("%.1f" % (self.max_underwater/1440)))
 
         self.write_results_to_files()
+        return self
+
+    def prepare_plot(self):
+
+        logger.info("running timelines")
+        time = list(map(lambda b: datetime.fromtimestamp(b.tstamp), self.bars))
+        open = list(map(lambda b: b.open, self.bars))
+        high = list(map(lambda b: b.high, self.bars))
+        low = list(map(lambda b: b.low, self.bars))
+        close = list(map(lambda b: b.close, self.bars))
+
+        logger.info("creating plot")
+        fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name="XBTUSD")])
+
+        logger.info("adding bot data")
+        self.bot.add_to_plot(fig,self.bars,time)
+
+        fig.update_layout(xaxis_rangeslider_visible=False)
+        return fig
 
     def write_results_to_files(self):
         # positions
@@ -452,7 +489,6 @@ def load_bars(days_in_history,wanted_tf,start_offset_minutes= 0):
     return process_low_tf_bars(m1_bars, wanted_tf,start_offset_minutes)
 
 
-import plotly.graph_objects as go
 from datetime import datetime
 from typing import List
 from market_maker.indicator import Indicator

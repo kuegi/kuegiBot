@@ -63,6 +63,15 @@ class KuegiChannel(Indicator):
     def get_number_of_lines(self):
         return 4
 
+    def get_line_styles(self):
+        return [{"width":1,"color":"darkGreen","dash":"dot"},
+                {"width":1,"color":"darkRed","dash":"dot"},
+                {"width":1,"color":"green"},
+                {"width":1,"color":"red"}]
+
+    def get_line_names(self):
+        return ["longTrail","shortTrail","longSwing","shortSwing"]
+
     def process_bar(self, bars: List[Bar]):
         atr = clean_range(bars, offset=0, length=self.max_look_back * 2)
 

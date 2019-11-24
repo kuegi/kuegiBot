@@ -49,36 +49,48 @@ logger.info("done loading files, now preparing them")
 
 
 bars1= process_low_tf_bars(m1_bars, 240, 0)
-bars2= process_low_tf_bars(m1_bars, 240, 60)
-bars3= process_low_tf_bars(m1_bars, 240, 120)
-bars4= process_low_tf_bars(m1_bars, 240, 180)
+#bars2= process_low_tf_bars(m1_bars, 240, 60)
+#bars3= process_low_tf_bars(m1_bars, 240, 120)
+#bars4= process_low_tf_bars(m1_bars, 240, 180)
 
 bot=KuegiBot(
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618,
-    stop_entry=False, trail_to_swing=True, delayed_entry=False
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0,bars_till_cancel_triggered=3,
+    stop_entry=True, trail_to_swing=False, delayed_entry=True, delayed_cancel=True
 )
 BackTest(bot, bars1).run()
-BackTest(bot, bars2).run()
-BackTest(bot, bars3).run()
-BackTest(bot, bars4).run()
+
+#BackTest(bot, bars1).run().prepare_plot().show()
+
+#BackTest(bot, bars2).run()
+#BackTest(bot, bars3).run()
+#BackTest(bot, bars4).run()
 
 
-bars1= process_low_tf_bars(m1_bars, 300, 0)
-BackTest(bot, bars1).run()
+#bars1= process_low_tf_bars(m1_bars, 300, 0)
+#BackTest(bot, bars1).run()
 
 ''' results on 24 month test     
-Fokus top curve (low underwater): 211  DD:32.8 rel:6.4 UW: 619 pos: 643
+original: pos: 319 | profit: 69275 | maxDD: 40632 | rel: 1.70 | UW days: 218.5
+    max_look_back=13, threshold_factor=0.9, buffer_factor=0.05,
+    max_dist_factor=2, max_swing_length=3,
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=1, bars_till_cancel_triggered=3,
+    stop_entry=True, trail_to_swing=True, delayed_entry=True, delayed_cancel=True
+    
+Fokus top curve (low underwater): pos: 599 | profit: 182864 | maxDD: 36573 | rel: 5.00 | UW days: 102.5
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618,
-    stop_entry=False, trail_to_swing=True, delayed_entry=False
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618, bars_till_cancel_triggered=3,
+    stop_entry=True, trail_to_swing=True, delayed_entry=False, delayed_cancel=True
 
-Fokus on Profit/DD: 142 DD: 14.6 rel: 9.7 UW: 447 pos: 389
+2019-11-24 22:20:49,140 - INFO - trade_engine - starting backtest with 4356 bars and 100000 equity
+2019-11-24 22:21:27,585 - INFO - trade_engine - finished | pos: 341 | profit: 133345 | maxDD: 29100 | rel: 4.58 | UW days: 102.5
+
+Fokus on Profit/DD: pos: 341 | profit: 133345 | maxDD: 29100 | rel: 4.58 | UW days: 102.5
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0,
-    stop_entry=False, trail_to_swing=False, delayed_entry=True
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0,bars_till_cancel_triggered=3,
+    stop_entry=True, trail_to_swing=False, delayed_entry=True, delayed_cancel=True
 
 '''
