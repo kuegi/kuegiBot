@@ -10,6 +10,7 @@ import logging
 from market_maker.auth import APIKeyAuthWithExpires
 from market_maker.utils import constants, errors
 from market_maker.ws.ws_thread import BitMEXWebsocket, OnTickHook
+from market_maker.utils.trading_classes import Order
 
 
 # https://www.bitmex.com/api/explorer/
@@ -181,7 +182,7 @@ class BitMEX(object):
     @authentication_required
     def open_orders(self):
         """Get open orders."""
-        return self.ws.open_orders(self.orderIDPrefix)
+        return self.ws.open_orders()
 
     @authentication_required
     def http_open_orders(self):
@@ -197,26 +198,6 @@ class BitMEX(object):
         )
         # Only return orders that start with our clOrdID prefix.
         return [o for o in orders if str(o['clOrdID']).startswith(self.orderIDPrefix)]
-
-    @authentication_required
-    def cancel(self, orderID):
-        """Cancel an existing order."""
-        path = "order"
-        postdict = {
-            'orderID': orderID,
-        }
-        return self._curl_bitmex(path=path, postdict=postdict, verb="DELETE")
-
-    @authentication_required
-    def withdraw(self, amount, fee, address):
-        path = "user/requestWithdrawal"
-        postdict = {
-            'amount': amount,
-            'fee': fee,
-            'currency': 'XBt',
-            'address': address
-        }
-        return self._curl_bitmex(path=path, postdict=postdict, verb="POST", max_retries=0)
 
     def get_bars(self, timeframe, start_time,reverse='true'):
         path = "trade/bucketed"
@@ -334,23 +315,8 @@ class BitMEX(object):
 
                 # Duplicate clOrdID: that's fine, probably a deploy, go get the order(s) and return it
                 if 'duplicate clordid' in message:
-                    orders = postdict['orders'] if 'orders' in postdict else postdict
-
-                    IDs = json.dumps({'clOrdID': [order['clOrdID'] for order in orders]})
-                    orderResults = self._curl_bitmex('/order', query={'filter': IDs}, verb='GET')
-
-                    for i, order in enumerate(orderResults):
-                        if (
-                                order['orderQty'] != abs(postdict['orderQty']) or
-                                order['side'] != ('Buy' if postdict['orderQty'] > 0 else 'Sell') or
-                                order['price'] != postdict['price'] or
-                                order['symbol'] != postdict['symbol']):
-                            raise Exception(
-                                'Attempted to recover from duplicate clOrdID, but order returned from API ' +
-                                'did not match POST.\nPOST data: %s\nReturned order: %s' % (
-                                    json.dumps(orders[i]), json.dumps(order)))
-                    # All good
-                    return orderResults
+                    self.logger.error("Duplicate clOrderID with message: %s" % error['message'])
+                    return False
 
                 elif 'insufficient available balance' in message:
                     self.logger.error('Account out of funds. The message: %s' % error['message'])
@@ -377,3 +343,42 @@ class BitMEX(object):
 
         return response.json()
 
+    #################
+    # my stuff
+    @authentication_required
+    def place_order(self, order: Order):
+        """Place an order."""
+
+        endpoint = "order"
+        postdict = {
+            'symbol': self.symbol,
+            'orderQty': order.amount,
+            'price': order.limit_price,
+            'stopPx': order.stop_price,
+            'clOrdID': order.id
+        }
+        return self._curl_bitmex(path=endpoint, postdict=postdict, verb="POST")
+
+    @authentication_required
+    def update_order(self, order: Order):
+        """update an order."""
+
+        endpoint = "order"
+        postdict = {
+            'orderID ': order.exchange_id,
+            'orderQty': order.amount,
+            'price': order.limit_price,
+            'stopPx': order.stop_price,
+            'origClOrdID ': order.id
+        }
+        return self._curl_bitmex(path=endpoint, postdict=postdict, verb="PUT")
+
+
+    @authentication_required
+    def cancel_order(self, orderID):
+        """Cancel an existing order."""
+        path = "order"
+        postdict = {
+            'clOrdID': orderID,
+        }
+        return self._curl_bitmex(path=path, postdict=postdict, verb="DELETE")

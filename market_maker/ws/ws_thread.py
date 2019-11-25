@@ -120,10 +120,8 @@ class BitMEXWebsocket():
         raise NotImplementedError('orderBook is not subscribed; use askPrice and bidPrice on instrument')
         # return self.data['orderBook25'][0]
 
-    def open_orders(self, clOrdIDPrefix):
-        orders = self.data['order']
-        # Filter to only open orders (leavesQty > 0) and those that we actually placed
-        return [o for o in orders if str(o['clOrdID']).startswith(clOrdIDPrefix) and o['leavesQty'] > 0]
+    def open_orders(self):
+        return self.data['order']
 
     def position(self, symbol):
         positions = self.data['position']
@@ -286,10 +284,6 @@ class BitMEXWebsocket():
                         # Update this item.
                         item.update(updateData)
 
-                        # Remove canceled / filled orders
-                        if table == 'order' and item['leavesQty'] <= 0:
-                            self.data[table].remove(item)
-
                 elif action == 'delete':
                     self.logger.debug('%s: deleting %s' % (table, message['data']))
                     # Locate the item in the collection and remove it.
@@ -298,8 +292,8 @@ class BitMEXWebsocket():
                         self.data[table].remove(item)
                 else:
                     raise Exception("Unknown action: %s" % action)
-
-                self.on_tick_hook.tick_happened()
+                if self.on_tick_hook:
+                    self.on_tick_hook.tick_happened()
         except:
             self.logger.error(traceback.format_exc())
 

@@ -56,8 +56,8 @@ bars1= process_low_tf_bars(m1_bars, 240, 0)
 bot=KuegiBot(
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0,bars_till_cancel_triggered=3,
-    stop_entry=True, trail_to_swing=False, delayed_entry=True, delayed_cancel=True
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618, bars_till_cancel_triggered=3,
+    stop_entry=True, trail_to_swing=True, delayed_entry=False, delayed_cancel=True
 )
 BackTest(bot, bars1).run()
 
@@ -78,14 +78,11 @@ original: pos: 319 | profit: 69275 | maxDD: 40632 | rel: 1.70 | UW days: 218.5
     max_channel_size_factor=6, risk_factor=1000, entry_tightening=1, bars_till_cancel_triggered=3,
     stop_entry=True, trail_to_swing=True, delayed_entry=True, delayed_cancel=True
     
-Fokus top curve (low underwater): pos: 599 | profit: 182864 | maxDD: 36573 | rel: 5.00 | UW days: 102.5
+Fokus low underwater: pos: 599 | profit: 182864 | maxDD: 36573 | rel: 5.00 | UW days: 102.5
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
     max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618, bars_till_cancel_triggered=3,
     stop_entry=True, trail_to_swing=True, delayed_entry=False, delayed_cancel=True
-
-2019-11-24 22:20:49,140 - INFO - trade_engine - starting backtest with 4356 bars and 100000 equity
-2019-11-24 22:21:27,585 - INFO - trade_engine - finished | pos: 341 | profit: 133345 | maxDD: 29100 | rel: 4.58 | UW days: 102.5
 
 Fokus on Profit/DD: pos: 341 | profit: 133345 | maxDD: 29100 | rel: 4.58 | UW days: 102.5
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
