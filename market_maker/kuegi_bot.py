@@ -1,4 +1,5 @@
-from market_maker.trade_engine import TradingBot, Order, Account, Bar, OrderInterface, Position
+from market_maker.trade_engine import TradingBot
+from market_maker.utils.trading_classes import Position,OrderInterface,Order, Account, Bar
 from market_maker.kuegi_channel import KuegiChannel, Data, clean_range
 from market_maker.utils import log
 import plotly.graph_objects as go

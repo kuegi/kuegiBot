@@ -7,9 +7,9 @@ from market_maker import bitmex
 from market_maker.bitmex import OnTickHook
 from market_maker.settings import settings
 from market_maker.utils import log, errors
-from market_maker.trade_engine import Bar
+from market_maker.utils.trading_classes import Bar
 
-logger = log.setup_custom_logger('root')
+logger = log.setup_custom_logger('exchange_interface')
 
 def process_low_tf_bars(bars,timeframe_minutes,start_offset_minutes= 0):
     result: list = []

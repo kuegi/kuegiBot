@@ -89,6 +89,10 @@ class TradingBot:
         self.known_order_history = 0
         self.position_history = []
 
+    def init(self,bars:List[Bar],account:Account):
+        '''init open position etc.'''
+        pass
+
     def on_tick(self, bars: list, account: Account):
         """checks price and levels to manage current orders and set new ones"""
         self.prep_bars(bars)

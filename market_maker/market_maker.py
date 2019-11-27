@@ -13,7 +13,9 @@ from typing import List
 from market_maker import bitmex
 from market_maker.settings import settings
 from market_maker.utils import log, constants, errors, math
-from market_maker.utils.trading_classes import Order
+from market_maker.utils.trading_classes import Order,Account,Bar
+from market_maker.ws.ws_thread import OnTickHook
+from market_maker.exchange_interface import process_low_tf_bars
 
 # Used for reloading the bot - saves modified times of key files
 import os
@@ -27,7 +29,7 @@ logger = log.setup_custom_logger('root')
 
 
 class ExchangeInterface:
-    def __init__(self, dry_run=False):
+    def __init__(self, dry_run=False,onTickHook:OnTickHook= None):
         self.dry_run = dry_run
         if len(sys.argv) > 1:
             self.symbol = sys.argv[1]
@@ -36,7 +38,7 @@ class ExchangeInterface:
         self.bitmex = bitmex.BitMEX(base_url=settings.BASE_URL, symbol=self.symbol,
                                     apiKey=settings.API_KEY, apiSecret=settings.API_SECRET,
                                     orderIDPrefix=settings.ORDERID_PREFIX, postOnly=settings.POST_ONLY,
-                                    timeout=settings.TIMEOUT)
+                                    timeout=settings.TIMEOUT, onTickHook=onTickHook)
 
     def cancel_order(self, order:Order):
         tickLog = self.get_instrument()['tickLog']
@@ -77,7 +79,7 @@ class ExchangeInterface:
             else:
                 break
 
-    def get_orders(self):
+    def get_orders(self) -> List[Order]:
         if self.dry_run:
             return []
         mexOrders= self.bitmex.open_orders()
@@ -93,6 +95,14 @@ class ExchangeInterface:
             result.append(order)
 
         return result
+
+    def get_bars(self,timeframe_minutes,start_offset_minutes)->List[Bar]:
+        bars = self.bitmex.get_bars(timeframe='1h',start_time=None,reverse=False)
+        return process_low_tf_bars(bars,timeframe_minutes,start_offset_minutes=start_offset_minutes)
+
+    def recent_bars(self,timeframe_minutes,start_offset_minutes)->List[Bar]:
+        bars= self.bitmex.recent_H1_bars()
+        return process_low_tf_bars(bars,timeframe_minutes,start_offset_minutes)
 
     def cancel_all_orders(self):
         if self.dry_run:
@@ -223,9 +233,21 @@ class ExchangeInterface:
         if instrument['midPrice'] is None:
             raise errors.MarketEmptyError("Orderbook is empty, cannot quote")
 
+    def update_account(self,account:Account):
+        funds = self.bitmex.funds()
+        last= self.get_ticker()['last']
+        account.open_position= self.get_position()['currentQty']
+        account.balance = convert_to_XBT(funds['walletBalance'], funds['currency']) * last
+        account.equity = convert_to_XBT(funds['marginBalance'], funds['currency']) * last
 #
 # Helpers
 #
+
+def convert_to_XBT(value,currency):
+    if currency == 'XBt':
+        return float(value) / constants.XBt_TO_XBT
+    else:
+        return value
 
 def XBt_to_XBT(XBt):
     return float(XBt) / constants.XBt_TO_XBT

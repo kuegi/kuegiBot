@@ -53,6 +53,12 @@ This market maker works on the following principles:
   - Extra orders are canceled.
 * The bot then prints details of contracts traded, tickers, and total delta.
 
+## switched to pure bitmex api
+needed:
+
+pip install bitmex
+pip install bitmex-ws
+
 ## Simplified Output
 
 The following is some of what you can expect when running this bot:

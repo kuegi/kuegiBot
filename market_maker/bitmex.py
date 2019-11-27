@@ -9,8 +9,9 @@ import uuid
 import logging
 from market_maker.auth import APIKeyAuthWithExpires
 from market_maker.utils import constants, errors
-from market_maker.ws.ws_thread import BitMEXWebsocket, OnTickHook
+from market_maker.ws.ws_thread import BitMEXWebsocket
 from market_maker.utils.trading_classes import Order
+from market_maker.ws.ws_thread import OnTickHook
 
 
 # https://www.bitmex.com/api/explorer/
@@ -76,6 +77,9 @@ class BitMEX(object):
     def market_depth(self, symbol):
         """Get market depth / orderbook."""
         return self.ws.market_depth(symbol)
+
+    def recent_H1_bars(self):
+        return self.ws.recent_H1_bars()
 
     def recent_trades(self):
         """Get recent trades.
@@ -365,11 +369,10 @@ class BitMEX(object):
 
         endpoint = "order"
         postdict = {
-            'orderID ': order.exchange_id,
             'orderQty': order.amount,
             'price': order.limit_price,
             'stopPx': order.stop_price,
-            'origClOrdID ': order.id
+            'origClOrdID': order.id
         }
         return self._curl_bitmex(path=endpoint, postdict=postdict, verb="PUT")
 
