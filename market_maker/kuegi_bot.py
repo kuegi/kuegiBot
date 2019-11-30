@@ -1,5 +1,5 @@
 from market_maker.trade_engine import TradingBot
-from market_maker.utils.trading_classes import Position,OrderInterface,Order, Account, Bar
+from market_maker.utils.trading_classes import Position,OrderInterface,Order, Account, Bar,Symbol
 from market_maker.kuegi_channel import KuegiChannel, Data, clean_range
 from market_maker.utils import log
 import plotly.graph_objects as go
@@ -36,6 +36,12 @@ class KuegiBot(TradingBot):
 
     def uid(self) -> str:
         return self.myId
+
+    def init(self,bars:List[Bar],account:Account,symbol:Symbol):
+        super().init(bars,account,symbol)
+        self.channel.on_tick(bars)
+        #TODO: update existing positions (based on position and open stops)
+
 
     def prep_bars(self,bars:list):
         self.is_new_bar= self.check_for_new_bar(bars)
@@ -102,7 +108,7 @@ class KuegiBot(TradingBot):
             if order.stop_triggered:
                 # clear other side
                 id_parts = order.id.split("_")
-                if id_parts[0] + "_" + id_parts[1] not in self.open_positions.keys():
+                if len(id_parts) < 3 or (id_parts[0] + "_" + id_parts[1] not in self.open_positions.keys()):
                     continue
                 other_id = id_parts[0]+"_"+ ("short" if id_parts[1] == "long" else "long")
                 if other_id in self.open_positions.keys():
@@ -154,6 +160,8 @@ class KuegiBot(TradingBot):
             to_cancel= []
             for order in account.open_orders:
                 id_parts= order.id.split("_")
+                if len(id_parts) < 3:
+                    continue
                 if id_parts[2] == "exit":
                     # trail
                     if order.amount < 0 and order.stop_price < stopLong:
@@ -177,6 +185,11 @@ class KuegiBot(TradingBot):
         id_parts= order.id.split("_")
         return id_parts[0]+'_'+id_parts[1] == position.id
 
+    def calc_pos_size(self,risk, diff,entry):
+        if not self.symbol.isInverse:
+            return risk/diff
+        else:
+            return (risk/diff)*entry
 
     def open_orders(self, bars: List[Bar], account: Account):
         if not self.is_new_bar or len(bars) < 5:
@@ -205,8 +218,8 @@ class KuegiBot(TradingBot):
                 diffShort= stopShort - shortEntry if stopShort > shortEntry else range
 
                 #first check if we should update an existing one
-                longAmount= risk/diffLong
-                shortAmount= risk/diffShort
+                longAmount= self.calc_pos_size(risk=risk,diff=diffLong,entry=longEntry)
+                shortAmount= self.calc_pos_size(risk=risk,diff=diffShort,entry=shortEntry)
 
                 foundLong= False
                 foundShort= False
@@ -225,8 +238,8 @@ class KuegiBot(TradingBot):
                              if self.belongs_to(position,order):
                                 newEntry= position.wanted_entry*(1-self.entry_tightening)+entry*self.entry_tightening
                                 newStop= position.initial_stop*(1-self.entry_tightening)+stop*self.entry_tightening
-                                newDiff= newEntry - newStop
-                                amount= risk/newDiff
+                                newDiff= math.fabs(newEntry - newStop)
+                                amount= self.calc_pos_size(risk=risk,diff=newDiff,entry=newEntry)
                                 order.stop_price = newEntry
                                 if not self.stop_entry:
                                     order.limit_price= newEntry-math.copysign(1,amount)

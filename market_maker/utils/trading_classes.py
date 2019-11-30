@@ -26,9 +26,19 @@ class Account:
     def __init__(self):
         self.balance = 0
         self.equity = 0
+        self.usd_equity= 0
         self.open_position = 0
         self.open_orders = []
         self.order_history = []
+
+class Symbol:
+    def __init__(self,symbol,isInverse,lotSize, tickSize,makerFee,takerFee):
+        self.symbol= symbol
+        self.isInverse=isInverse
+        self.lotSize= lotSize
+        self.tickSize= tickSize
+        self.makerFee= makerFee
+        self.takerFee= takerFee
 
 
 class Order:
@@ -74,6 +84,7 @@ class Position:
 class TradingBot:
     def __init__(self):
         self.order_interface: OrderInterface = None
+        self.symbol:Symbol= None
         self.last_time = 0
         self.open_positions = {}
         self.known_order_history = 0
@@ -89,17 +100,18 @@ class TradingBot:
         self.known_order_history = 0
         self.position_history = []
 
-    def init(self,bars:List[Bar],account:Account):
+    def init(self,bars:List[Bar],account:Account,symbol:Symbol):
         '''init open position etc.'''
+        self.symbol= symbol
         pass
 
-    def on_tick(self, bars: list, account: Account):
+    def on_tick(self, bars: List[Bar], account: Account):
         """checks price and levels to manage current orders and set new ones"""
         self.prep_bars(bars)
         self.manage_open_orders(bars, account)
         self.open_orders(bars, account)
 
-    def prep_bars(self, bars: list):
+    def prep_bars(self, bars: List[Bar]):
         pass
 
     ###

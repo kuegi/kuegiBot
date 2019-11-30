@@ -1,4 +1,6 @@
-from market_maker.trade_engine import BackTest, Bar, load_bars, process_low_tf_bars, prepare_plot
+from market_maker.backtest_engine import BackTest
+from market_maker.utils.helper import load_bars, prepare_plot
+from market_maker.exchange_interface import process_low_tf_bars
 from market_maker.utils import log
 from market_maker.kuegi_channel import KuegiChannel
 from market_maker.kuegi_bot import KuegiBot
@@ -56,8 +58,8 @@ bars1= process_low_tf_bars(m1_bars, 240, 0)
 bot=KuegiBot(
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618, bars_till_cancel_triggered=3,
-    stop_entry=True, trail_to_swing=True, delayed_entry=False, delayed_cancel=True
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=1, bars_till_cancel_triggered=5,
+    stop_entry=False, trail_to_swing=True, delayed_entry=False, delayed_cancel=False
 )
 BackTest(bot, bars1).run()
 
@@ -75,7 +77,7 @@ BackTest(bot, bars1).run()
 original: pos: 319 | profit: 69275 | maxDD: 40632 | rel: 1.70 | UW days: 218.5
     max_look_back=13, threshold_factor=0.9, buffer_factor=0.05,
     max_dist_factor=2, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=1, bars_till_cancel_triggered=3,
+    max_channel_size_factor=6, risk_factor=1000, entry_tightening=1, bars_till_cancel_triggered=5,
     stop_entry=True, trail_to_swing=True, delayed_entry=True, delayed_cancel=True
     
 Fokus low underwater: pos: 599 | profit: 182864 | maxDD: 36573 | rel: 5.00 | UW days: 102.5

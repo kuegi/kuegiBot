@@ -237,8 +237,9 @@ class ExchangeInterface:
         funds = self.bitmex.funds()
         last= self.get_ticker()['last']
         account.open_position= self.get_position()['currentQty']
-        account.balance = convert_to_XBT(funds['walletBalance'], funds['currency']) * last
-        account.equity = convert_to_XBT(funds['marginBalance'], funds['currency']) * last
+        account.balance = convert_to_XBT(funds['walletBalance'], funds['currency'])
+        account.equity = convert_to_XBT(funds['marginBalance'], funds['currency'])
+        account.usd_equity= account.equity*last
 #
 # Helpers
 #

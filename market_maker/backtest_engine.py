@@ -7,10 +7,10 @@ import plotly.graph_objects as go
 from typing import List
 from datetime import datetime
 
-from market_maker.utils.trading_classes import OrderInterface, Bar, TradingBot, Account, Order
+from market_maker.utils.trading_classes import OrderInterface, Bar, TradingBot, Account, Order,Symbol
 from market_maker.utils import log
 
-logger = log.setup_custom_logger('trade_engine')
+logger = log.setup_custom_logger('backtest_engine')
 
 
 class BackTest(OrderInterface):
@@ -23,6 +23,8 @@ class BackTest(OrderInterface):
         self.market_slipage_percent = 0.15
         self.maker_fee = -0.00025
         self.taker_fee = 0.00075
+
+        self.symbol :Symbol= Symbol(symbol="XBTUSD",isInverse=True, tickSize=0.5,lotSize=1,makerFee=-0.00025,takerFee=0.00075)
 
         self.account: Account = None
         self.initialEquity = 100000
@@ -38,9 +40,10 @@ class BackTest(OrderInterface):
 
     def reset(self):
         self.account = Account()
-        self.account.balance = self.initialEquity
+        self.account.balance = self.initialEquity/self.bars[-1].open
         self.account.open_position = 0
         self.account.equity = self.account.balance
+        self.account.usd_equity= self.initialEquity
         self.hh = self.account.equity
         self.maxDD = 0
         self.max_underwater = 0
@@ -50,6 +53,7 @@ class BackTest(OrderInterface):
         self.current_bars = []
         for b in self.bars:
             b.did_change = True
+        self.bot.init(self.bars[-1:],self.account,self.symbol)
 
     # implementing OrderInterface
 
@@ -98,8 +102,9 @@ class BackTest(OrderInterface):
                     max(intrabar["low"], price))  # only prices within the bar. might mean less slipage
         order.executed_price = price
         self.account.open_position += amount
-        self.account.balance -= amount * price
-        self.account.balance -= amount * price * fee
+        delta= amount* (price if not self.symbol.isInverse else -1/price)
+        self.account.balance -= delta
+        self.account.balance -= math.fabs(delta) * fee
 
         order.active = False
         order.execution_tstamp = intrabar["tstamp"]
@@ -107,7 +112,7 @@ class BackTest(OrderInterface):
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
         logger.debug(
-            "executed order " + order.id + " | " + str(self.account.equity) + " " + str(self.account.open_position))
+            "executed order " + order.id + " | " + str(self.account.usd_equity) + " " + str(self.account.open_position))
 
     def handle_open_orders(self, intrabarToCheck) -> bool:
         something_changed = False
@@ -141,10 +146,12 @@ class BackTest(OrderInterface):
             something_changed = True
             self.handle_order_execution(order, intrabarToCheck)
         # update equity = balance + current value of open position
-        self.account.equity = self.account.balance + self.account.open_position * intrabarToCheck["close"]
+        posValue= self.account.open_position*(intrabarToCheck["close"] if not self.symbol.isInverse else -1/intrabarToCheck["close"])
+        self.account.equity = self.account.balance + posValue
+        self.account.usd_equity= self.account.equity * (1 if not self.symbol.isInverse else intrabarToCheck["close"])
 
-        self.hh = max(self.hh, self.account.equity)
-        dd = self.hh - self.account.equity
+        self.hh = max(self.hh, self.account.usd_equity)
+        dd = self.hh - self.account.usd_equity
         if dd > self.maxDD:
             self.maxDD = max(self.maxDD, dd)
 
@@ -158,7 +165,7 @@ class BackTest(OrderInterface):
     def run(self):
         self.reset()
         logger.info(
-            "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.equity) + " equity")
+            "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.usd_equity) + " equity")
         for i in range(len(self.bars)):
             if i == len(self.bars) - 1:
                 continue  # ignore last bar
@@ -192,7 +199,7 @@ class BackTest(OrderInterface):
             self.send_order(Order(orderId="endOfTest", amount=-self.account.open_position))
             self.handle_open_orders(self.bars[0].subbars[-1])
 
-        profit = self.account.equity - self.initialEquity
+        profit = self.account.usd_equity - self.initialEquity
         logger.info("finished | pos: " + str(len(self.bot.position_history)) + " | profit: "
                     + str(int(profit)) + " | maxDD: " + str(
             int(self.maxDD)) + " | rel: " + ("%.2f" % (profit / self.maxDD)) + " | UW days: " + (

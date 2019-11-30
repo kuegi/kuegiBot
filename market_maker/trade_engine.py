@@ -10,7 +10,7 @@ from market_maker.settings import settings
 from market_maker.utils import log, errors
 from market_maker.market_maker import ExchangeInterface
 from market_maker.ws.ws_thread import OnTickHook
-from market_maker.utils.trading_classes import TradingBot,OrderInterface, Order, Account, Bar
+from market_maker.utils.trading_classes import TradingBot,OrderInterface, Order, Account, Bar,Symbol
 
 logger = log.setup_custom_logger('trade_engine')
 
@@ -35,7 +35,14 @@ class LiveTrading(OrderInterface,OnTickHook):
             logger.info("Order Manager initializing, connecting to BitMEX. Live run: executing real trades.")
 
         self.instrument = self.exchange.get_instrument()
-        self.bot = trading_bot
+        self.symbolInfo:Symbol= Symbol(symbol= self.instrument['symbol'],
+                                       isInverse=self.instrument['isInverse'],
+                                       lotSize= self.instrument['lostSize'],
+                                       tickSize=self.instrument['tickSize'],
+                                       makerFee= self.instrument['makerFee'],
+                                       takerFee= self.instrument['takerFee']
+                                       )
+        self.bot: TradingBot = trading_bot
         self.bot.order_interface = self
         # init market data dict to be filled later
         self.bars : List[Bar] = []
@@ -43,7 +50,7 @@ class LiveTrading(OrderInterface,OnTickHook):
         self.account : Account = Account()
         self.update_account()
         self.bot.reset()
-        self.bot.init(self.bars,self.account)
+        self.bot.init(self.bars,self.account,self.symbolInfo)
 
     def print_status(self):
         """Print the current status."""
@@ -148,6 +155,13 @@ class LiveTrading(OrderInterface,OnTickHook):
 
         sys.exit()
 
+    def handle_tick(self):
+        self.tick_waiting = False
+        self.update_bars()
+        self.update_account()
+        self.bot.on_tick(self.bars,self.account)
+
+
     def run_loop(self):
         sys.stdout.write("-----\n")
         sys.stdout.flush()
@@ -161,10 +175,8 @@ class LiveTrading(OrderInterface,OnTickHook):
             if not self.check_connection():
                 logger.error("Realtime data connection unexpectedly closed, restarting.")
                 self.restart()
-            self.tick_waiting = False
-            self.update_bars()
-            self.update_account()
-            self.bot.on_tick(self.bars)
+            self.handle_tick()
+
 
     def tick_happened(self):
         self.tick_waiting= True
