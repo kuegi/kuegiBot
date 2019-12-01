@@ -29,7 +29,7 @@ def process_low_tf_bars(bars,timeframe_minutes,start_offset_minutes= 0):
     for bar in result:
         bar.subbars.sort(key=lambda b: b['tstamp'], reverse=True)
 
-    result.reverse()
+    result.sort(key= lambda b : b.tstamp, reverse= True)
     return result
 
 class ExchangeInterface(OnTickHook):

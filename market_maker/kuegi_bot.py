@@ -250,9 +250,7 @@ class KuegiBot(TradingBot):
 
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             if 0 < range < atr*self.max_channel_size_factor:
-                risk = account.equity*self.risk_factor
-                if self.risk_factor > 0.05:
-                    risk= self.risk_factor
+                risk= self.risk_factor
                 stopLong= int(max(data.shortSwing,data.longTrail))
                 stopShort= int(min(data.longSwing,data.shortTrail))
 

@@ -41,8 +41,7 @@ class ExchangeInterface:
                                     timeout=settings.TIMEOUT, onTickHook=onTickHook)
 
     def cancel_order(self, order:Order):
-        tickLog = self.get_instrument()['tickLog']
-        logger.info("Canceling: %s %f @ %.*f" % (order.id, order.amount, tickLog, order.limit_price))
+        logger.info("Canceling: %s %i" % (order.id, int(order.amount)))
         while True:
             try:
                 self.bitmex.cancel_order(order.id)
@@ -54,8 +53,7 @@ class ExchangeInterface:
                 break
 
     def send_order(self, order:Order):
-        tickLog = self.get_instrument()['tickLog']
-        logger.info("Placing: %s %f @ %.*f" % (order.id, order.amount,tickLog, order.limit_price))
+        logger.info("Placing: %s %i @ %.1f" % (order.id, int(order.amount), order.limit_price if order.limit_price is not None else order.stop_price))
         while True:
             try:
                 self.bitmex.place_order(order)
@@ -67,8 +65,7 @@ class ExchangeInterface:
                 break
 
     def update_order(self, order:Order):
-        tickLog = self.get_instrument()['tickLog']
-        logger.info("Updating: %s %f @ %.*f" % (order.id, order.amount, tickLog,order.limit_price))
+        logger.info("Updating: %s %f @ %.1f" % (order.id, order.amount, order.limit_price if order.limit_price is not None else order.stop_price))
         while True:
             try:
                 self.bitmex.update_order(order)
@@ -85,9 +82,10 @@ class ExchangeInterface:
         mexOrders= self.bitmex.open_orders()
         result :List[Order]= []
         for o in mexOrders:
-            order = Order(orderId=o["clOrdID"],stop=o["stopPx"],limit=o["price"],amount=o["orderQty"])
+            sideMulti= 1 if o["side"] == "Buy" else -1
+            order = Order(orderId=o["clOrdID"],stop=o["stopPx"],limit=o["price"],amount=o["orderQty"]*sideMulti)
             order.stop_triggered= o["triggered"] == "StopOrderTriggered"
-            order.executed_amount= o["orderQty"] - o["leavesQty"]
+            order.executed_amount= (o["orderQty"] - o["leavesQty"])*sideMulti
             order.tstamp= datetime.strptime(o['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
             order.active= o['ordStatus'] == 'New'
             order.exchange_id= o["orderID"]
@@ -97,7 +95,7 @@ class ExchangeInterface:
         return result
 
     def get_bars(self,timeframe_minutes,start_offset_minutes)->List[Bar]:
-        bars = self.bitmex.get_bars(timeframe='1h',start_time=None,reverse=False)
+        bars = self.bitmex.get_bars(timeframe='1h',start_time=None,reverse=True)
         return process_low_tf_bars(bars,timeframe_minutes,start_offset_minutes=start_offset_minutes)
 
     def recent_bars(self,timeframe_minutes,start_offset_minutes)->List[Bar]:

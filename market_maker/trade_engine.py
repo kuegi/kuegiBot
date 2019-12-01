@@ -114,7 +114,7 @@ class LiveTrading(OrderInterface,OnTickHook):
                     continue
                 elif b.tstamp == self.bars[0].tstamp:
                     # merge?
-                    if b.subbars[-1].tstamp == self.bars[0].subbars[-1].tstamp:
+                    if b.subbars[-1]['tstamp'] == self.bars[0].subbars[-1]['tstamp']:
                         self.bars[0]= b
                     else:
                         #merge!
@@ -122,12 +122,12 @@ class LiveTrading(OrderInterface,OnTickHook):
                         newBar= Bar(tstamp=b.tstamp, open=first['open'], high=first['high'], low=first['low'], close=first['close'],
                               volume=first['volume'], subbars=[first])
                         for sub in reversed(self.bars[0].subbars[1:]):
-                            if sub.tstamp < b.subbars[-1].tstamp:
+                            if sub['tstamp'] < b.subbars[-1]['tstamp']:
                                 newBar.add_subbar(sub)
                             else:
                                 break
                         for sub in reversed(b.subbars):
-                            if sub.tstamp > newBar.subbars[0].tstamp:
+                            if sub['tstamp'] > newBar.subbars[0]['tstamp']:
                                 newBar.add_subbar(sub)
                             else:
                                 continue
