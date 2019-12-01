@@ -58,7 +58,7 @@ bars1= process_low_tf_bars(m1_bars, 240, 0)
 bot=KuegiBot(
     max_look_back=13, threshold_factor=2.5, buffer_factor=-0.0618,
     max_dist_factor=1, max_swing_length=3,
-    max_channel_size_factor=6, risk_factor=1000, entry_tightening=0.618, bars_till_cancel_triggered=3,
+    max_channel_size_factor=6, risk_factor=0.1, entry_tightening=0.618, bars_till_cancel_triggered=3,
     stop_entry=True, trail_to_swing=True, delayed_entry=False, delayed_cancel=True
 )
 BackTest(bot, bars1).run()

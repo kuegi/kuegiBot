@@ -13,6 +13,9 @@ class Bar:
         self.bot_data = {"indicators": {}}
         self.did_change: bool = True
 
+    def __str__(self):
+        return str(self.__dict__)
+
     def add_subbar(self, subbar):
         self.high = max(self.high, subbar['high'])
         self.low = min(self.low, subbar['low'])
@@ -31,6 +34,9 @@ class Account:
         self.open_orders = []
         self.order_history = []
 
+    def __str__(self):
+        return str(self.__dict__)
+
 class Symbol:
     def __init__(self,symbol,isInverse,lotSize, tickSize,makerFee,takerFee):
         self.symbol= symbol
@@ -39,6 +45,9 @@ class Symbol:
         self.tickSize= tickSize
         self.makerFee= makerFee
         self.takerFee= takerFee
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class Order:
@@ -54,6 +63,9 @@ class Order:
         self.tstamp = 0
         self.execution_tstamp = 0
         self.exchange_id:str = None
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class OrderInterface:
@@ -79,6 +91,10 @@ class Position:
         self.filled_exit: float = None
         self.entry_tstamp = 0
         self.exit_tstamp = 0
+        self.exit_equity= 0
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class TradingBot:

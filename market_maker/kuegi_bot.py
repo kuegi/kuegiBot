@@ -41,6 +41,50 @@ class KuegiBot(TradingBot):
         super().init(bars,account,symbol)
         self.channel.on_tick(bars)
         #TODO: update existing positions (based on position and open stops)
+        remainingPosition= account.open_position;
+        if remainingPosition == 0 and len(account.open_orders) == 0:
+            return #nothing to do
+
+        # init positions from existing orders
+        data:Data= self.channel.get_data(bars[1])
+
+        if data is None:
+            logger.warn("got no data from channel on init, can't init existing positions")
+            return
+
+        stopLong = int(max(data.shortSwing, data.longTrail)) if data.shortSwing is not None else data.longTrail
+        stopShort = int(min(data.longSwing, data.shortTrail)) if data.longSwing is not None else data.shortTrail
+
+        for order in account.open_orders:
+            id_parts = order.id.split("_")
+            if len(id_parts) < 3:
+                continue
+            if id_parts[2] != "entry" and id_parts[2] != "exit":
+                continue #none of ours
+            posId= id_parts[0]+"_"+id_parts[1]
+            if id_parts[2] == 'entry':
+                newPos= Position(id= posId,entry=order.stop_price,amount=order.amount,
+                                                    stop=(stopLong if order.amount > 0 else stopShort),tstamp=bars[0].tstamp)
+                newPos.status= "pending" if not order.stop_triggered else "triggered"
+                self.open_positions[posId]= newPos
+            if id_parts[2] == 'exit':
+                newPos= Position(id= posId,entry=None,amount=-order.amount,
+                                                    stop=order.stop_price,tstamp=bars[0].tstamp)
+                newPos.status= "open"
+                self.open_positions[posId]= newPos
+                remainingPosition -= newPos.amount
+
+        logger.info("found "+str(len(self.open_positions))+" existing positions on startup")
+
+        if remainingPosition != 0:
+            posId= str(bars[1].tstamp+13)+"_"+("long" if remainingPosition > 0 else "short")
+            newPos = Position(id=posId, entry=None, amount=remainingPosition,
+                              stop=(stopLong if order.amount > 0 else stopShort),tstamp=bars[0].tstamp)
+            newPos.status = "open"
+            self.open_positions[posId] = newPos
+            # add stop
+            self.order_interface.send_order(Order(orderId=posId+"_exit",stop=newPos.initial_stop,amount=-newPos.amount))
+            logger.info("couldn't account for "+str(newPos.amount)+" open contracts. Added position with stop for it")
 
 
     def prep_bars(self,bars:list):
@@ -73,6 +117,7 @@ class KuegiBot(TradingBot):
                     position.status = "closed"
                     position.filled_exit = order.executed_price
                     position.exit_tstamp= order.execution_tstamp
+                    position.exit_equity= account.equity
                     self.position_history.append(position)
                     del self.open_positions[position.id]
 
@@ -185,11 +230,11 @@ class KuegiBot(TradingBot):
         id_parts= order.id.split("_")
         return id_parts[0]+'_'+id_parts[1] == position.id
 
-    def calc_pos_size(self,risk, diff,entry):
+    def calc_pos_size(self,risk,entry,exit):
         if not self.symbol.isInverse:
-            return risk/diff
+            return risk/(entry-exit)
         else:
-            return (risk/diff)*entry
+            return -int(risk/(1/entry - 1/exit))
 
     def open_orders(self, bars: List[Bar], account: Account):
         if not self.is_new_bar or len(bars) < 5:
@@ -206,7 +251,7 @@ class KuegiBot(TradingBot):
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             if 0 < range < atr*self.max_channel_size_factor:
                 risk = account.equity*self.risk_factor
-                if self.risk_factor > 1 :
+                if self.risk_factor > 0.05:
                     risk= self.risk_factor
                 stopLong= int(max(data.shortSwing,data.longTrail))
                 stopShort= int(min(data.longSwing,data.shortTrail))
@@ -216,12 +261,14 @@ class KuegiBot(TradingBot):
 
                 expectedEntrySplipagePerc = 0.0015 if self.stop_entry else 0
                 expectedExitSlipagePerc = 0.0015
-                diffLong= longEntry*(1+expectedEntrySplipagePerc)-stopLong*(1-expectedExitSlipagePerc) if longEntry > stopLong else range
-                diffShort= stopShort*(1-expectedEntrySplipagePerc) - shortEntry*(1+expectedExitSlipagePerc) if stopShort > shortEntry else range
 
                 #first check if we should update an existing one
-                longAmount= self.calc_pos_size(risk=risk,diff=diffLong,entry=longEntry)
-                shortAmount= self.calc_pos_size(risk=risk,diff=diffShort,entry=shortEntry)
+                longAmount = self.calc_pos_size(risk=risk, exit=stopLong * (1 - expectedExitSlipagePerc),
+                                                entry=longEntry * (1 + expectedEntrySplipagePerc))
+                shortAmount = self.calc_pos_size(risk=risk, exit=stopShort * (1 + expectedExitSlipagePerc),
+                                                 entry=shortEntry * (1 - expectedEntrySplipagePerc))
+                if longEntry < stopLong or shortEntry > stopShort:
+                    logger.warn("can't put initial stop above entry")
 
                 foundLong= False
                 foundShort= False
@@ -242,10 +289,11 @@ class KuegiBot(TradingBot):
 
                         for order in account.open_orders:
                              if self.belongs_to(position,order):
-                                newEntry= position.wanted_entry*(1-self.entry_tightening)+entry*self.entry_tightening
-                                newStop= position.initial_stop*(1-self.entry_tightening)+stop*self.entry_tightening
-                                newDiff= newEntry*entryFac - newStop*exitFac # if sell -> diff is negative which leads to negative amount.
-                                amount= self.calc_pos_size(risk=risk,diff=newDiff,entry=newEntry)
+                                newEntry= int(position.wanted_entry*(1-self.entry_tightening)+entry*self.entry_tightening)
+                                newStop= int(position.initial_stop*(1-self.entry_tightening)+stop*self.entry_tightening)
+                                amount= self.calc_pos_size(risk=risk,exit=newStop*exitFac,entry=newEntry*entryFac)
+                                if amount*order.amount < 0:
+                                    logger.warn("updating order switching direction")
                                 order.stop_price = newEntry
                                 if not self.stop_entry:
                                     order.limit_price= newEntry-math.copysign(1,amount)
@@ -258,14 +306,16 @@ class KuegiBot(TradingBot):
                                 break
 
 
+                #if len(self.open_positions) > 0:
+                   # return
 
                 posId= str(bars[0].tstamp)
                 if not foundLong:
                     self.order_interface.send_order(Order(orderId= posId+"_long_entry", amount=longAmount,stop = longEntry, limit=longEntry-1 if not self.stop_entry else None))
                     self.open_positions[posId+"_long"]=Position(id=posId+"_long",entry=longEntry,amount=longAmount,stop=stopLong,tstamp=bars[0].tstamp)
                 if not foundShort:
-                    self.order_interface.send_order(Order(orderId= posId+"_short_entry",amount=-shortAmount,stop = shortEntry, limit= shortEntry+1 if not self.stop_entry else None))
-                    self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=-shortAmount,stop=stopShort,tstamp=bars[0].tstamp)
+                    self.order_interface.send_order(Order(orderId= posId+"_short_entry",amount=shortAmount,stop = shortEntry, limit= shortEntry+1 if not self.stop_entry else None))
+                    self.open_positions[posId+"_short"]=Position(id= posId+"_short",entry=shortEntry,amount=shortAmount,stop=stopShort,tstamp=bars[0].tstamp)
 
     def add_to_plot(self,fig: go.Figure,bars:List[Bar],time):
         lines = self.channel.get_number_of_lines()

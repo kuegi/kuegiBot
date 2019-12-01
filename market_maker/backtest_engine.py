@@ -28,12 +28,13 @@ class BackTest(OrderInterface):
         self.symbol :Symbol= Symbol(symbol="XBTUSD",isInverse=True, tickSize=0.5,lotSize=1,makerFee=-0.00025,takerFee=0.00075)
 
         self.account: Account = None
-        self.initialEquity = 100000
+        self.initialEquity = 10 #BTC
 
         self.hh = self.initialEquity
         self.maxDD = 0
         self.max_underwater = 0
         self.underwater = 0
+        self.lastHHPosition= 0
 
         self.current_bars = []
 
@@ -41,20 +42,21 @@ class BackTest(OrderInterface):
 
     def reset(self):
         self.account = Account()
-        self.account.balance = self.initialEquity/BACKTEST_BTCUSD
+        self.account.balance = self.initialEquity
         self.account.open_position = 0
         self.account.equity = self.account.balance
-        self.account.usd_equity= self.initialEquity
+        self.account.usd_equity= self.initialEquity*self.bars[-1].open
         self.hh = self.initialEquity
         self.maxDD = 0
         self.max_underwater = 0
+        self.lastHHPosition=0
         self.underwater = 0
         self.bot.reset()
 
         self.current_bars = []
         for b in self.bars:
             b.did_change = True
-        self.bot.init(self.bars[-1:],self.account,self.symbol)
+        self.bot.init(self.bars[-5:],self.account,self.symbol)
 
     # implementing OrderInterface
 
@@ -96,7 +98,7 @@ class BackTest(OrderInterface):
             price = order.limit_price
             fee = self.maker_fee
         elif order.stop_price:
-            price = order.stop_price * (1 + math.copysign(self.market_slipage_percent, order.amount) / 100)
+            price = int(order.stop_price * (1 + math.copysign(self.market_slipage_percent, order.amount) / 100)/self.symbol.tickSize)*self.symbol.tickSize
         else:
             price = intrabar["open"] * (1 + math.copysign(self.market_slipage_percent, order.amount) / 100)
         price = min(intrabar["high"],
@@ -143,6 +145,7 @@ class BackTest(OrderInterface):
                         order.amount < 0 and order.limit_price < intrabarToCheck["high"]):
                     to_execute.append(order)
 
+        prevPos = self.account.open_position
         for order in to_execute:
             something_changed = True
             self.handle_order_execution(order, intrabarToCheck)
@@ -150,18 +153,20 @@ class BackTest(OrderInterface):
         # update equity = balance + current value of open position
         posValue = self.account.open_position * (intrabarToCheck['close'] if not self.symbol.isInverse else -1 / intrabarToCheck['close'])
         self.account.equity = self.account.balance + posValue
+        self.account.usd_equity = self.account.equity * intrabarToCheck['close']
 
         return something_changed
 
     def update_stats(self):
-        self.account.usd_equity= self.account.equity * BACKTEST_BTCUSD
 
-        self.hh = max(self.hh, self.account.usd_equity)
-        dd = self.hh - self.account.usd_equity
+        if math.fabs(self.account.open_position) < 1 or self.lastHHPosition * self.account.open_position < 0:
+            self.hh = max(self.hh, self.account.equity) #only update HH on closed positions, no open equity
+            self.lastHHPosition= self.account.open_position
+        dd = self.hh - self.account.equity
         if dd > self.maxDD:
             self.maxDD = max(self.maxDD, dd)
 
-        if self.account.usd_equity < self.hh:
+        if self.account.equity < self.hh:
             self.underwater += 1
         else:
             self.underwater = 0
@@ -171,10 +176,10 @@ class BackTest(OrderInterface):
     def run(self):
         self.reset()
         logger.info(
-            "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.usd_equity) + " equity")
+            "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.equity) + "BTC equity")
         for i in range(len(self.bars)):
-            if i == len(self.bars) - 1:
-                continue  # ignore last bar
+            if i == len(self.bars) - 1 or i < 5:
+                continue  # ignore last bar and first 5
 
             # slice bars. TODO: also slice intrabar to simulate tick
             self.current_bars = self.bars[-(i + 1):]
@@ -207,12 +212,14 @@ class BackTest(OrderInterface):
             self.handle_open_orders(self.bars[0].subbars[-1])
 
         self.update_stats()
-        profit = self.account.usd_equity - self.initialEquity
+        profit = self.account.equity - self.initialEquity
         uw_updates_per_day= 1440/((self.bars[0].tstamp-self.bars[1].tstamp)/60)
-        logger.info("finished | pos: " + str(len(self.bot.position_history)) + " | profit: "
-                    + str(int(profit)) + " | maxDD: " + str(
-            int(self.maxDD)) + " | rel: " + ("%.2f" % (profit / self.maxDD)) + " | UW days: " + (
-                                "%.1f" % (self.max_underwater / uw_updates_per_day)))
+        logger.info("finished | pos: " + str(len(self.bot.position_history))
+                    + " | profit: " + ("%.2f" % (100*profit/self.initialEquity))
+                    + " | HH: " + ("%.2f" % (100*(self.hh/self.initialEquity -1)))
+                    + " | maxDD: " +("%.2f" % (100*self.maxDD/self.initialEquity))
+                    + " | rel: " + ("%.2f" % (profit / self.maxDD))
+                    + " | UW days: " + ("%.1f" % (self.max_underwater / uw_updates_per_day)))
 
         self.write_results_to_files()
         return self
@@ -249,7 +256,7 @@ class BackTest(OrderInterface):
         with open(tradesfilename, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             csv_columns = ['signalTStamp', 'size', 'wantedEntry', 'initialStop', 'openTime', 'openPrice', 'closeTime',
-                           'closePrice']
+                           'closePrice','equityOnExit']
             writer.writerow(csv_columns)
             for position in self.bot.position_history:
                 writer.writerow([
@@ -260,7 +267,8 @@ class BackTest(OrderInterface):
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),
                     position.filled_entry,
                     datetime.fromtimestamp(position.exit_tstamp).isoformat(),
-                    position.filled_exit
+                    position.filled_exit,
+                    position.exit_equity
                 ])
             for position in self.bot.open_positions.values():
                 writer.writerow([
@@ -271,5 +279,6 @@ class BackTest(OrderInterface):
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),
                     position.filled_entry,
                     "",
-                    self.bars[0].close
+                    self.bars[0].close,
+                    position.exit_equity
                 ])
