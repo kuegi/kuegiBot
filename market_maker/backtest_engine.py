@@ -12,6 +12,7 @@ from market_maker.utils import log
 
 logger = log.setup_custom_logger('backtest_engine')
 
+BACKTEST_BTCUSD = 10000
 
 class BackTest(OrderInterface):
 
@@ -40,11 +41,11 @@ class BackTest(OrderInterface):
 
     def reset(self):
         self.account = Account()
-        self.account.balance = self.initialEquity/self.bars[-1].open
+        self.account.balance = self.initialEquity/BACKTEST_BTCUSD
         self.account.open_position = 0
         self.account.equity = self.account.balance
         self.account.usd_equity= self.initialEquity
-        self.hh = self.account.equity
+        self.hh = self.initialEquity
         self.maxDD = 0
         self.max_underwater = 0
         self.underwater = 0
@@ -145,22 +146,27 @@ class BackTest(OrderInterface):
         for order in to_execute:
             something_changed = True
             self.handle_order_execution(order, intrabarToCheck)
+
         # update equity = balance + current value of open position
-        posValue= self.account.open_position*(intrabarToCheck["close"] if not self.symbol.isInverse else -1/intrabarToCheck["close"])
+        posValue = self.account.open_position * (intrabarToCheck['close'] if not self.symbol.isInverse else -1 / intrabarToCheck['close'])
         self.account.equity = self.account.balance + posValue
-        self.account.usd_equity= self.account.equity * (1 if not self.symbol.isInverse else intrabarToCheck["close"])
+
+        return something_changed
+
+    def update_stats(self):
+        self.account.usd_equity= self.account.equity * BACKTEST_BTCUSD
 
         self.hh = max(self.hh, self.account.usd_equity)
         dd = self.hh - self.account.usd_equity
         if dd > self.maxDD:
             self.maxDD = max(self.maxDD, dd)
 
-        if self.account.equity < self.hh:
+        if self.account.usd_equity < self.hh:
             self.underwater += 1
         else:
             self.underwater = 0
         self.max_underwater = max(self.max_underwater, self.underwater)
-        return something_changed
+
 
     def run(self):
         self.reset()
@@ -191,6 +197,7 @@ class BackTest(OrderInterface):
                 self.current_bars[1].did_change = False
                 should_execute = False
 
+            self.update_stats()
             next_bar.bot_data = forming_bar.bot_data
             for b in self.current_bars:
                 b.did_change = False
@@ -199,11 +206,13 @@ class BackTest(OrderInterface):
             self.send_order(Order(orderId="endOfTest", amount=-self.account.open_position))
             self.handle_open_orders(self.bars[0].subbars[-1])
 
+        self.update_stats()
         profit = self.account.usd_equity - self.initialEquity
+        uw_updates_per_day= 1440/((self.bars[0].tstamp-self.bars[1].tstamp)/60)
         logger.info("finished | pos: " + str(len(self.bot.position_history)) + " | profit: "
                     + str(int(profit)) + " | maxDD: " + str(
             int(self.maxDD)) + " | rel: " + ("%.2f" % (profit / self.maxDD)) + " | UW days: " + (
-                                "%.1f" % (self.max_underwater / 1440)))
+                                "%.1f" % (self.max_underwater / uw_updates_per_day)))
 
         self.write_results_to_files()
         return self

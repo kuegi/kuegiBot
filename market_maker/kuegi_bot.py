@@ -214,8 +214,10 @@ class KuegiBot(TradingBot):
                 longEntry= int(data.longSwing)
                 shortEntry= int(data.shortSwing)
 
-                diffLong= longEntry-stopLong if longEntry > stopLong else range
-                diffShort= stopShort - shortEntry if stopShort > shortEntry else range
+                expectedEntrySplipagePerc = 0.0015 if self.stop_entry else 0
+                expectedExitSlipagePerc = 0.0015
+                diffLong= longEntry*(1+expectedEntrySplipagePerc)-stopLong*(1-expectedExitSlipagePerc) if longEntry > stopLong else range
+                diffShort= stopShort*(1-expectedEntrySplipagePerc) - shortEntry*(1+expectedExitSlipagePerc) if stopShort > shortEntry else range
 
                 #first check if we should update an existing one
                 longAmount= self.calc_pos_size(risk=risk,diff=diffLong,entry=longEntry)
@@ -229,16 +231,20 @@ class KuegiBot(TradingBot):
                             foundLong= True
                             entry= longEntry
                             stop= stopLong
+                            entryFac= (1+expectedEntrySplipagePerc)
+                            exitFac= (1-expectedExitSlipagePerc)
                         else:
                             foundShort= True
                             entry= shortEntry
                             stop= stopShort
+                            entryFac= (1-expectedEntrySplipagePerc)
+                            exitFac= (1+expectedExitSlipagePerc)
 
                         for order in account.open_orders:
                              if self.belongs_to(position,order):
                                 newEntry= position.wanted_entry*(1-self.entry_tightening)+entry*self.entry_tightening
                                 newStop= position.initial_stop*(1-self.entry_tightening)+stop*self.entry_tightening
-                                newDiff= math.fabs(newEntry - newStop)
+                                newDiff= newEntry*entryFac - newStop*exitFac # if sell -> diff is negative which leads to negative amount.
                                 amount= self.calc_pos_size(risk=risk,diff=newDiff,entry=newEntry)
                                 order.stop_price = newEntry
                                 if not self.stop_entry:

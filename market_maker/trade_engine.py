@@ -37,7 +37,7 @@ class LiveTrading(OrderInterface,OnTickHook):
         self.instrument = self.exchange.get_instrument()
         self.symbolInfo:Symbol= Symbol(symbol= self.instrument['symbol'],
                                        isInverse=self.instrument['isInverse'],
-                                       lotSize= self.instrument['lostSize'],
+                                       lotSize= self.instrument['lotSize'],
                                        tickSize=self.instrument['tickSize'],
                                        makerFee= self.instrument['makerFee'],
                                        takerFee= self.instrument['takerFee']
