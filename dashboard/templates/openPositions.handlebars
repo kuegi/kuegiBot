@@ -7,7 +7,7 @@
             <th>PositionId</th><th>status</th><th>signalTime</th>
             <th>amount</th>
             <th>wantedEntry</th><th>initialSL</th><th>entryTime</th>
-            <th>entry</th><th>stop</th>
+            <th>entry</th><th>stop</th><th>worstCase</th><th>initialRisk</th>
         </tr>
         </thead>
         <tbody id="positions">
@@ -23,6 +23,7 @@
             <td>{{formatPrice filled_entry}}</td>
             <td>{{formatPrice currentStop}}</td>
             <td id="result">{{formatResult worstCase}}</td>
+            <td>{{formatPrice initialRisk}}</td>
         </tr>
         {{/each}}
         </tbody>

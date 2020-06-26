@@ -1,7 +1,7 @@
 (function() {
     Handlebars.registerHelper('formatPrice',function(aPrice) {
         if(typeof aPrice === "number")
-            return aPrice.toFixed(1);
+            return aPrice.toFixed(Math.abs(aPrice) < 10?2:1);
         else
             return "";
     });
@@ -57,7 +57,12 @@ function refresh() {
                 pos.connectedOrders.forEach(function(order) {
                     if(order.id.includes("_SL_")) {
                         pos.currentStop= order.stop_price;
-                        pos.worstCase= (pos.currentStop - pos.filled_entry)/(pos.filled_entry-pos.initial_stop)
+                        pos.worstCase= (pos.currentStop - pos.filled_entry)/(pos.wanted_entry-pos.initial_stop);
+                        if(Math.abs(pos.amount) > 10) {
+                            pos.initialRisk= pos.amount/pos.initial_stop - pos.amount/pos.wanted_entry;
+                        } else {
+                            pos.initialRisk= pos.amount*(pos.wanted_entry-pos.initial_stop);
+                        }
                     }
                 });
             });
