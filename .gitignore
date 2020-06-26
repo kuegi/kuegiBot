@@ -1,0 +1,14 @@
+*.pyc
+dist/
+*.egg-info/
+env
+venv/
+.idea/
+history/
+results/
+logs/
+openPositions/
+settings/
+dashboard.json
+positionHistory/
+*.tpl.js

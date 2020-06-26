@@ -1,0 +1,30 @@
+<div class="botContainer">
+    <p><b>{{id}}</b> {{last_tick}}</p>
+    <p><b>{{totalPos}}</b></p>
+    <table>
+        <thead>
+        <tr>
+            <th>PositionId</th><th>status</th><th>signalTime</th>
+            <th>amount</th>
+            <th>wantedEntry</th><th>initialSL</th><th>entryTime</th>
+            <th>entry</th><th>stop</th>
+        </tr>
+        </thead>
+        <tbody id="positions">
+        {{#each positions}}
+        <tr class="{{classFromPosition this}}">
+            <td>{{id}}</td>
+            <td style="text-align:center">{{status}}</td>
+            <td>{{formatTime signal_tstamp}}</td>
+            <td>{{amount}}</td>
+            <td>{{formatPrice wanted_entry}}</td>
+            <td>{{formatPrice initial_stop}}</td>
+            <td>{{formatTime entry_tstamp}}</td>
+            <td>{{formatPrice filled_entry}}</td>
+            <td>{{formatPrice currentStop}}</td>
+            <td id="result">{{formatResult worstCase}}</td>
+        </tr>
+        {{/each}}
+        </tbody>
+    </table>
+</div>

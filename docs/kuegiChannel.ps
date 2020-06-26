@@ -1,0 +1,133 @@
+//@version=4
+study("KuegiChannel")
+
+maxLookBack= input(title="Max Lookback", type=input.integer,defval=15, minval=3)
+thresFac= input(title="threshold Factor", type=input.float,defval=0.9, minval=0.1)
+bufferFac= input(title="buffer Factor", type=input.float,defval=0.05, minval=-0.1)
+maxDistFac= input(title="max Dist in ATR", type=input.float,defval=2, minval=0.1)
+
+highest_(values, length, offset) =>
+	float h_val = na
+	if length >= 1
+		for i = offset to offset+length-1
+			if ( na(h_val) or (not na(values[i]) and values[i] > h_val ) )
+				h_val := values[i]
+	h_val
+
+lowest_(values, length, offset) =>
+	float l_val = na
+    if length >= 1
+		for i = offset to offset+length-1
+			if ( na(l_val) or (not na(values[i]) and values[i] < l_val ) )
+				l_val := values[i]
+	l_val
+
+cleanRange(length) =>
+    float h1= na
+    float h2= na
+    float h3= na
+    float h4= na
+    for i = 0 to length - 1
+        float range= high[i] - low[i]
+        if na(h1) or range > h1
+            h4:= h3
+            h3:= h2
+            h2:= h1
+            h1:= range
+        else
+            if na(h2) or range > h2
+                h4:= h3
+                h3:= h2
+                h2:= range
+            else
+                if na(h3) or range > h3
+                    h4:= h3
+                    h3:= range
+                else
+                    if na(h4) or range > h4
+                        h4:= range
+
+    float sum= 0
+    int count=0
+    for i= 0 to length - 1
+        float range= high[i] - low[i]
+        if (length > 20 and range < h4) or (length > 15 and range < h3) or (length > 10 and range < h2) or (length > 5 and range < h1)
+            sum := sum + range
+            count:= count + 1
+    sum/count
+
+float myAtr= cleanRange(maxLookBack*2)
+
+int sinceLongReset= 0
+int sinceShortReset= 0
+int offset= 1
+
+int move= 1
+if((high[offset]-low[offset]) < (high[offset+1]-low[offset+1]))
+    move:= 2
+
+float rangeHH= highest(high,2)[offset+move]
+float rangeLL= lowest(low,2)[offset+move]
+float threshold= myAtr*thresFac
+
+float maxDist= myAtr*maxDistFac
+float buffer= myAtr*bufferFac
+
+float moveUp= high[offset]-rangeHH
+float moveDown= rangeLL - low[offset]
+
+if(moveUp > threshold and sinceLongReset[1] >= move and low[offset] < low[0] and rangeHH < low)
+    sinceLongReset:= move+1
+else
+    sinceLongReset:= min(nz(sinceLongReset[1])+1,maxLookBack)
+float longTrail= max(lowest_(low,sinceLongReset-1,0)-maxDist,lowest_(low,sinceLongReset,0)-buffer[1])
+
+if(moveDown > threshold and sinceShortReset[1] >= move and high[offset] > high[0] and rangeLL> high)
+    sinceShortReset:= move+1
+else
+    sinceShortReset:= min(nz(sinceShortReset[1])+1,maxLookBack)
+float shortTrail= min(highest_(high,sinceShortReset-1,0)+maxDist,highest_(high,sinceShortReset,0)+buffer[1])
+
+// SWINGS
+
+float minDelta= myAtr*bufferFac
+swing(series,direction,default,maxLookBack) =>
+    float val= na
+    for length = 1 to 3
+    	if ( na(val) and length < maxLookBack)
+    	    float cex= lowest_(series,length,1)
+    	    float ex= highest_(series,length,1)
+    	    float s= highest_(series,2,length+1)
+    	    float e= ex
+    	    if direction < 0
+    	        e:= cex
+    	        s:= lowest_(series,2,length+1)
+    	    if direction*(e-s) > 0 and direction*(e-series[length+1]) > minDelta and direction*(e-series[0]) > minDelta
+    	    	val := e + direction*minDelta
+
+    if na(val)
+        val:= default
+    val
+
+
+sinceReset= min(sinceShortReset, sinceLongReset)
+float lastLongSwing= na
+lastLongSwing:= swing(high,1,lastLongSwing[1],sinceReset)
+if lastLongSwing < high
+    lastLongSwing:= na
+
+float lastShortSwing= na
+lastShortSwing := swing(low,-1,lastShortSwing[1],sinceReset)
+if lastShortSwing > low
+    lastShortSwing:= na
+
+if sinceReset < 3
+    lastLongSwing:= na
+    lastShortSwing:= na
+
+p1= plot(longTrail, offset=1, title ="Long Trail", style= plot.style_stepline, color= color.blue, linewidth= 1)
+p2= plot(shortTrail, offset=1, title ="Short Trail", style= plot.style_stepline, color= color.blue, linewidth= 1)
+
+fill(p1, p2, color=color.blue)
+plot(lastLongSwing, offset=1, title ="Long Swing", style= plot.style_stepline, color= color.green, linewidth= 2)
+plot(lastShortSwing, offset=1, title ="Short Swing", style= plot.style_stepline, color= color.red, linewidth= 2)

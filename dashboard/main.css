@@ -1,0 +1,42 @@
+.botContainer {
+    border: 1px solid #000;
+    margin: 5px;
+    padding: 5px;
+    border-radius: 10px;
+}
+
+.botContainer table {
+    width:100%;
+}
+
+td {
+    text-align:right;
+    padding:2px 4px;
+}
+
+tr.openLong {
+background-color:#0d0
+}
+
+tr.openShort {
+background-color:#d00
+}
+
+tr.pendingLong {
+background-color:#dfd
+}
+
+tr.pendingShort {
+background-color:#fdd
+}
+
+tr td#result {
+background-color:#bbb
+}
+
+tr.winning td#result {
+background-color:#0d0
+}
+tr.losing td#result {
+background-color:#d00
+}
