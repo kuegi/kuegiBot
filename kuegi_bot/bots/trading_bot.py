@@ -111,7 +111,7 @@ class TradingBot:
         return None
 
     @staticmethod
-    def order_type_from_order_id(order_id: str):
+    def order_type_from_order_id(order_id: str) -> OrderType:
         id_parts = order_id.split("_")
         if len(id_parts) >= 2:
             type = id_parts[1]

@@ -12,3 +12,7 @@ As this whole repo is mainly for myself to code and document stuff, this part is
 - entries vs. exits
 - benefits of bottrading: taking signals 24/7
 - improving your strategy: why backtesting is so important
+
+sample implementations: i plan to implement some basic ideas into strategies, to show the process. Will write about it here:
+- SMA Cross
+- RSI entries

@@ -13,7 +13,7 @@ from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.utils import log, errors
 from kuegi_bot.utils.telegram import TelegramBot
 from kuegi_bot.bots.trading_bot import TradingBot
-from kuegi_bot.utils.trading_classes import OrderInterface, Order, Account, Bar, Symbol, ExchangeInterface
+from kuegi_bot.utils.trading_classes import OrderInterface, Order, Account, Bar, Symbol, ExchangeInterface, OrderType
 
 
 class LiveTrading(OrderInterface):
@@ -21,7 +21,7 @@ class LiveTrading(OrderInterface):
     def __init__(self, settings, telegram: TelegramBot, trading_bot: TradingBot):
         self.settings = settings
         self.id = self.settings.id
-        self.last_tick= 0
+        self.last_tick = 0
 
         self.logger = log.setup_custom_logger(name=settings.id,
                                               log_level=settings.LOG_LEVEL,
@@ -31,19 +31,20 @@ class LiveTrading(OrderInterface):
         self.telegram_bot = telegram
 
         self.logger.info("#############################")
-        self.logger.info("############ Start LiveTrading "+settings.id+" on "+settings.EXCHANGE+" #################")
+        self.logger.info(
+            "############ Start LiveTrading " + settings.id + " on " + settings.EXCHANGE + " #################")
         self.exchange: ExchangeInterface = None
         if settings.EXCHANGE == 'bitmex':
-            self.exchange = BitmexInterface(settings=settings, logger=self.logger,on_tick_callback=self.on_tick)
+            self.exchange = BitmexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'bybit':
-            self.exchange = ByBitInterface(settings=settings, logger=self.logger,on_tick_callback=self.on_tick)
+            self.exchange = ByBitInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'binance':
             self.exchange = BinanceInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':
             self.exchange = PhemexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         else:
-            self.logger.error("unkown exchange: "+settings.EXCHANGE)
-            self.alive= False
+            self.logger.error("unkown exchange: " + settings.EXCHANGE)
+            self.alive = False
             return
 
         self.alive = True
@@ -52,7 +53,7 @@ class LiveTrading(OrderInterface):
             self.logger.info(" Starting Live Trading Engine for %s " % self.exchange.symbol)
             self.symbolInfo: Symbol = self.exchange.get_instrument()
             self.bot: TradingBot = trading_bot
-            self.bot.prepare(self.logger,self)
+            self.bot.prepare(self.logger, self)
             # init market data dict to be filled later
             self.bars: List[Bar] = []
             self.update_bars()
@@ -60,21 +61,22 @@ class LiveTrading(OrderInterface):
             self.update_account()
             self.bot.reset()
             if self.telegram_bot is not None:
-                pos= "no pos"
+                pos = "no pos"
                 if self.account.open_position is not None and self.account.open_position.avgEntryPrice is not None:
-                    pos= "%.2f @ %.2f" % (self.account.open_position.quantity,self.account.open_position.avgEntryPrice)
-                self.telegram_bot.send_log("%s loaded, ready to go with %.2f in wallet and pos %s" % 
-                    (self.id, self.account.equity,pos))
+                    pos = "%.2f @ %.2f" % (
+                    self.account.open_position.quantity, self.account.open_position.avgEntryPrice)
+                self.telegram_bot.send_log("%s loaded, ready to go with %.2f in wallet and pos %s" %
+                                           (self.id, self.account.equity, pos))
         else:
             self.alive = False
 
-    def on_tick(self,fromAccountAction:bool=True):
+    def on_tick(self, fromAccountAction: bool = True):
         if fromAccountAction:
-            delay= 2
+            delay = 2
         else:
-            delay= 0
-        self.last_tick= max(self.last_tick,time.time() + delay)
-        self.logger.info("got tick "+str(fromAccountAction))
+            delay = 0
+        self.last_tick = max(self.last_tick, time.time() + delay)
+        self.logger.info("got tick " + str(fromAccountAction))
 
     def print_status(self):
         """Print the current status."""
@@ -90,21 +92,21 @@ class LiveTrading(OrderInterface):
             self.logger.error("trying to send order without amount")
             return
         if self.telegram_bot is not None:
-            self.telegram_bot.send_log("Sending ("+self.id+"): "+order.print_info())
+            self.telegram_bot.send_log("Sending (" + self.id + "): " + order.print_info(), order.id)
         order.tstamp = self.bars[0].tstamp
         if order not in self.account.open_orders:  # bot might add it himself temporarily.
             self.account.open_orders.append(order)
         self.exchange.send_order(order)
 
     def update_order(self, order: Order):
-        if self.telegram_bot is not None:
-            self.telegram_bot.send_log("updating ("+self.id+"): "+order.print_info())
+        if self.telegram_bot is not None and TradingBot.order_type_from_order_id(order.id) == OrderType.SL:
+            self.telegram_bot.send_log("updating (" + self.id + "): " + order.print_info(), order.id)
         self.exchange.update_order(order)
 
     def cancel_order(self, order: Order):
         if self.telegram_bot is not None:
-            self.telegram_bot.send_log("canceling ("+self.id+"): "+order.print_info())
-        order.active= False # already mark it as cancelled, so not to mess up next loop
+            self.telegram_bot.send_log("canceling (" + self.id + "): " + order.print_info(), order.id)
+        order.active = False  # already mark it as cancelled, so not to mess up next loop
         self.exchange.cancel_order(order)
 
     ###
@@ -132,10 +134,10 @@ class LiveTrading(OrderInterface):
             if o.active:
                 self.account.open_orders.append(o)
             elif len(o.id) > 0 and o.id in prevOpenIds:
-                exec_type= ("executed" if o.executed_amount != 0 else "canceled")
-                price= ("%.1f" % o.executed_price) if o.executed_price is not None else None
+                exec_type = ("executed" if o.executed_amount != 0 else "canceled")
+                price = ("%.1f" % o.executed_price) if o.executed_price is not None else None
                 if self.telegram_bot is not None:
-                    self.telegram_bot.send_log("%s on %s: %s @ %s" % (exec_type.upper(),self.id, o.id, price))
+                    self.telegram_bot.send_log("%s on %s: %s @ %s" % (exec_type.upper(), self.id, o.id, price), o.id)
                 self.logger.info("order %s got %s @ %s" % (o.id, exec_type, price))
                 self.account.order_history.append(o)
 
@@ -168,7 +170,7 @@ class LiveTrading(OrderInterface):
                                 newBar.add_subbar(sub)
                             else:
                                 continue
-                        newBar.bot_data= self.bars[0].bot_data # merge bot data to not loose it
+                        newBar.bot_data = self.bars[0].bot_data  # merge bot data to not loose it
                         self.bars[0] = newBar
                 else:  # b.tstamp > self.bars[0].tstamp
                     self.bars.insert(0, b)
@@ -207,12 +209,12 @@ class LiveTrading(OrderInterface):
 
         last = 0
         while self.alive:
-            current= time.time()
+            current = time.time()
             # execute if last execution is to long ago
             # or there was a tick since the last execution but the tick is more than debounce ms ago (to prevent race condition of account updates etc.)
             if current - last > self.settings.LOOP_INTERVAL or \
                     (last < self.last_tick < current):
-                last= time.time()
+                last = time.time()
                 if not self.check_connection():
                     self.logger.error("Realtime data connection unexpectedly closed, exiting.")
                     self.exit()

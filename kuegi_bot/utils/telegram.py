@@ -1,4 +1,5 @@
 import requests
+import threading
 
 class TelegramBot:
 	def __init__(self,logger,settings):
@@ -6,16 +7,29 @@ class TelegramBot:
 		self.logChatId= settings.logChatId
 		self.signalChannel= settings.signalChannel
 		self.logger= logger
+		self.timer= None
+		self.messagesToSend = {}
 
-	def send_log(self,log_message):
+	def send_log(self,log_message,debounceId:str= None):
+		if debounceId is None:
+			debounceId= log_message
 		if self.logChatId is None:
 			self.logger.warn("missing telegram logChatId")
 			return
-		self.__internal_send(self.logChatId,log_message)
+		if self.timer is not None:
+			self.timer.cancel()
+
+		self.timer= threading.Timer(interval=5, function= self.__internal_send_logs)
+		self.messagesToSend[debounceId] = log_message
 
 	def send_signal(self,signal_message):
 		if self.signalChannel is not None:
 			self.__internal_send(self.signalChannel,signal_message)
+
+	def __internal_send_logs(self):
+		for key, msg in self.messagesToSend.items():
+			self.__internal_send(self.logChatId,msg)
+		self.messagesToSend= {}
 
 	def __internal_send(self,chat_id,message):
 		if self.token is None:
