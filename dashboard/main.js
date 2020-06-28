@@ -37,7 +37,7 @@
         } else
             return "-";
     });
-
+P
 })();
 
 function refresh() {
@@ -58,11 +58,11 @@ function refresh() {
                     if(order.id.includes("_SL_")) {
                         pos.currentStop= order.stop_price;
                         pos.worstCase= (pos.currentStop - pos.filled_entry)/(pos.wanted_entry-pos.initial_stop);
-                        if(Math.abs(pos.amount) > 10) {
-                            pos.initialRisk= pos.amount/pos.initial_stop - pos.amount/pos.wanted_entry;
-                        } else {
-                            pos.initialRisk= pos.amount*(pos.wanted_entry-pos.initial_stop);
-                        }
+                    }
+                    if(Math.abs(pos.amount) > 10) {
+                        pos.initialRisk= pos.amount/pos.initial_stop - pos.amount/pos.wanted_entry;
+                    } else {
+                        pos.initialRisk= pos.amount*(pos.wanted_entry-pos.initial_stop);
                     }
                 });
             });

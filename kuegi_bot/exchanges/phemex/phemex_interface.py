@@ -91,11 +91,12 @@ class PhemexInterface(ExchangeWithWS):
                                                                     walletBalance=balance)
 
             for json_order in data['orders']:
-                order = self.orderDictToOrder(json_order)
-                self.orders[order.exchange_id] = order
-                if data['type'] != "snapshot":
-                    self.logger.info("got order update: %s" % str(order))
-                gotTick = True
+                if 'ordStatus' in json_order: # otherwise its SettleFunding
+                    order = self.orderDictToOrder(json_order)
+                    self.orders[order.exchange_id] = order
+                    if data['type'] != "snapshot":
+                        self.logger.info("got order update: %s" % str(order))
+                    gotTick = True
 
         if gotTick and self.on_tick_callback is not None:
             self.on_tick_callback(fromAccountAction=messageType == "account")  # got something new
