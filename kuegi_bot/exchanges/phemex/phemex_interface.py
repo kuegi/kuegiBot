@@ -280,13 +280,13 @@ class PhemexInterface(ExchangeWithWS):
                       limit=price,
                       amount=o['orderQty'] * sideMult)
         order.exchange_id = o['orderID']
-        order.tstamp = o['actionTimeNs'] / 1000000
+        order.tstamp = o['actionTimeNs'] / 1000000000
         order.active = o['ordStatus'] in [Client.ORDER_STATUS_NEW, Client.ORDER_STATUS_UNTRIGGERED,
                                           Client.ORDER_STATUS_TRIGGERED]
         order.executed_amount = o['cumQty']*sideMult
         val= o['cumValue'] if 'cumValue' in o else o['cumValueEv']/self.valueScale
         order.executed_price = o['cumQty']/val if val != 0 else 0
         if order.executed_amount != 0:
-            order.execution_tstamp = o['transactTimeNs'] / 1000000
+            order.execution_tstamp = o['transactTimeNs'] / 1000000000
         order.stop_triggered = order.stop_price is not None and o['ordStatus'] == Client.ORDER_STATUS_TRIGGERED
         return order
