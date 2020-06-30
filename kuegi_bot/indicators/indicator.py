@@ -67,7 +67,7 @@ class Indicator:
             return None
 
     def get_data_for_plot(self, bar: Bar):
-        return self.get_data(bar)  # default
+        return [self.get_data(bar)]  # default
 
     def get_plot_offset(self):
         return 0
@@ -94,13 +94,16 @@ class SMA(Indicator):
                     sum = 0
                     cnt = 0
                     for sub in bars[idx:idx + self.period]:
-                        sum += sub.open
+                        sum += sub.close
                         cnt += 1
 
                     sum /= cnt
                     self.write_data(bar, sum)
                 else:
                     self.write_data(bar, None)
+
+    def get_line_names(self):
+        return ["sma"+str(self.period)]
 
 
 from functools import reduce

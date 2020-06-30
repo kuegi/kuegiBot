@@ -20,6 +20,7 @@ class TelegramBot:
 			self.timer.cancel()
 
 		self.timer= threading.Timer(interval=5, function= self.__internal_send_logs)
+		self.timer.start()
 		self.messagesToSend[debounceId] = log_message
 
 	def send_signal(self,signal_message):
@@ -30,6 +31,7 @@ class TelegramBot:
 		for key, msg in self.messagesToSend.items():
 			self.__internal_send(self.logChatId,msg)
 		self.messagesToSend= {}
+		self.timer= None
 
 	def __internal_send(self,chat_id,message):
 		if self.token is None:

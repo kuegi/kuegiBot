@@ -73,7 +73,7 @@ class Strategy:
         self.atr_factor_risk= atr_factor
         return self
 
-    def calc_pos_size(self, risk, entry, exitPrice, atr:float):
+    def calc_pos_size(self, risk, entry, exitPrice, atr:float= 0):
         if self.risk_type <= 2:
             delta = entry - exitPrice
             if self.risk_type == 1:

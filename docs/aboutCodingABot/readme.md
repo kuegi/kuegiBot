@@ -14,5 +14,5 @@ As this whole repo is mainly for myself to code and document stuff, this part is
 - improving your strategy: why backtesting is so important
 
 sample implementations: i plan to implement some basic ideas into strategies, to show the process. Will write about it here:
-- SMA Cross
+- [SMA Cross](sampleStrategies/MACross.md)
 - RSI entries

@@ -280,7 +280,7 @@ class BackTest(OrderInterface):
         close = list(map(lambda b: b.close, self.bars))
 
         logger.info("creating plot")
-        fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name="XBTUSD")])
+        fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
 
         logger.info("adding bot data")
         self.bot.add_to_plot(fig, self.bars, time)
