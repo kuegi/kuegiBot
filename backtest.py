@@ -2,6 +2,7 @@ import random
 
 from kuegi_bot.backtest_engine import BackTest
 from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
+from kuegi_bot.bots.strategies.MACross import MACross
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail
