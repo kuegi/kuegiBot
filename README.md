@@ -1,7 +1,6 @@
 # Kuegi Bot
 
-a simple tradingbot for BTCUSD with connectors for [bybit](https://bit.ly/2rxuv8l "Bybit Homepage")
- ,[bitmex](https://bit.ly/2G4gSB2 "Bitmex Homepage"), [binance futures](https://www.binance.com/en/futures/ref/kuegi) and [phemex](https://phemex.com/register?referralCode=F6YFL).
+a simple tradingbot for BTCUSD with connectors for [bybit](https://bit.ly/2rxuv8l "Bybit Homepage"), [bitmex](https://bit.ly/2G4gSB2 "Bitmex Homepage"), [binance futures](https://www.binance.com/en/futures/ref/kuegi) and [phemex](https://phemex.com/register?referralCode=F6YFL).
 It just implements my manual tradingstrategy and therefore helps me to stick to the system. 
 No financial advice. Don't use it if you don't understand what it does. You probably will loose money
 
