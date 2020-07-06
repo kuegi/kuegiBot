@@ -11,12 +11,12 @@ from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Pos
 class KuegiStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3,
-                 limit_entry_offset: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
+                 limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
                  cancel_on_filter:bool = False):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
-        self.limit_entry_offset = limit_entry_offset
+        self.limit_entry_offset_perc = limit_entry_offset_perc
         self.delayed_entry = delayed_entry
         self.entry_tightening = entry_tightening
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
@@ -30,7 +30,7 @@ class KuegiStrategy(ChannelStrategy):
         self.logger.info("init with %.0f %.1f  %.1f %i %s %s %s  %s" %
                          (self.max_channel_size_factor, self.min_channel_size_factor, self.entry_tightening,
                           self.bars_till_cancel_triggered,
-                          self.limit_entry_offset, self.delayed_entry, self.delayed_cancel,
+                          self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
                           self.cancel_on_filter))
         super().init(bars, account, symbol)
 
@@ -139,7 +139,7 @@ class KuegiStrategy(ChannelStrategy):
                 longEntry = int(max(data.longSwing, bars[0].high))
                 shortEntry = int(min(data.shortSwing, bars[0].low))
 
-                expectedEntrySplipagePerc = 0.0015 if self.limit_entry_offset is None else 0
+                expectedEntrySplipagePerc = 0.0015 if self.limit_entry_offset_perc is None else 0
                 expectedExitSlipagePerc = 0.0015
 
                 # first check if we should update an existing one
@@ -168,7 +168,7 @@ class KuegiStrategy(ChannelStrategy):
                             stop = stopShort
                             entryFac = (1 - expectedEntrySplipagePerc)
                             exitFac = (1 + expectedExitSlipagePerc)
-
+                        entryBuffer= entry*self.limit_entry_offset_perc*0.01 if self.limit_entry_offset_perc is not None else None
                         for order in account.open_orders:
                             if TradingBot.position_id_from_order_id(order.id) == position.id:
                                 newEntry = int(
@@ -182,8 +182,8 @@ class KuegiStrategy(ChannelStrategy):
                                 changed = False
                                 changed = changed or order.stop_price != newEntry
                                 order.stop_price = newEntry
-                                if self.limit_entry_offset is not None:
-                                    newLimit = newEntry - math.copysign(self.limit_entry_offset, amount)
+                                if self.limit_entry_offset_perc is not None:
+                                    newLimit = newEntry - entryBuffer*math.copysign(1, amount)
                                     changed = changed or order.limit_price != newLimit
                                     order.limit_price = newLimit
                                 changed = changed or order.amount != amount
@@ -207,15 +207,18 @@ class KuegiStrategy(ChannelStrategy):
                 signalId = 'kuegi+' + str(bars[0].tstamp)
                 if not foundLong and directionFilter >= 0 and entriesAllowed:
                     posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
+                    entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
+
                     self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
                                                           amount=longAmount, stop=longEntry,
-                                                          limit=longEntry - self.limit_entry_offset if self.limit_entry_offset is not None else None))
+                                                          limit=longEntry - entryBuffer if entryBuffer is not None else None))
                     open_positions[posId] = Position(id=posId, entry=longEntry, amount=longAmount, stop=stopLong,
                                                      tstamp=bars[0].tstamp)
                 if not foundShort and directionFilter <= 0 and entriesAllowed:
                     posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
+                    entryBuffer = shortEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
                     self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
                                                           amount=shortAmount, stop=shortEntry,
-                                                          limit=shortEntry + self.limit_entry_offset if self.limit_entry_offset is not None else None))
+                                                          limit=shortEntry + entryBuffer if entryBuffer is not None else None))
                     open_positions[posId] = Position(id=posId, entry=shortEntry, amount=shortAmount,
                                                      stop=stopShort, tstamp=bars[0].tstamp)
