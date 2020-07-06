@@ -542,6 +542,11 @@ class TradingBot:
         months_in_range = 1
         alpha = 0.3
         firstPos = self.position_history[0]
+        if firstPos.status != PositionStatus.CLOSED:
+            for pos in self.position_history:
+                if pos.status == PositionStatus.CLOSED:
+                    firstPos= pos
+                    break
         lastHHTstamp = firstPos.signal_tstamp
         startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
 

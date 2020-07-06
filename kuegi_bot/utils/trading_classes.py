@@ -121,10 +121,15 @@ class Order:
         if self.limit_price is None and self.stop_price is None:
             return "%s %s @ market" % (self.id, amount)
         else:
-            return "%s %s @ %.1f" % (
+            price= ""
+            if self.stop_price is not None:
+                price += "%.1f" % self.stop_price
+            if self.limit_price is not None:
+                price += "/%.1f" % self.limit_price
+            return "%s %s @ %s" % (
                 self.id,
                 amount,
-                self.limit_price if self.limit_price is not None else self.stop_price)
+                price)
 
 
 class OrderInterface:

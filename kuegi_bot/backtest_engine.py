@@ -9,11 +9,8 @@ from typing import List
 from datetime import datetime
 
 from kuegi_bot.bots.trading_bot import TradingBot
-from kuegi_bot.utils.trading_classes import OrderInterface, Bar, Account, Order, Symbol, AccountPosition
+from kuegi_bot.utils.trading_classes import OrderInterface, Bar, Account, Order, Symbol, AccountPosition, PositionStatus
 from kuegi_bot.utils import log
-
-logger = log.setup_custom_logger("backtest", logging.INFO, logToConsole=True, logToFile=False)
-
 
 class SilentLogger(object):
 
@@ -34,6 +31,7 @@ class BackTest(OrderInterface):
 
     def __init__(self, bot: TradingBot, bars: list,symbol:Symbol=None,market_slipage_percent= 0.15):
         self.bars: List[Bar] = bars
+        self.logger= bot.logger
         self.bot = bot
         self.bot.prepare(SilentLogger(),self)
 
@@ -85,9 +83,9 @@ class BackTest(OrderInterface):
     def send_order(self, order: Order):
         # check if order is val
         if order.amount == 0:
-            logger.error("trying to send order without amount")
+            self.logger.error("trying to send order without amount")
             return
-        logger.debug("added order " + order.id)
+        self.logger.debug("added order %s" % (order.print_info()))
 
         order.tstamp = self.current_bars[0].tstamp
         if order not in self.account.open_orders:  # bot might add it himself temporarily.
@@ -98,7 +96,7 @@ class BackTest(OrderInterface):
             if existing_order.id == order.id:
                 self.account.open_orders.remove(existing_order)
                 self.account.open_orders.append(order)
-                logger.debug("updated order " + order.id)
+                self.logger.debug("updated order %s" % (order.print_info()))
                 break
 
     def cancel_order(self, order_to_cancel):
@@ -110,7 +108,7 @@ class BackTest(OrderInterface):
 
                 self.account.order_history.append(order)
                 self.account.open_orders.remove(order)
-                logger.debug("canceled order " + order_to_cancel.id)
+                self.logger.debug("canceled order " + order_to_cancel.id)
                 break
 
     # ----------
@@ -139,8 +137,10 @@ class BackTest(OrderInterface):
         order.final_reason = 'executed'
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
-        logger.debug(
-            "executed order " + order.id + " | " + str(self.account.usd_equity) + " " + str(self.account.open_position.quantity))
+        self.logger.debug(
+            "executed order %s | %.0f %.2f | %.2f@ %.1f" % (
+            order.id, self.account.usd_equity, self.account.open_position.quantity, order.executed_amount,
+            order.executed_price))
 
     def handle_open_orders(self, intrabarToCheck: Bar) -> bool:
         something_changed = False
@@ -203,7 +203,7 @@ class BackTest(OrderInterface):
 
     def run(self):
         self.reset()
-        logger.info(
+        self.logger.info(
             "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.equity) + " equity")
         for i in range(len(self.bars)):
             if i == len(self.bars) - 1 or i < self.bot.min_bars_needed():
@@ -243,6 +243,8 @@ class BackTest(OrderInterface):
             maxDays= 0
             minDays= self.bot.position_history[0].daysInPos() if len(self.bot.position_history) > 0 else 0
             for pos in self.bot.position_history:
+                if pos.status != PositionStatus.CLOSED:
+                    continue
                 if pos.exit_tstamp is None:
                     pos.exit_tstamp = self.bars[0].tstamp
                 daysInPos += pos.daysInPos()
@@ -255,7 +257,7 @@ class BackTest(OrderInterface):
             total_days= (self.bars[0].tstamp - self.bars[-1].tstamp)/(60*60*24)
             rel= profit / (self.maxDD if self.maxDD > 0 else 1)
             rel_per_year = rel / (total_days/365)
-            logger.info("finished | pos: " + str(len(self.bot.position_history))
+            self.logger.info("finished | pos: " + str(len(self.bot.position_history))
                         + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
                         + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
                         + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
@@ -265,24 +267,24 @@ class BackTest(OrderInterface):
                         + " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays,daysInPos,maxDays))
                         )
         else:
-            logger.info("finished with no trdes")
+            self.logger.info("finished with no trdes")
 
         #self.write_results_to_files()
         return self
 
     def prepare_plot(self):
         barcenter= (self.bars[0].tstamp - self.bars[1].tstamp)/2
-        logger.info("running timelines")
+        self.logger.info("running timelines")
         time = list(map(lambda b: datetime.fromtimestamp(b.tstamp+barcenter), self.bars))
         open = list(map(lambda b: b.open, self.bars))
         high = list(map(lambda b: b.high, self.bars))
         low = list(map(lambda b: b.low, self.bars))
         close = list(map(lambda b: b.close, self.bars))
 
-        logger.info("creating plot")
+        self.logger.info("creating plot")
         fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
 
-        logger.info("adding bot data")
+        self.logger.info("adding bot data")
         self.bot.add_to_plot(fig, self.bars, time)
 
         fig.update_layout(xaxis_rangeslider_visible=False)
@@ -298,7 +300,7 @@ class BackTest(OrderInterface):
 
         uid = str(int(datetime.utcnow().timestamp())) + '_' + str(len(self.bot.position_history))
         tradesfilename = base + uid + '_trades.csv'
-        logger.info("writing" + str(len(self.bot.position_history)) + " trades to file " + tradesfilename)
+        self.logger.info("writing" + str(len(self.bot.position_history)) + " trades to file " + tradesfilename)
         with open(tradesfilename, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             csv_columns = ['signalTStamp', 'size', 'wantedEntry', 'initialStop', 'openTime', 'openPrice', 'closeTime',
