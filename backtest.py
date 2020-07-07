@@ -99,13 +99,25 @@ checkDayFilterByDay(bars_n,
 #'''
 
 '''
-runOpti(bars_n,
-        min=   [6,0.2,5,50,25,-0.5],
-        max=   [16,0.8,15,90,45,0.5],
-        steps= [2,0.1,1,5,2,0.1],
-        symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001,
-                                      lotSize=0.00001, makerFee=0.02,
-                                     takerFee=0.04),
+# profiling stats
+# run it `python -m cProfile -o profile.data backtest.py`
+
+import pstats
+from pstats import SortKey
+p = pstats.Stats('profile.data')
+p.strip_dirs() # remove extra paths
+
+p.sort_stats(SortKey.CUMULATIVE).print_stats(20)
+p.sort_stats(SortKey.TIME).print_stats(10)
+
+p.print_callers('<functionName>')
+'''
+
+#'''
+runOpti(bars_p,
+        min=   [1,1,1],
+        max=   [30,30,30],
+        steps= [1,1,1],
         randomCount=1000)
 
 #'''
