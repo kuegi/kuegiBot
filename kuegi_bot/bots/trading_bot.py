@@ -104,6 +104,23 @@ class TradingBot:
         return orderId
 
     @staticmethod
+    def position_id_and_type_from_order_id(order_id: str):
+        id_parts = order_id.split("_")
+        posId= None
+        order_type= None
+        if len(id_parts) >= 1:
+            posId= id_parts[0]
+        if len(id_parts) >= 2:
+            type = id_parts[1]
+            if type[0] == OrderType.ENTRY.name[0]:
+                order_type= OrderType.ENTRY
+            elif type[0] == OrderType.SL.name[0]:
+                order_type= OrderType.SL
+            elif type[0] == OrderType.TP.name[0]:
+                order_type= OrderType.TP
+        return [posId,order_type]
+
+    @staticmethod
     def position_id_from_order_id(order_id: str):
         id_parts = order_id.split("_")
         if len(id_parts) >= 1:
@@ -115,11 +132,11 @@ class TradingBot:
         id_parts = order_id.split("_")
         if len(id_parts) >= 2:
             type = id_parts[1]
-            if type == str(OrderType.ENTRY.name):
+            if type[0] == OrderType.ENTRY.name[0]:
                 return OrderType.ENTRY
-            elif type == str(OrderType.SL.name):
+            elif type[0] == OrderType.SL.name[0]:
                 return OrderType.SL
-            elif type == str(OrderType.TP.name):
+            elif type[0] == OrderType.TP.name[0]:
                 return OrderType.TP
         return None
 
@@ -245,18 +262,17 @@ class TradingBot:
             if not order.active:
                 remaining_orders.remove(order)
                 continue  # got cancelled during run
-            orderType = self.order_type_from_order_id(order.id)
+            [posId,orderType] = self.position_id_and_type_from_order_id(order.id)
             if orderType is None:
                 remaining_orders.remove(order)
                 continue  # none of ours
-            posId = self.position_id_from_order_id(order.id)
             if posId in self.open_positions.keys():
                 pos = self.open_positions[posId]
                 pos.connectedOrders.append(order)
                 remaining_orders.remove(order)
                 if posId in remaining_pos_ids:
                     if (orderType == OrderType.SL and pos.status == PositionStatus.OPEN) \
-                            or (orderType == OrderType.ENTRY and pos.status == PositionStatus.PENDING):
+                            or (orderType == OrderType.ENTRY and pos.status in [PositionStatus.PENDING,PositionStatus.TRIGGERED]):
                         # only remove from remaining if its open with SL or pending with entry. every position needs
                         # a stoploss!
                         remaining_pos_ids.remove(posId)

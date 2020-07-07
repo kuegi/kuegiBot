@@ -90,9 +90,9 @@ class Symbol:
 
 
 class OrderType(Enum):
-    ENTRY = "entry"
-    SL = "exit"
-    TP = "tp"
+    ENTRY = "ENTRY"
+    SL = "SL"
+    TP = "TP"
 
 
 class Order:
