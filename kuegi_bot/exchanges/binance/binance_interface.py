@@ -36,7 +36,8 @@ class BinanceInterface(ExchangeInterface):
         self.listen_key = ""
         self.lastUserDataKeep = None
         self.wantedResponses = 0  # needed to wait for realtime
-        self.init()
+        if self.is_open():
+            self.init()
 
     def init(self):
         self.logger.info("loading market data. this may take a moment")

@@ -66,13 +66,12 @@ class BinanceWebsocket:
 
         # Wait for connect before continuing
         retry_times = 5
-        while not self.ws.sock or not self.ws.sock.connected and retry_times:
+        while (not self.ws.sock or not self.ws.sock.connected) and retry_times > 0:
             sleep(1)
             retry_times -= 1
-        if retry_times == 0 and not self.ws.sock.connected:
+        if retry_times == 0 and (not self.ws.sock or not self.ws.sock.connected):
             self.logger.error("Couldn't connect to WebSocket! Exiting.")
             self.exit()
-            raise websocket.WebSocketTimeoutException('Error！Couldnt not connect to WebSocket!.')
 
     def __on_message(self, message):
         """Handler for parsing WS messages."""

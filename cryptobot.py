@@ -41,7 +41,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                       max_channel_size_factor=stratSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
                                       entry_tightening=stratSettings.KB_ENTRY_TIGHTENING,
                                       bars_till_cancel_triggered=stratSettings.KB_BARS_TILL_CANCEL_TRIGGERED,
-                                      stop_entry=stratSettings.KB_STOP_ENTRY,
+                                      limit_entry_offset_perc=stratSettings.KB_LIMIT_OFFSET,
                                       delayed_entry=stratSettings.KB_DELAYED_ENTRY,
                                       delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
                                       cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER) \
@@ -55,7 +55,8 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     delayed_swing=stratSettings.KB_DELAYED_ENTRY,
                                     trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
             elif stratId == "sfp":
-                strat = SfpStrategy(init_stop_type=stratSettings.SFP_STOP_TYPE,
+                strat = SfpStrategy(min_stop_diff_perc=stratSettings.SFP_MIN_STOP_DIFF,
+                                    init_stop_type=stratSettings.SFP_STOP_TYPE,
                                     tp_fac=stratSettings.SFP_TP_FAC,
                                     min_wick_fac=stratSettings.SFP_MIN_WICK_FAC,
                                     min_swing_length=stratSettings.SFP_MIN_SWING_LENGTH,
