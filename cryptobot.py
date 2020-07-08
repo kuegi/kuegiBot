@@ -161,7 +161,9 @@ def write_dashboard(dashboardFile):
                 result[bot.id] = {
                     'alive': bot.alive,
                     "last_time": bot.bot.last_time,
-                    "last_tick": str(bot.bot.last_tick_time)}
+                    "last_tick": str(bot.bot.last_tick_time),
+                    "equity": bot.account.equity
+                }
                 data = result[bot.id]
                 data['positions'] = []
                 for pos in bot.bot.open_positions:

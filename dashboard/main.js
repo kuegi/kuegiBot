@@ -37,7 +37,7 @@
         } else
             return "-";
     });
-P
+
 })();
 
 function refresh() {
