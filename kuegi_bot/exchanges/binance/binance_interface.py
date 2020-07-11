@@ -239,7 +239,7 @@ class BinanceInterface(ExchangeInterface):
             symbol=self.symbol,
             side=OrderSide.BUY if order.amount > 0 else OrderSide.SELL,
             ordertype=order_type,
-            timeInForce=TimeInForce.GTC if order_type in [OrderType.LIMIT, OrderType.STOP, OrderType.STOP_MARKET] else None,
+            timeInForce=TimeInForce.GTC if order_type in [OrderType.LIMIT, OrderType.STOP] else None,
             quantity=quantityFormat.format(abs(order.amount)),
             price=priceFormat.format(order.limit_price) if order.limit_price is not None else None,
             stopPrice=priceFormat.format(order.stop_price) if order.stop_price is not None else None,
