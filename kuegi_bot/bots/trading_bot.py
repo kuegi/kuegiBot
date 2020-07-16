@@ -34,6 +34,9 @@ class TradingBot:
         self.is_new_bar = True
         self.open_positions = {}
         self.known_order_history = 0
+        self.risk_reference= 1
+        self.max_equity= 0
+        self.time_of_max_equity= 0
         self.position_history: List[Position] = []
         self.reset()
 
@@ -60,35 +63,8 @@ class TradingBot:
         '''init open position etc.'''
         self.symbol = symbol
         self.unique_id = unique_id
-        if unique_id is not None:
-            base = 'openPositions/'
-            try:
-                os.makedirs(base)
-            except Exception:
-                pass
-            try:
-                with open(base + self._get_pos_file(), 'r') as file:
-                    data = json.load(file)
-                    self.last_time = data["last_time"]
-                    for pos_json in data["positions"]:
-                        pos: Position = Position.from_json(pos_json)
-                        self.open_positions[pos.id] = pos
-                    if "moduleData" in data.keys():
-                        if str(bars[0].tstamp) in data["moduleData"].keys():
-                            moduleData = data['moduleData'][str(bars[0].tstamp)]
-                            ExitModule.set_data_from_json(bars[0], moduleData)
-                        if str(bars[1].tstamp) in data["moduleData"].keys():
-                            moduleData = data['moduleData'][str(bars[1].tstamp)]
-                            ExitModule.set_data_from_json(bars[1], moduleData)
-
-                    self.logger.info("done loading " + str(
-                        len(self.open_positions)) + " positions from " + self._get_pos_file() + " last time " + str(
-                        self.last_time))
-            except Exception as e:
-                self.logger.warn("Error loading open positions: " + str(e))
-                self.open_positions = {}
-
         # init positions from existing orders
+        self.read_open_positions(bars)
         self.sync_positions_with_open_orders(bars, account)
 
     ############### ids of pos, signal and order
@@ -435,8 +411,45 @@ class TradingBot:
             data = {"last_time": self.last_time,
                     "last_tick": str(self.last_tick_time),
                     "positions": pos_json,
-                    "moduleData":moduleData}
+                    "moduleData":moduleData,
+                    "risk_reference":self.risk_reference,
+                    "max_equity":self.max_equity,
+                    "time_of_max_equity":self.time_of_max_equity}
             json.dump(data, file, sort_keys=False, indent=4)
+
+
+    def read_open_positions(self,bars: List[Bar]):
+        if self.unique_id is not None:
+            base = 'openPositions/'
+            try:
+                os.makedirs(base)
+            except Exception:
+                pass
+            try:
+                with open(base + self._get_pos_file(), 'r') as file:
+                    data = json.load(file)
+                    self.last_time = data["last_time"]
+                    if "max_equity" in data.keys():
+                        self.max_equity= data["max_equity"]
+                        self.time_of_max_equity= data["time_of_max_equity"]
+                    for pos_json in data["positions"]:
+                        pos: Position = Position.from_json(pos_json)
+                        self.open_positions[pos.id] = pos
+                    if "moduleData" in data.keys():
+                        if str(bars[0].tstamp) in data["moduleData"].keys():
+                            moduleData = data['moduleData'][str(bars[0].tstamp)]
+                            ExitModule.set_data_from_json(bars[0], moduleData)
+                        if str(bars[1].tstamp) in data["moduleData"].keys():
+                            moduleData = data['moduleData'][str(bars[1].tstamp)]
+                            ExitModule.set_data_from_json(bars[1], moduleData)
+
+                    self.logger.info("done loading " + str(
+                        len(self.open_positions)) + " positions from " + self._get_pos_file() + " last time " + str(
+                        self.last_time))
+            except Exception as e:
+                self.logger.warn("Error loading open positions: " + str(e))
+                self.open_positions = {}
+
 
     def cancel_all_orders_for_position(self, positionId, account: Account):
         to_cancel = []
@@ -493,6 +506,9 @@ class TradingBot:
         """checks price and levels to manage current orders and set new ones"""
         self.last_tick_time = datetime.now()
         self.update_new_bar(bars)
+        if account.equity > self.max_equity:
+            self.max_equity= account.equity
+            self.time_of_max_equity= time.time()
         self.prep_bars(bars)
         try:
             self.manage_open_orders(bars, account)

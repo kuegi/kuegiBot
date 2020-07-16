@@ -48,6 +48,9 @@ function refresh() {
         for (let id in data) {
             var bot= data[id];
             bot.id= id;
+            bot.equity = bot.equity.toFixed(3)
+            bot.drawdown = ((bot.max_equity - bot.equity)/bot.max_equity).toFixed(1)+"%"
+            bot.uwdays= ((Date.now()-bot.time_of_max_equity*1000)/(1000*60*60*24)).toFixed(1)
             var totalPos= 0;
             bot.positions.forEach(function(pos) {
                 if(pos.status == "open") {

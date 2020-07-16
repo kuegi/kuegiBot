@@ -26,6 +26,12 @@ def start_bot(botSettings,telegram:TelegramBot=None):
     bot = MultiStrategyBot()
     originalSettings= dotdict(dict(botSettings))
     if "strategies" in botSettings.keys():
+        risk_reference= 1
+        if "RISK_REFERENCE" in botSettings.keys():
+            risk_reference= botSettings.RISK_REFERENCE
+        if risk_reference <= 0:
+            logger.error("if you don't want to risk money, you shouldn't even run this bot!")
+        bot.risk_reference= risk_reference
         strategies = dict(botSettings.strategies)
         del botSettings.strategies  # settings is now just the meta settings
         for stratId in strategies.keys():
@@ -78,7 +84,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 logger.warn("unkown strategy: " + stratId)
             if strat is not None:
                 strat.with_telegram(telegram)
-                strat.withRM(risk_factor=stratSettings.KB_RISK_FACTOR,
+                strat.withRM(risk_factor=stratSettings.KB_RISK_FACTOR*risk_reference,
                              risk_type=stratSettings.KB_RISK_TYPE,
                              max_risk_mul=stratSettings.KB_MAX_RISK_MUL,
                              atr_factor=stratSettings.KB_RISK_ATR_FAC)
@@ -103,32 +109,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     strat.withEntryFilter(DayOfWeekFilter(stratSettings.FILTER_DAYWEEK))
                 bot.add_strategy(strat)
     else:
-        if botSettings.KB_RISK_FACTOR <= 0:
-            logger.error("if you don't want to risk money, you shouldn't even run this bot!")
-        else:
-            bot.add_strategy(KuegiStrategy(min_channel_size_factor=botSettings.KB_MIN_CHANNEL_SIZE_FACTOR,
-                                           max_channel_size_factor=botSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
-                                           entry_tightening=botSettings.KB_ENTRY_TIGHTENING,
-                                           bars_till_cancel_triggered=botSettings.KB_BARS_TILL_CANCEL_TRIGGERED,
-                                           stop_entry=botSettings.KB_STOP_ENTRY,
-                                           delayed_entry=botSettings.KB_DELAYED_ENTRY,
-                                           delayed_cancel=botSettings.KB_DELAYED_CANCEL,
-                                           cancel_on_filter=botSettings.KB_CANCEL_ON_FILTER)
-                             .withChannel(max_look_back=botSettings.KB_MAX_LOOK_BACK,
-                                          threshold_factor=botSettings.KB_THRESHOLD_FACTOR,
-                                          buffer_factor=botSettings.KB_BUFFER_FACTOR,
-                                          max_dist_factor=botSettings.KB_MAX_DIST_FACTOR,
-                                          max_swing_length=botSettings.KB_MAX_SWING_LENGTH)
-                             .withRM(risk_factor=botSettings.KB_RISK_FACTOR,
-                                     risk_type=botSettings.KB_RISK_TYPE,
-                                     max_risk_mul=botSettings.KB_MAX_RISK_MUL,
-                                     atr_factor=botSettings.KB_RISK_ATR_FAC)
-                             .withExitModule(SimpleBE(factor=botSettings.KB_BE_FACTOR,
-                                                      buffer=botSettings.KB_BE_BUFFER))
-                             .withTrail(trail_to_swing=botSettings.KB_TRAIL_TO_SWING,
-                                        delayed_swing=botSettings.KB_DELAYED_ENTRY,
-                                        trail_back=botSettings.KB_ALLOW_TRAIL_BACK)
-                             )
+        logger.error("only multistrat bot supported")
     live = LiveTrading(settings=botSettings, trading_bot=bot,telegram=telegram)
     t = threading.Thread(target=live.run_loop)
     t.bot: LiveTrading = live
@@ -156,24 +137,28 @@ def write_dashboard(dashboardFile):
     result = {}
     for thread in activeThreads:
         try:
-            bot: LiveTrading = thread.bot
-            if bot.alive:
-                result[bot.id] = {
-                    'alive': bot.alive,
-                    "last_time": bot.bot.last_time,
-                    "last_tick": str(bot.bot.last_tick_time),
-                    "equity": bot.account.equity
+            engine: LiveTrading = thread.bot
+            if engine.alive:
+                bot= engine.bot
+                result[engine.id] = {
+                    'alive': engine.alive,
+                    "last_time": bot.last_time,
+                    "last_tick": str(bot.last_tick_time),
+                    "equity": engine.account.equity,
+                    "risk_reference":bot.risk_reference,
+                    "max_equity":bot.max_equity,
+                    "time_of_max_equity":bot.time_of_max_equity
                 }
-                data = result[bot.id]
+                data = result[engine.id]
                 data['positions'] = []
-                for pos in bot.bot.open_positions:
-                    data['positions'].append(bot.bot.open_positions[pos].to_json())
+                for pos in engine.bot.open_positions:
+                    data['positions'].append(engine.bot.open_positions[pos].to_json())
                 data['moduleData'] = {}
-                data['moduleData'][bot.bars[0].tstamp] = ExitModule.get_data_for_json(bot.bars[0])
-                data['moduleData'][bot.bars[1].tstamp] = ExitModule.get_data_for_json(bot.bars[1])
+                data['moduleData'][engine.bars[0].tstamp] = ExitModule.get_data_for_json(engine.bars[0])
+                data['moduleData'][engine.bars[1].tstamp] = ExitModule.get_data_for_json(engine.bars[1])
 
             else:
-                result[bot.id] = {"alive": False}
+                result[engine.id] = {"alive": False}
         except Exception as e:
             logger.error("exception in writing dashboard: " + traceback.format_exc())
             thread.bot.alive= False
