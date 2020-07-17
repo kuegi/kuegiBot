@@ -51,7 +51,6 @@ class SfpStrategy(ChannelStrategy):
             return
 
         atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
-        risk = self.risk_factor
 
         # test for SFP:
         # High > HH der letzten X
@@ -101,11 +100,6 @@ class SfpStrategy(ChannelStrategy):
         for idx in range(maxLength - 2, 0, -1):
             rangeMedian = rangeMedian * alpha + (bars[idx].high + bars[idx].low) / 2 * (1 - alpha)
 
-        expectedEntrySplipagePerc = 0.0015
-        expectedExitSlipagePerc = 0.0015
-
-        signalId = "sfp+" + str(bars[0].tstamp)
-
         # SHORT
         longSFP = self.entries != 1 and gotHighSwing and bars[1].close + data.buffer < swingHigh
         longRej = self.entries != 2 and bars[1].high > hh > bars[1].close + data.buffer and \
@@ -124,87 +118,73 @@ class SfpStrategy(ChannelStrategy):
         if (longSFP or longRej) and (bars[1].high - bars[1].close) > atr * self.min_wick_fac \
                 and directionFilter <= 0 and bars[1].high > rangeMedian + atr * self.range_filter_fac:
             self.send_signal_message("sfp strat: short entry triggered")
-            # close existing short pos
-            if self.close_on_opposite:
-                for pos in open_positions.values():
-                    if pos.status == PositionStatus.OPEN and TradingBot.split_pos_Id(pos.id)[1] == PositionDirection.LONG:
-                        # execution will trigger close and cancel of other orders
-                        self.order_interface.send_order(
-                            Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
-                                  amount=-pos.amount, stop=None, limit=None))
-
-            if self.init_stop_type == 1:
-                stop = bars[1].high
-            elif self.init_stop_type == 2:
-                stop = bars[1].high + (bars[1].high - bars[1].close) * 0.5
-            else:
-                stop = max(swingHigh if gotHighSwing else hh, (bars[1].high + bars[1].close) / 2)
-            stop = stop + 1  # buffer
-
-            entry = bars[0].open
-            if stop >= entry*(1+self.min_stop_diff_perc/100) or not self.ignore_on_tight_stop:
-                stop = max(stop, entry*(1+self.min_stop_diff_perc/100))
-
-                amount = self.calc_pos_size(risk=risk, exitPrice=stop * (1 + expectedExitSlipagePerc),
-                                            entry=entry * (1 - expectedEntrySplipagePerc), atr=data.atr)
-
-                posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
-                pos = Position(id=posId, entry=entry, amount=amount, stop=stop,
-                                                 tstamp=bars[0].tstamp)
-                open_positions[posId]= pos
-                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                      amount=amount, stop=None, limit=None))
-                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                      amount=-amount, stop=stop, limit=None))
-                if self.tp_fac > 0:
-                    ref = entry - stop
-                    if self.tp_use_atr:
-                       ref = math.copysign(data.atr, entry - stop)
-                    tp = entry + ref * self.tp_fac
-                    self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.TP),
-                                                          amount=-amount, stop=None, limit=tp))
-                pos.status= PositionStatus.OPEN
+            self.__open_position(PositionDirection.SHORT, bars, swingHigh if gotHighSwing else hh,open_positions)
 
         if (shortSFP or shortRej) and (bars[1].close - bars[1].low) > atr * self.min_wick_fac \
-                and directionFilter >= 0 and bars[1].low < rangeMedian - self.range_filter_fac:
+                and directionFilter >= 0 and bars[1].low < rangeMedian - atr* self.range_filter_fac:
             self.send_signal_message("sfp strat: long entry triggered")
-            # close existing short pos
-            if self.close_on_opposite:
-                for pos in open_positions.values():
-                    if pos.status == PositionStatus.OPEN and TradingBot.split_pos_Id(pos.id)[1] == PositionDirection.SHORT:
-                        # execution will trigger close and cancel of other orders
-                        self.order_interface.send_order(
-                            Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
-                                  amount=-pos.amount, stop=None, limit=None))
+            self.__open_position(PositionDirection.LONG, bars, swingLow if gotLowSwing else ll,open_positions)
 
-            if self.init_stop_type == 1:
-                stop = bars[1].low
-            elif self.init_stop_type == 2:
-                stop = bars[1].low + (bars[1].low - bars[1].close) * 0.5
-            else:
-                stop = min(swingLow if gotLowSwing else ll, (bars[1].low + bars[1].close) / 2)
-            stop = stop - 1  # buffer
+    def __open_position(self, direction, bars, swing ,open_positions):
+        directionFactor= 1
+        oppDirection= PositionDirection.SHORT
+        extreme= bars[1].low
+        capFunc= min
+        if direction == PositionDirection.SHORT:
+            directionFactor= -1
+            oppDirection= PositionDirection.LONG
+            extreme= bars[1].high
+            capFunc= max
+        oppDirectionFactor= directionFactor*-1
 
-            entry = bars[0].open
-            if stop <= entry*(1-self.min_stop_diff_perc/100) or not self.ignore_on_tight_stop:
-                stop = min(stop, entry*(1-self.min_stop_diff_perc/100))
+        expectedEntrySplipagePerc = 0.0015
+        expectedExitSlipagePerc = 0.0015
 
-                amount = self.calc_pos_size(risk=risk, exitPrice=stop * (1 - expectedExitSlipagePerc),
-                                            entry=entry * (1 + expectedEntrySplipagePerc), atr=data.atr)
+        data: Data = self.channel.get_data(bars[1])
 
-                posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
-                pos = Position(id=posId, entry=entry, amount=amount, stop=stop,
-                                                 tstamp=bars[0].tstamp)
-                open_positions[posId]= pos
-                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                      amount=amount, stop=None, limit=None))
-                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                      amount=-amount, stop=stop, limit=None))
-                if self.tp_fac > 0:
-                    ref = entry - stop
-                    if self.tp_use_atr:
-                       ref = math.copysign(data.atr, entry - stop)
-                    tp = entry + ref * self.tp_fac
-                    self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.TP),
-                                                          amount=-amount, stop=None, limit=tp))
-                pos.status= PositionStatus.OPEN
+        if self.close_on_opposite:
+            for pos in open_positions.values():
+                if pos.status == PositionStatus.OPEN and \
+                        TradingBot.split_pos_Id(pos.id)[1] == oppDirection:
+                    # execution will trigger close and cancel of other orders
+                    self.order_interface.send_order(
+                        Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
+                              amount=-pos.amount, stop=None, limit=None))
+
+        if self.init_stop_type == 1:
+            stop = extreme
+        elif self.init_stop_type == 2:
+            stop = extreme + (extreme - bars[1].close) * 0.5
+        else:
+            stop = capFunc(swing, (extreme + bars[1].close) / 2)
+        stop = stop + oppDirectionFactor  # buffer
+
+        entry = bars[0].open
+        signalId = "sfp+" + str(bars[0].tstamp)
+
+        #case long: entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100) >= stop
+        if 0 <= directionFactor*(entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100) - stop) \
+                or not self.ignore_on_tight_stop:
+            stop = capFunc(stop, entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100))
+
+            amount = self.calc_pos_size(risk=self.risk_factor,
+                                        exitPrice=stop * (1 + oppDirectionFactor*expectedExitSlipagePerc),
+                                        entry=entry * (1 + directionFactor*expectedEntrySplipagePerc),
+                                        atr=data.atr)
+
+            posId = TradingBot.full_pos_id(signalId, direction)
+            pos = Position(id=posId, entry=entry, amount=amount, stop=stop,
+                           tstamp=bars[0].tstamp)
+            open_positions[posId] = pos
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
+                                                  amount=amount, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
+                                                  amount=-amount, stop=stop, limit=None))
+            if self.tp_fac > 0:
+                ref = entry - stop
+                if self.tp_use_atr:
+                    ref = math.copysign(data.atr, entry - stop)
+                tp = entry + ref * self.tp_fac
+                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.TP),
+                                                      amount=-amount, stop=None, limit=tp))
+            pos.status = PositionStatus.OPEN
