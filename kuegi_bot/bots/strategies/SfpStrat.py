@@ -29,7 +29,7 @@ class SfpStrategy(ChannelStrategy):
         self.entries = entries
 
     def myId(self):
-        return "SFPStrategy"
+        return "sfp"
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         self.logger.info("init with %.1f %i %.1f | %i %i %i %.1f | %i %i | %.1f %s" %
@@ -102,13 +102,11 @@ class SfpStrategy(ChannelStrategy):
 
         # SHORT
         longSFP = self.entries != 1 and gotHighSwing and bars[1].close + data.buffer < swingHigh
-        longRej = self.entries != 2 and bars[1].high > hh > bars[1].close + data.buffer and \
-                    highSupreme > minRejLength and bars[1].high - bars[1].close > (bars[1].high - bars[1].low) / 2
+        longRej = self.entries != 2 and bars[1].high > hh > bars[1].close + data.buffer and highSupreme > minRejLength
 
         # LONG
         shortSFP = self.entries != 1 and gotLowSwing and bars[1].close - data.buffer > swingLow
-        shortRej = self.entries != 2 and bars[1].low < ll < bars[1].close - data.buffer and lowSupreme > minRejLength \
-                   and bars[1].close - bars[1].low > (bars[1].high - bars[1].low) / 2
+        shortRej = self.entries != 2 and bars[1].low < ll < bars[1].close - data.buffer and lowSupreme > minRejLength
 
         self.logger.info("---- analyzing: %s: %.1f %.1f %.0f | %s %.0f %i or %i %.0f %.0f | %s %.0f %i or %i %.0f %.0f " %
                          (str(datetime.fromtimestamp(bars[0].tstamp)), data.buffer, atr, rangeMedian,
@@ -116,13 +114,13 @@ class SfpStrategy(ChannelStrategy):
                           gotLowSwing, swingLow, llBack, lowSupreme, ll ,bars[1].close - bars[1].low ))
         
         if (longSFP or longRej) and (bars[1].high - bars[1].close) > atr * self.min_wick_fac \
-                and directionFilter <= 0 and bars[1].high > rangeMedian + atr * self.range_filter_fac:
-            self.send_signal_message("sfp strat: short entry triggered")
+                and directionFilter <= 0 and bars[1].high > rangeMedian + atr * self.range_filter_fac \
+                    and bars[1].high - bars[1].close > (bars[1].high - bars[1].low) / 2:
             self.__open_position(PositionDirection.SHORT, bars, swingHigh if gotHighSwing else hh,open_positions)
 
         if (shortSFP or shortRej) and (bars[1].close - bars[1].low) > atr * self.min_wick_fac \
-                and directionFilter >= 0 and bars[1].low < rangeMedian - atr* self.range_filter_fac:
-            self.send_signal_message("sfp strat: long entry triggered")
+                and directionFilter >= 0 and bars[1].low < rangeMedian - atr * self.range_filter_fac\
+                   and bars[1].close - bars[1].low > (bars[1].high - bars[1].low) / 2:
             self.__open_position(PositionDirection.LONG, bars, swingLow if gotLowSwing else ll,open_positions)
 
     def __open_position(self, direction, bars, swing ,open_positions):
@@ -160,7 +158,7 @@ class SfpStrategy(ChannelStrategy):
         stop = stop + oppDirectionFactor  # buffer
 
         entry = bars[0].open
-        signalId = "sfp+" + str(bars[0].tstamp)
+        signalId = self.get_signal_id(bars)
 
         #case long: entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100) >= stop
         if 0 <= directionFactor*(entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100) - stop) \
