@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 
 import bybit
@@ -27,6 +28,7 @@ class ByBitInterface(ExchangeInterface):
 
         self.ws.callback = self.socket_callback
 
+        self.symbol_info:Symbol= None
         self.orders = {}
         self.positions = {}
         self.bars = []
@@ -37,6 +39,7 @@ class ByBitInterface(ExchangeInterface):
         self.logger.info("loading market data. this may take a moment")
         self.initOrders()
         self.initPositions()
+        self.symbol_info= self.get_instrument()
         self.logger.info("got all data. subscribing to live updates.")
         self.ws.subscribe_order()
         self.ws.subscribe_stop_order()
@@ -207,6 +210,11 @@ class ByBitInterface(ExchangeInterface):
                 self.logger.error('got empty result for %s: %s' % (call.operation.operation_id, str(result)))
                 return None
 
+    def normalizePrice(self,price, roundUp):
+        rou= math.ceil if roundUp else math.floor
+        toTicks= rou(price/self.symbol_info.tickSize)*self.symbol_info.tickSize
+        return round(toTicks,self.symbol_info.pricePrecision)
+
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active= False
@@ -228,8 +236,8 @@ class ByBitInterface(ExchangeInterface):
                                                                           symbol=self.symbol,
                                                                           order_type=order_type,
                                                                           qty=abs(order.amount),
-                                                                          price=order.limit_price,
-                                                                          stop_px=order.stop_price,
+                                                                          price=self.normalizePrice(order.limit_price,order.amount < 0),
+                                                                          stop_px=self.normalizePrice(order.stop_price,order.amount > 0),
                                                                           order_link_id=order.id,
                                                                           base_price=order.stop_price + base_side,
                                                                           time_in_force="GoodTillCancel"))
@@ -241,7 +249,7 @@ class ByBitInterface(ExchangeInterface):
                                                                 symbol=self.symbol,
                                                                 order_type=order_type,
                                                                 qty=abs(order.amount),
-                                                                price=order.limit_price,
+                                                                price=self.normalizePrice(order.limit_price,order.amount < 0),
                                                                 order_link_id=order.id,
                                                                 time_in_force="GoodTillCancel"))
             if result is not None:
@@ -252,13 +260,13 @@ class ByBitInterface(ExchangeInterface):
             self._execute(self.bybit.Conditional.Conditional_replace(order_id=order.exchange_id,
                                                                      symbol=self.symbol,
                                                                      p_r_qty=abs(order.amount),
-                                                                     p_r_trigger_price=order.stop_price,
-                                                                     p_r_price=order.limit_price))
+                                                                     p_r_trigger_price=self.normalizePrice(order.stop_price,order.amount > 0),
+                                                                     p_r_price=self.normalizePrice(order.limit_price,order.amount < 0)))
         else:
             self._execute(self.bybit.Order.Order_replace(order_id=order.exchange_id,
                                                          symbol=self.symbol,
                                                          p_r_qty=abs(order.amount),
-                                                         p_r_price=order.limit_price))
+                                                         p_r_price=self.normalizePrice(order.limit_price,order.amount < 0)))
 
     def get_orders(self) -> List[Order]:
         return list(self.orders.values())

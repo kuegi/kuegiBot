@@ -1,10 +1,12 @@
+import math
 import threading
+
 from time import sleep
 from typing import List
 
 import websocket
 
-from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars
+from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars, Symbol
 
 
 class KuegiWebsocket(object):
@@ -93,6 +95,7 @@ class ExchangeWithWS(ExchangeInterface):
         super().__init__(settings, logger, on_tick_callback)
         self.symbol = settings.SYMBOL
         self.baseCurrency = settings.BASE
+        self.symbol_info:Symbol= None
         self.ws = websocket
 
         self.orders = {}
@@ -105,6 +108,7 @@ class ExchangeWithWS(ExchangeInterface):
         self.logger.info("loading market data. this may take a moment")
         self.initOrders()
         self.initPositions()
+        self.symbol_info= self.get_instrument()
         self.logger.info(
             "starting with %.2f in wallet and pos  %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
                                                                    self.positions[self.symbol].quantity,
@@ -113,6 +117,13 @@ class ExchangeWithWS(ExchangeInterface):
         self.logger.info("got all data. subscribing to live updates.")
         self.subscribeRealtimeData()
         self.logger.info("ready to go")
+
+    def normalizePrice(self,price, roundUp):
+        if price is None:
+            return None
+        rou= math.ceil if roundUp else math.floor
+        toTicks= rou(price/self.symbol_info.tickSize)*self.symbol_info.tickSize
+        return round(toTicks,self.symbol_info.pricePrecision)
 
     def subscribeRealtimeData(self):
         pass

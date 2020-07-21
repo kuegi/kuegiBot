@@ -20,7 +20,12 @@ class Strategy:
         self.telegram:TelegramBot= None
 
     def myId(self):
-        return "GenericStrategy"
+        return "gen"
+
+    def get_signal_id(self,bars:List[Bar]):
+        delta= bars[0].tstamp-bars[1].tstamp
+        timepart= int((bars[0].tstamp / delta) % 10000)
+        return self.myId()+"+"+str(timepart)
 
     def prepare(self, logger, order_interface):
         self.logger = logger
@@ -33,7 +38,7 @@ class Strategy:
         return 5
 
     def owns_signal_id(self, signalId: str):
-        return False
+        return signalId.startswith(self.myId()+"+")
 
     def got_data_for_position_sync(self, bars: List[Bar]) -> bool:
         raise NotImplementedError
@@ -61,10 +66,6 @@ class Strategy:
 
     def with_telegram(self, telegram:TelegramBot):
         self.telegram= telegram
-
-    def send_signal_message(self, signal_message:str):
-        if self.telegram is not None:
-            self.telegram.send_signal(signal_message)
 
     def withRM(self, risk_factor: float = 0.01, max_risk_mul: float = 2, risk_type: int = 0, atr_factor: float = 1):
         self.risk_factor = risk_factor

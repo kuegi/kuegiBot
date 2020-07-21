@@ -9,12 +9,10 @@ from time import sleep, time
 from typing import List
 
 from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
-from kuegi_bot.bots.kuegi_bot import KuegiBot
 from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
 from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule
-from kuegi_bot.bots.trading_bot import TradingBot
 from kuegi_bot.trade_engine import LiveTrading
 from kuegi_bot.utils import log
 from kuegi_bot.utils.telegram import TelegramBot

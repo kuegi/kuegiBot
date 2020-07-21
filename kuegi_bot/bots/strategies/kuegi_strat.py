@@ -24,7 +24,7 @@ class KuegiStrategy(ChannelStrategy):
         self.cancel_on_filter = cancel_on_filter
 
     def myId(self):
-        return "KuegiStrategy"
+        return "kuegi"
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         self.logger.info("init with %.0f %.1f  %.1f %i %s %s %s  %s" %
@@ -33,9 +33,6 @@ class KuegiStrategy(ChannelStrategy):
                           self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
                           self.cancel_on_filter))
         super().init(bars, account, symbol)
-
-    def owns_signal_id(self, signalId: str):
-        return signalId.startswith("kuegi+") or signalId.startswith('158') # old style pure tstamp
 
     def position_got_opened(self, position: Position, bars: List[Bar], account: Account, open_positions):
         other_id = TradingBot.get_other_direction_id(position.id)
@@ -201,10 +198,7 @@ class KuegiStrategy(ChannelStrategy):
                 # if len(self.open_positions) > 0:
                 # return
 
-                self.send_signal_message("kuegi strat: active channel found between %.0f and %.0f" %
-                                        ( shortEntry, longEntry))
-
-                signalId = 'kuegi+' + str(bars[0].tstamp)
+                signalId = self.get_signal_id(bars)
                 if not foundLong and directionFilter >= 0 and entriesAllowed:
                     posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
                     entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
