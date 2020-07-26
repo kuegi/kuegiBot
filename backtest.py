@@ -89,6 +89,10 @@ bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars3= process_low_tf_bars(m1_bars, 240, 120)
 #bars4= process_low_tf_bars(m1_bars, 240, 180)
 
+oos_cut=int(len(bars_b)/3)
+bars= bars_b[oos_cut:]
+bars_oos= bars_b[:oos_cut]
+
 #runOpti(bars_m,[1],[63],[1])
 
 '''

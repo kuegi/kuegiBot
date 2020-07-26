@@ -52,9 +52,9 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bitme
     knownfiles= {
         "bitmex": 49,
         "bybit": 17,
-        "binance": 7,
+        "binance": 9,
         "binanceSpot": 28,
-        "phemex":5
+        "phemex":6
     }
     end = knownfiles[exchange]
     start = max(0,end - int(days_in_history * 1440 / 50000))

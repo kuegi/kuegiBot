@@ -39,9 +39,9 @@ offset = 0
 filecount = {
     "bitmex": 49,
     "bybit": 17,
-    "binance": 7,
+    "binance": 9,
     "binanceSpot": 28,
-    "phemex":5
+    "phemex":6
 }
 lastknown = filecount[exchange]
 
