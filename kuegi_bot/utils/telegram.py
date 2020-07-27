@@ -15,7 +15,7 @@ class TelegramBot:
 			self.logger.warn("missing telegram logChatId")
 			return
 
-		self.__internal_send(self.executionChannel, log_message)
+		self.__internal_send(self.logChatId, log_message)
 		''' 
 		# if doing debounce, but might have problems with id collision on multiple ids
 		if debounceId is None:
