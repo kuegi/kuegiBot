@@ -246,7 +246,6 @@ class ExchangeInterface(OrderInterface):
         while True:
             try:
                 self.internal_cancel_order(order)
-                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 self.logger.info(e)
                 sleep(self.settings.API_ERROR_INTERVAL)
@@ -258,7 +257,6 @@ class ExchangeInterface(OrderInterface):
         while True:
             try:
                 self.internal_send_order(order)
-                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 self.logger.info(e)
                 sleep(self.settings.API_ERROR_INTERVAL)
@@ -270,7 +268,6 @@ class ExchangeInterface(OrderInterface):
         while True:
             try:
                 self.internal_update_order(order)
-                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 self.logger.info(e)
                 sleep(self.settings.API_ERROR_INTERVAL)

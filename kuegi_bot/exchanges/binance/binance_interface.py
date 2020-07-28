@@ -251,7 +251,6 @@ class BinanceInterface(ExchangeInterface):
         self.on_tick_callback(True)  # triggers a reset of the tick-delay.
         # otherwise we risk a tick to be calced after the cancel, before the new order
         self.send_order(order)
-        self.on_tick_callback(True)  # triggers a reset of the tick-delay
 
     def get_orders(self) -> List[Order]:
         return list(self.orders.values())
