@@ -156,6 +156,7 @@ class LiveTrading(OrderInterface):
                 elif b.tstamp == self.bars[0].tstamp:
                     # merge?
                     if b.subbars[-1].tstamp == self.bars[0].subbars[-1].tstamp:
+                        b.bot_data = self.bars[0].bot_data  # merge bot data to not loose it
                         self.bars[0] = b
                     else:
                         # merge!

@@ -176,7 +176,10 @@ class Position:
         orders= tempdic['connectedOrders']
         tempdic['connectedOrders']= []
         for order in orders:
-            tempdic['connectedOrders'].append(order.__dict__)
+            if isinstance(order,dict):
+                tempdic['connectedOrders'].append(order)
+            else:
+                tempdic['connectedOrders'].append(order.__dict__)
         return tempdic
 
     @staticmethod

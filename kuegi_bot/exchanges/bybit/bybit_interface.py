@@ -211,6 +211,8 @@ class ByBitInterface(ExchangeInterface):
                 return None
 
     def normalizePrice(self,price, roundUp):
+        if price is None:
+            return None
         rou= math.ceil if roundUp else math.floor
         toTicks= rou(price/self.symbol_info.tickSize)*self.symbol_info.tickSize
         return round(toTicks,self.symbol_info.pricePrecision)
@@ -304,10 +306,10 @@ class ByBitInterface(ExchangeInterface):
             if entry['name'] == symbol:
                 return Symbol(symbol=entry['name'],
                               isInverse=True,  # all bybit is inverse
-                              lotSize=entry['lot_size_filter']['qty_step'],
-                              tickSize=entry['price_filter']['tick_size'],
-                              makerFee=entry['maker_fee'],
-                              takerFee=entry['taker_fee'])
+                              lotSize=float(entry['lot_size_filter']['qty_step']),
+                              tickSize=float(entry['price_filter']['tick_size']),
+                              makerFee=float(entry['maker_fee']),
+                              takerFee=float(entry['taker_fee']))
         return None
 
     def get_position(self, symbol=None):

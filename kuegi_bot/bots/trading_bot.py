@@ -405,8 +405,8 @@ class TradingBot:
             for pos in self.open_positions:
                 pos_json.append(self.open_positions[pos].to_json())
             moduleData = {}
-            moduleData[bars[0].tstamp]=ExitModule.get_data_for_json(bars[0])
-            moduleData[bars[1].tstamp]=ExitModule.get_data_for_json(bars[1])
+            for idx in range(5):
+                moduleData[bars[idx].tstamp]=ExitModule.get_data_for_json(bars[idx])
 
             data = {"last_time": self.last_time,
                     "last_tick": str(self.last_tick_time),
@@ -436,12 +436,10 @@ class TradingBot:
                         pos: Position = Position.from_json(pos_json)
                         self.open_positions[pos.id] = pos
                     if "moduleData" in data.keys():
-                        if str(bars[0].tstamp) in data["moduleData"].keys():
-                            moduleData = data['moduleData'][str(bars[0].tstamp)]
-                            ExitModule.set_data_from_json(bars[0], moduleData)
-                        if str(bars[1].tstamp) in data["moduleData"].keys():
-                            moduleData = data['moduleData'][str(bars[1].tstamp)]
-                            ExitModule.set_data_from_json(bars[1], moduleData)
+                        for idx in range(5):
+                            if str(bars[idx].tstamp) in data["moduleData"].keys():
+                                moduleData = data['moduleData'][str(bars[idx].tstamp)]
+                                ExitModule.set_data_from_json(bars[idx], moduleData)
 
                     self.logger.info("done loading " + str(
                         len(self.open_positions)) + " positions from " + self._get_pos_file() + " last time " + str(
