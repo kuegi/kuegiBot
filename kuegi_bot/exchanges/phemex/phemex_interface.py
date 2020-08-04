@@ -150,6 +150,8 @@ class PhemexInterface(ExchangeWithWS):
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
+        if order.stop_price is not None and (self.last - order.stop_price)*order.amount >= 0:
+            order.stop_price= None # already triggered
         if order.limit_price is not None:
             if order.stop_price is not None:
                 order_type = "StopLimit"

@@ -8,6 +8,7 @@ As this whole repo is mainly for myself to code and document stuff, this part is
 - How to survive the learning curve: [Riskmanagement](riskmanagement.md)
 - How to build an automated trading system: [Building my Bot](HowToBuildABot.md)
 - Size matters: [Performance numbers and which i like](performanceNumbers.md)
+- the good, the bad and the ugly: [Could you stand the heat?](darkSideOfTrading.md)
 - non-linearity: nothing is a straight line
 - entries vs. exits
 - benefits of bottrading: taking signals 24/7
