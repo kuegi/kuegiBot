@@ -301,7 +301,7 @@ class TradingBot:
                            order.stop_price if order.stop_price is not None else order.limit_price))
                     self.order_interface.cancel_order(order)
 
-            elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(remainingPosition) > abs(
+            elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(round(remainingPosition,self.symbol.quantityPrecision)) > abs(
                     order.amount):
                 # only assume open position for the waiting SL with the remainingPosition also indicates it, 
                 # otherwise it might be a pending cancel (from executed TP) or already executed
@@ -335,7 +335,7 @@ class TradingBot:
             if pos.status == PositionStatus.PENDING or pos.status == PositionStatus.TRIGGERED:
                 # should have the opening order in the system, but doesn't
                 # not sure why: in doubt: not create wrong orders
-                if remainingPosition * pos.amount > 0 and abs(remainingPosition) >= abs(pos.amount):
+                if remainingPosition * pos.amount > 0 and abs(round(remainingPosition,self.symbol.quantityPrecision)) >= abs(pos.amount):
                     # assume position was opened without us realizing (during downtime)
                     self.logger.warn(
                         "pending position with no entry order but open position looks like it was opened: %s" % (posId))
@@ -347,7 +347,8 @@ class TradingBot:
                     pos.status = PositionStatus.MISSED
                     self.position_closed(pos, account)
             elif pos.status == PositionStatus.OPEN:
-                if remainingPosition == 0 and pos.initial_stop is not None:  # for some reason everything matches but we are missing the stop in the market
+                if round(remainingPosition,self.symbol.quantityPrecision) == 0 and pos.initial_stop is not None:
+                    # for some reason everything matches but we are missing the stop in the market
                     self.logger.warn(
                         "found position with no stop in market. added stop for it: %s with %.1f contracts" % (
                         posId, pos.amount))
@@ -365,6 +366,7 @@ class TradingBot:
                         "pending position with noconnection order not pending or open? closed: %s" % (posId))
                 self.position_closed(pos, account)
 
+        remainingPosition= round(remainingPosition,self.symbol.quantityPrecision)
         # now there should not be any mismatch between positions and orders.
         if remainingPosition != 0:
             unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
