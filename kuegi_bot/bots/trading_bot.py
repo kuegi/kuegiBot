@@ -544,7 +544,7 @@ class TradingBot:
     # additional stuff
     ###
 
-    def create_performance_plot(self):
+    def create_performance_plot(self,bars:List[Bar]):
         self.logger.info("preparing stats")
         stats = {
             "dd": 0,
@@ -583,6 +583,11 @@ class TradingBot:
         startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
 
         stats_range = []
+        # temporarily add filled exit to have position in the result
+        for pos in self.position_history:
+            if pos.status == PositionStatus.OPEN:
+                pos.filled_exit= bars[0].close
+
         actual_history = list(
             filter(lambda p1: p1.filled_entry is not None and p1.filled_exit is not None, self.position_history))
         for pos in actual_history:
@@ -628,6 +633,11 @@ class TradingBot:
 
         self.logger.info("creating equityline")
         time = list(map(lambda p1: datetime.fromtimestamp(p1.exit_tstamp), actual_history))
+
+        # undo temporarily filled exit
+        for pos in self.position_history:
+            if pos.status == PositionStatus.OPEN:
+                pos.filled_exit= None
 
         data = []
         for key in yaxis.keys():
@@ -687,6 +697,19 @@ class TradingBot:
                     y0=pos.filled_entry,
                     x1=datetime.fromtimestamp(pos.exit_tstamp),
                     y1=pos.filled_exit,
+                    line=dict(
+                        color="Green" if pos.amount > 0 else "Red",
+                        width=2,
+                        dash="solid"
+                    )
+                ))
+            if pos.status == PositionStatus.OPEN:
+                fig.add_shape(go.layout.Shape(
+                    type="line",
+                    x0=datetime.fromtimestamp(pos.entry_tstamp),
+                    y0=pos.filled_entry,
+                    x1=datetime.fromtimestamp(bars[0]),
+                    y1=bars[0].close,
                     line=dict(
                         color="Green" if pos.amount > 0 else "Red",
                         width=2,
