@@ -301,7 +301,7 @@ class TradingBot:
                            order.stop_price if order.stop_price is not None else order.limit_price))
                     self.order_interface.cancel_order(order)
 
-            elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(remainingPosition) > abs(
+            elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(round(remainingPosition,self.symbol.quantityPrecision)) > abs(
                     order.amount):
                 # only assume open position for the waiting SL with the remainingPosition also indicates it, 
                 # otherwise it might be a pending cancel (from executed TP) or already executed
@@ -335,7 +335,7 @@ class TradingBot:
             if pos.status == PositionStatus.PENDING or pos.status == PositionStatus.TRIGGERED:
                 # should have the opening order in the system, but doesn't
                 # not sure why: in doubt: not create wrong orders
-                if remainingPosition * pos.amount > 0 and abs(remainingPosition) >= abs(pos.amount):
+                if remainingPosition * pos.amount > 0 and abs(round(remainingPosition,self.symbol.quantityPrecision)) >= abs(pos.amount):
                     # assume position was opened without us realizing (during downtime)
                     self.logger.warn(
                         "pending position with no entry order but open position looks like it was opened: %s" % (posId))
@@ -347,7 +347,8 @@ class TradingBot:
                     pos.status = PositionStatus.MISSED
                     self.position_closed(pos, account)
             elif pos.status == PositionStatus.OPEN:
-                if remainingPosition == 0 and pos.initial_stop is not None:  # for some reason everything matches but we are missing the stop in the market
+                if round(remainingPosition,self.symbol.quantityPrecision) == 0 and pos.initial_stop is not None:
+                    # for some reason everything matches but we are missing the stop in the market
                     self.logger.warn(
                         "found position with no stop in market. added stop for it: %s with %.1f contracts" % (
                         posId, pos.amount))
@@ -365,6 +366,7 @@ class TradingBot:
                         "pending position with noconnection order not pending or open? closed: %s" % (posId))
                 self.position_closed(pos, account)
 
+        remainingPosition= round(remainingPosition,self.symbol.quantityPrecision)
         # now there should not be any mismatch between positions and orders.
         if remainingPosition != 0:
             unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
@@ -405,8 +407,8 @@ class TradingBot:
             for pos in self.open_positions:
                 pos_json.append(self.open_positions[pos].to_json())
             moduleData = {}
-            moduleData[bars[0].tstamp]=ExitModule.get_data_for_json(bars[0])
-            moduleData[bars[1].tstamp]=ExitModule.get_data_for_json(bars[1])
+            for idx in range(5):
+                moduleData[bars[idx].tstamp]=ExitModule.get_data_for_json(bars[idx])
 
             data = {"last_time": self.last_time,
                     "last_tick": str(self.last_tick_time),
@@ -436,12 +438,10 @@ class TradingBot:
                         pos: Position = Position.from_json(pos_json)
                         self.open_positions[pos.id] = pos
                     if "moduleData" in data.keys():
-                        if str(bars[0].tstamp) in data["moduleData"].keys():
-                            moduleData = data['moduleData'][str(bars[0].tstamp)]
-                            ExitModule.set_data_from_json(bars[0], moduleData)
-                        if str(bars[1].tstamp) in data["moduleData"].keys():
-                            moduleData = data['moduleData'][str(bars[1].tstamp)]
-                            ExitModule.set_data_from_json(bars[1], moduleData)
+                        for idx in range(5):
+                            if str(bars[idx].tstamp) in data["moduleData"].keys():
+                                moduleData = data['moduleData'][str(bars[idx].tstamp)]
+                                ExitModule.set_data_from_json(bars[idx], moduleData)
 
                     self.logger.info("done loading " + str(
                         len(self.open_positions)) + " positions from " + self._get_pos_file() + " last time " + str(
@@ -544,7 +544,7 @@ class TradingBot:
     # additional stuff
     ###
 
-    def create_performance_plot(self):
+    def create_performance_plot(self,bars:List[Bar]):
         self.logger.info("preparing stats")
         stats = {
             "dd": 0,
@@ -583,6 +583,11 @@ class TradingBot:
         startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
 
         stats_range = []
+        # temporarily add filled exit to have position in the result
+        for pos in self.position_history:
+            if pos.status == PositionStatus.OPEN:
+                pos.filled_exit= bars[0].close
+
         actual_history = list(
             filter(lambda p1: p1.filled_entry is not None and p1.filled_exit is not None, self.position_history))
         for pos in actual_history:
@@ -628,6 +633,11 @@ class TradingBot:
 
         self.logger.info("creating equityline")
         time = list(map(lambda p1: datetime.fromtimestamp(p1.exit_tstamp), actual_history))
+
+        # undo temporarily filled exit
+        for pos in self.position_history:
+            if pos.status == PositionStatus.OPEN:
+                pos.filled_exit= None
 
         data = []
         for key in yaxis.keys():
@@ -687,6 +697,19 @@ class TradingBot:
                     y0=pos.filled_entry,
                     x1=datetime.fromtimestamp(pos.exit_tstamp),
                     y1=pos.filled_exit,
+                    line=dict(
+                        color="Green" if pos.amount > 0 else "Red",
+                        width=2,
+                        dash="solid"
+                    )
+                ))
+            if pos.status == PositionStatus.OPEN:
+                fig.add_shape(go.layout.Shape(
+                    type="line",
+                    x0=datetime.fromtimestamp(pos.entry_tstamp),
+                    y0=pos.filled_entry,
+                    x1=datetime.fromtimestamp(bars[0]),
+                    y1=bars[0].close,
                     line=dict(
                         color="Green" if pos.amount > 0 else "Red",
                         width=2,

@@ -100,6 +100,40 @@ class SimpleBE(ExitModule):
                 to_update.append(order)
 
 
+class MaxSLDiff(ExitModule):
+    ''' trails the stop to a max dist in ATR from the extreme point
+    '''
+
+    def __init__(self, maxATRDiff: float , atrPeriod: int = 0):
+        super().__init__()
+        self.maxATRDiff = maxATRDiff
+        self.atrPeriod = atrPeriod
+
+    def init(self, logger):
+        super().init(logger)
+        self.logger.info("init maxATRDiff %.1f %i" % (self.maxATRDiff, self.atrPeriod))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        if position is not None and self.maxATRDiff > 0 and self.atrPeriod > 0:
+            # trail
+            newStop = order.stop_price
+            atrId = "ATR" + str(self.atrPeriod)
+            refRange = Indicator.get_data_static(bars[1], atrId)
+            if refRange is None:
+                refRange = clean_range(bars, offset=1, length=self.atrPeriod)
+                Indicator.write_data_static(bars[1], refRange, atrId)
+
+            if refRange != 0:
+                ep = bars[0].high if position.amount > 0 else bars[0].low
+                maxdistStop= ep - math.copysign(refRange*self.maxATRDiff,position.amount)
+                if (maxdistStop - newStop) * position.amount > 0:
+                    newStop = math.floor(maxdistStop) if position.amount < 0 else math.ceil(maxdistStop)
+
+            if newStop != order.stop_price:
+                order.stop_price = newStop
+                to_update.append(order)
+
+
 class ParaData:
     def __init__(self):
         self.acc = 0

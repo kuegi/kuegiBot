@@ -102,6 +102,7 @@ class LiveTrading(OrderInterface):
         if self.telegram_bot is not None and TradingBot.order_type_from_order_id(order.id) == OrderType.SL:
             self.telegram_bot.send_log("updating (" + self.id + "): " + order.print_info(), order.id)
         self.exchange.update_order(order)
+        self.exchange.on_tick_callback(True) ##simulate tick to prevent early updates (need to wait for exchange to update order
 
     def cancel_order(self, order: Order):
         if self.telegram_bot is not None:
@@ -156,6 +157,7 @@ class LiveTrading(OrderInterface):
                 elif b.tstamp == self.bars[0].tstamp:
                     # merge?
                     if b.subbars[-1].tstamp == self.bars[0].subbars[-1].tstamp:
+                        b.bot_data = self.bars[0].bot_data  # merge bot data to not loose it
                         self.bars[0] = b
                     else:
                         # merge!

@@ -48,7 +48,7 @@ function refresh() {
         for (let id in data) {
             var bot= data[id];
             bot.id= id;
-            bot.drawdown = (100*(bot.max_equity - bot.equity)/bot.max_equity).toFixed(1)+"%"
+            bot.drawdown = ((bot.max_equity - bot.equity)/bot.risk_reference).toFixed(1)+"R"
             bot.uwdays= ((Date.now()-bot.time_of_max_equity*1000)/(1000*60*60*24)).toFixed(1)
             bot.equity = bot.equity.toFixed(3)
             bot.max_equity = bot.max_equity.toFixed(3)

@@ -176,7 +176,10 @@ class Position:
         orders= tempdic['connectedOrders']
         tempdic['connectedOrders']= []
         for order in orders:
-            tempdic['connectedOrders'].append(order.__dict__)
+            if isinstance(order,dict):
+                tempdic['connectedOrders'].append(order)
+            else:
+                tempdic['connectedOrders'].append(order.__dict__)
         return tempdic
 
     @staticmethod
@@ -243,7 +246,6 @@ class ExchangeInterface(OrderInterface):
         while True:
             try:
                 self.internal_cancel_order(order)
-                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 self.logger.info(e)
                 sleep(self.settings.API_ERROR_INTERVAL)
@@ -255,7 +257,6 @@ class ExchangeInterface(OrderInterface):
         while True:
             try:
                 self.internal_send_order(order)
-                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 self.logger.info(e)
                 sleep(self.settings.API_ERROR_INTERVAL)
@@ -267,7 +268,6 @@ class ExchangeInterface(OrderInterface):
         while True:
             try:
                 self.internal_update_order(order)
-                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 self.logger.info(e)
                 sleep(self.settings.API_ERROR_INTERVAL)
