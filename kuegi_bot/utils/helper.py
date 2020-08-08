@@ -48,24 +48,32 @@ def load_settings_from_args():
     return settings
 
 
-def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bitmex'):
+def history_file_name(index, exchange,symbol='') :
+    if len(symbol) > 0:
+        symbol += "_"
+    return 'history/' + exchange + '/' + symbol + 'M1_' + str(index) + '.json'
+
+
+def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bitmex',symbol=''):
+    #empty symbol is legacy and means btcusd
     knownfiles= {
-        "bitmex": 49,
-        "bybit": 17,
-        "binance": 9,
-        "binanceSpot": 28,
-        "phemex":6
+        "bitmex_": 49,
+        "bybit_": 17,
+        "bybit_ETHUSD": 16,
+        "binance_": 9,
+        "binanceSpot_": 28,
+        "phemex_":6
     }
-    end = knownfiles[exchange]
+    end = knownfiles[exchange+"_"+symbol]
     start = max(0,end - int(days_in_history * 1440 / 50000))
     m1_bars_temp = []
     logger.info("loading " + str(end - start) + " history files from "+exchange)
     for i in range(start, end + 1):
-        with open('history/'+exchange+'/M1_' + str(i) + '.json') as f:
+        with open(history_file_name(i,exchange,symbol)) as f:
             m1_bars_temp += json.load(f)
     logger.info("done loading files, now preparing them")
-    len_bars = len(m1_bars_temp)
-    m1_bars = m1_bars_temp[len_bars-(days_in_history * 1440):len_bars]
+    start = max(0,len(m1_bars_temp)-(days_in_history * 1440))
+    m1_bars = m1_bars_temp[start:]
 
     subbars: List[Bar] = []
     for b in m1_bars:
