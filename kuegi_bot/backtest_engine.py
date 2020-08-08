@@ -257,7 +257,8 @@ class BackTest(OrderInterface):
             total_days= (self.bars[0].tstamp - self.bars[-1].tstamp)/(60*60*24)
             rel= profit / (self.maxDD if self.maxDD > 0 else 1)
             rel_per_year = rel / (total_days/365)
-            self.logger.info("finished | pos: " + str(len(self.bot.position_history))
+            self.logger.info("finished | closed pos: " + str(len(self.bot.position_history))
+                        + " | open pos: " + str(len(self.bot.open_positions))
                         + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
                         + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
                         + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
@@ -267,7 +268,7 @@ class BackTest(OrderInterface):
                         + " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays,daysInPos,maxDays))
                         )
         else:
-            self.logger.info("finished with no trdes")
+            self.logger.info("finished with no trades")
 
         #self.write_results_to_files()
         return self

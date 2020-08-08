@@ -58,12 +58,14 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bitme
     }
     end = knownfiles[exchange]
     start = max(0,end - int(days_in_history * 1440 / 50000))
-    m1_bars = []
+    m1_bars_temp = []
     logger.info("loading " + str(end - start) + " history files from "+exchange)
     for i in range(start, end + 1):
         with open('history/'+exchange+'/M1_' + str(i) + '.json') as f:
-            m1_bars += json.load(f)
+            m1_bars_temp += json.load(f)
     logger.info("done loading files, now preparing them")
+    len_bars = len(m1_bars_temp)
+    m1_bars = m1_bars_temp[len_bars-(days_in_history * 1440):len_bars]
 
     subbars: List[Bar] = []
     for b in m1_bars:
