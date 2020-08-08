@@ -689,6 +689,22 @@ class TradingBot:
     def add_to_plot(self, fig, bars, time):
         self.logger.info("adding trades")
         # trades
+
+        for pos in self.open_positions.values():
+            if pos.status == PositionStatus.OPEN:
+                fig.add_shape(go.layout.Shape(
+                    type="line",
+                    x0=datetime.fromtimestamp(pos.entry_tstamp),
+                    y0=pos.filled_entry,
+                    x1=datetime.fromtimestamp(bars[0].tstamp),
+                    y1=bars[0].close,
+                    line=dict(
+                        color="Green" if pos.amount > 0 else "Red",
+                        width=2,
+                        dash="dash"
+                    )
+                ))
+
         for pos in self.position_history:
             if pos.status == PositionStatus.CLOSED:
                 fig.add_shape(go.layout.Shape(
@@ -703,19 +719,7 @@ class TradingBot:
                         dash="solid"
                     )
                 ))
-            if pos.status == PositionStatus.OPEN:
-                fig.add_shape(go.layout.Shape(
-                    type="line",
-                    x0=datetime.fromtimestamp(pos.entry_tstamp),
-                    y0=pos.filled_entry,
-                    x1=datetime.fromtimestamp(bars[0]),
-                    y1=bars[0].close,
-                    line=dict(
-                        color="Green" if pos.amount > 0 else "Red",
-                        width=2,
-                        dash="solid"
-                    )
-                ))
+
             if pos.status == PositionStatus.MISSED:
                 fig.add_shape(go.layout.Shape(
                     type="line",
