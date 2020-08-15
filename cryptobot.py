@@ -209,7 +209,8 @@ def run(settings):
                 for thread in activeThreads:
                     if not thread.is_alive() or not thread.bot.alive:
                         logger.info("%s died. stopping" % thread.bot.id)
-                        telegram_bot.send_log(thread.bot.id+" died. restarting")
+                        if telegram_bot is not None:
+                            telegram_bot.send_log(thread.bot.id+" died. restarting")
                         toRestart.append(thread.originalSettings)
                         thread.bot.exit()
                         toRemove.append(thread)

@@ -1,3 +1,4 @@
+import math
 from typing import List
 from time import sleep
 from datetime import datetime
@@ -87,6 +88,13 @@ class Symbol:
 
     def __str__(self):
         return str(self.__dict__)
+
+    def normalizePrice(self,price, roundUp):
+        if price is None:
+            return None
+        rou= math.ceil if roundUp else math.floor
+        toTicks= rou(price/self.tickSize)*self.tickSize
+        return round(toTicks,self.pricePrecision)
 
 
 class OrderType(Enum):

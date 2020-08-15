@@ -130,11 +130,11 @@ class KuegiStrategy(ChannelStrategy):
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             if atr * self.min_channel_size_factor < swing_range < atr * self.max_channel_size_factor:
                 risk = self.risk_factor
-                stopLong = int(max(data.shortSwing, data.longTrail))
-                stopShort = int(min(data.longSwing, data.shortTrail))
+                stopLong = self.symbol.normalizePrice(max(data.shortSwing, data.longTrail), roundUp=False)
+                stopShort = self.symbol.normalizePrice(min(data.longSwing, data.shortTrail), roundUp=True)
 
-                longEntry = int(max(data.longSwing, bars[0].high))
-                shortEntry = int(min(data.shortSwing, bars[0].low))
+                longEntry = self.symbol.normalizePrice(max(data.longSwing, bars[0].high), roundUp=True)
+                shortEntry = self.symbol.normalizePrice(min(data.shortSwing, bars[0].low), roundUp=False)
 
                 expectedEntrySplipagePerc = 0.0015 if self.limit_entry_offset_perc is None else 0
                 expectedExitSlipagePerc = 0.0015
@@ -168,10 +168,10 @@ class KuegiStrategy(ChannelStrategy):
                         entryBuffer= entry*self.limit_entry_offset_perc*0.01 if self.limit_entry_offset_perc is not None else None
                         for order in account.open_orders:
                             if TradingBot.position_id_from_order_id(order.id) == position.id:
-                                newEntry = int(
-                                    position.wanted_entry * (1 - self.entry_tightening) + entry * self.entry_tightening)
-                                newStop = int(
-                                    position.initial_stop * (1 - self.entry_tightening) + stop * self.entry_tightening)
+                                newEntry = position.wanted_entry * (1 - self.entry_tightening) + entry * self.entry_tightening
+                                newEntry= self.symbol.normalizePrice(newEntry,roundUp=order.amount > 0)
+                                newStop = position.initial_stop * (1 - self.entry_tightening) + stop * self.entry_tightening
+                                newStop= self.symbol.normalizePrice(newStop,roundUp=order.amount < 0)
                                 amount = self.calc_pos_size(risk=risk, exitPrice=newStop * exitFac,
                                                             entry=newEntry * entryFac, atr=data.atr)
                                 if amount * order.amount < 0:

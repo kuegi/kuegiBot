@@ -1,3 +1,5 @@
+from time import sleep
+
 import math
 from datetime import datetime
 
@@ -41,14 +43,25 @@ class ByBitInterface(ExchangeInterface):
         self.initPositions()
         self.symbol_info= self.get_instrument()
         self.logger.info("got all data. subscribing to live updates.")
-        self.ws.subscribe_order()
-        self.ws.subscribe_stop_order()
-        self.ws.subscribe_execution()
-        self.ws.subscribe_position()
-        subbarsIntervall = '1' if self.settings.MINUTES_PER_BAR <= 60 else '60'
-        self.ws.subscribe_klineV2(subbarsIntervall, self.symbol)
-        self.ws.subscribe_instrument_info(self.symbol)
-        self.logger.info("ready to go")
+
+        retry_times = 5
+        while not self.ws.auth and retry_times:
+            sleep(1)
+            retry_times -= 1
+        if self.ws.auth:
+            self.ws.subscribe_order()
+            self.ws.subscribe_stop_order()
+            self.ws.subscribe_execution()
+            self.ws.subscribe_position()
+            subbarsIntervall = '1' if self.settings.MINUTES_PER_BAR <= 60 else '60'
+            self.ws.subscribe_klineV2(subbarsIntervall, self.symbol)
+            self.ws.subscribe_instrument_info(self.symbol)
+            self.logger.info("ready to go")
+        else:
+            self.logger.error("couldn't auth the socket, exiting")
+            self.exit()
+            raise Exception('Error！Couldn not auth the WebSocket!.')
+
 
     def processOrders(self, apiOrders):
         if len(apiOrders) > 0 and 'data' in apiOrders.keys():
@@ -212,13 +225,6 @@ class ByBitInterface(ExchangeInterface):
                 self.logger.error('got empty result for %s: %s' % (call.operation.operation_id, str(result)))
                 return None
 
-    def normalizePrice(self,price, roundUp):
-        if price is None:
-            return None
-        rou= math.ceil if roundUp else math.floor
-        toTicks= rou(price/self.symbol_info.tickSize)*self.symbol_info.tickSize
-        return round(toTicks,self.symbol_info.pricePrecision)
-
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active= False
@@ -240,8 +246,8 @@ class ByBitInterface(ExchangeInterface):
                                                                           symbol=self.symbol,
                                                                           order_type=order_type,
                                                                           qty=abs(order.amount),
-                                                                          price=self.normalizePrice(order.limit_price,order.amount < 0),
-                                                                          stop_px=self.normalizePrice(order.stop_price,order.amount > 0),
+                                                                          price=self.symbol_info.normalizePrice(order.limit_price,order.amount < 0),
+                                                                          stop_px=self.symbol_info.normalizePrice(order.stop_price,order.amount > 0),
                                                                           order_link_id=order.id,
                                                                           base_price=order.stop_price + base_side,
                                                                           time_in_force="GoodTillCancel"))
@@ -253,7 +259,7 @@ class ByBitInterface(ExchangeInterface):
                                                                 symbol=self.symbol,
                                                                 order_type=order_type,
                                                                 qty=abs(order.amount),
-                                                                price=self.normalizePrice(order.limit_price,order.amount < 0),
+                                                                price=self.symbol_info.normalizePrice(order.limit_price,order.amount < 0),
                                                                 order_link_id=order.id,
                                                                 time_in_force="GoodTillCancel"))
             if result is not None:
@@ -264,13 +270,13 @@ class ByBitInterface(ExchangeInterface):
             self._execute(self.bybit.Conditional.Conditional_replace(order_id=order.exchange_id,
                                                                      symbol=self.symbol,
                                                                      p_r_qty=abs(order.amount),
-                                                                     p_r_trigger_price=self.normalizePrice(order.stop_price,order.amount > 0),
-                                                                     p_r_price=self.normalizePrice(order.limit_price,order.amount < 0)))
+                                                                     p_r_trigger_price=self.symbol_info.normalizePrice(order.stop_price,order.amount > 0),
+                                                                     p_r_price=self.symbol_info.normalizePrice(order.limit_price,order.amount < 0)))
         else:
             self._execute(self.bybit.Order.Order_replace(order_id=order.exchange_id,
                                                          symbol=self.symbol,
                                                          p_r_qty=abs(order.amount),
-                                                         p_r_price=self.normalizePrice(order.limit_price,order.amount < 0)))
+                                                         p_r_price=self.symbol_info.normalizePrice(order.limit_price,order.amount < 0)))
 
     def get_orders(self) -> List[Order]:
         return list(self.orders.values())

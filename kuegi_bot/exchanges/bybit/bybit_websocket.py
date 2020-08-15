@@ -76,7 +76,7 @@ class BybitWebsocket:
 
     def __do_auth(self):
 
-        expires = str(int(round(time.time())+1))+"000"
+        expires = str(int(round(time.time())+5))+"000"
         signature = self.generate_signature(expires)
 
         auth = {}
@@ -90,12 +90,15 @@ class BybitWebsocket:
     def __on_message(self, message):
         '''Handler for parsing WS messages.'''
         message = json.loads(message)
-        if 'success' in message and message["success"]:
-            if 'request' in message and message["request"]["op"] == 'auth':
-                self.auth = True
-                self.logger.info("Authentication success.")
-            if 'ret_msg' in message and message["ret_msg"] == 'pong':
-                self.data["pong"].append("PING success")
+        if 'success' in message:
+            if message["success"]:
+                if 'request' in message and message["request"]["op"] == 'auth':
+                    self.auth = True
+                    self.logger.info("Authentication success.")
+                if 'ret_msg' in message and message["ret_msg"] == 'pong':
+                    self.data["pong"].append("PING success")
+            else:
+                self.logger.error("Error in socket: "+str(message))
 
         if 'topic' in message:
             self.data[message["topic"]].append(message["data"])
