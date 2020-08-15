@@ -60,10 +60,10 @@ class ByBitInterface(ExchangeInterface):
                         self.orders[order.exchange_id] = order
 
     def initOrders(self):
-        apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Untriggered,New'))
+        apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Untriggered,New',symbol=self.symbol))
         self.processOrders(apiOrders)
 
-        apiOrders = self._execute(self.bybit.Conditional.Conditional_getOrders())
+        apiOrders = self._execute(self.bybit.Conditional.Conditional_getOrders(symbol=self.symbol))
         self.processOrders(apiOrders)
 
         self.logger.info("got %i orders on startup" % len(self.orders))
@@ -98,6 +98,8 @@ class ByBitInterface(ExchangeInterface):
                     # '2019-12-26T20:02:19.576Z', 'take_profit': '0', 'stop_loss': '0', 'trailing_stop': '0',
                     # 'last_exec_price': '7307.5'}
                     for o in msgs:
+                        if o['symbol'] != self.symbol:
+                            continue # ignore orders not of my symbol
                         order = self.orderDictToOrder(o)
                         prev : Order = self.orders[order.exchange_id] if order.exchange_id in self.orders.keys() else None
                         if prev is not None:
@@ -277,12 +279,12 @@ class ByBitInterface(ExchangeInterface):
         tf = 1 if timeframe_minutes <= 60 else 60
         start = int(datetime.now().timestamp() - tf * 60 * 199)
         bars = self._execute(self.bybit.Kline.Kline_get(
-            **{'symbol': 'BTCUSD', 'interval': str(tf), 'from': str(start), 'limit': '200'}))
+            **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
         # get more history to fill enough (currently 200 H4 bars.
         for idx in range(3):
             start = int(bars[0]['open_time']) - tf * 60 * 200
             bars1 = self._execute(self.bybit.Kline.Kline_get(
-                **{'symbol': 'BTCUSD', 'interval': str(tf), 'from': str(start), 'limit': '200'}))
+                **{'symbol':  self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
             bars = bars1 + bars
 
         return self._aggregate_bars(reversed(bars), timeframe_minutes, start_offset_minutes)
