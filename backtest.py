@@ -1,3 +1,4 @@
+import logging
 import random
 
 from kuegi_bot.backtest_engine import BackTest
@@ -5,14 +6,14 @@ from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
 from kuegi_bot.bots.strategies.MACross import MACross
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
-from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail
+from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, MaxSLDiff
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
 from kuegi_bot.utils.helper import load_bars, prepare_plot
 from kuegi_bot.utils import log
 from kuegi_bot.indicators.kuegi_channel import KuegiChannel
 from kuegi_bot.utils.trading_classes import Symbol
 
-logger = log.setup_custom_logger()
+logger = log.setup_custom_logger(log_level=logging.INFO)
 
 
 def plot(bars):
@@ -75,10 +76,10 @@ def checkDayFilterByDay(bars,symbol= None):
 
         b= BackTest(bot, bars,symbol).run()
 
-bars_p = load_bars(30 * 12, 240,0,'phemex')
+#bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-#bars_b = load_bars(30 * 18, 240,0,'bybit')
+bars_b = load_bars(30 * 18, 240,0,'bybit',"ETHUSD")
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
@@ -89,16 +90,19 @@ bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars3= process_low_tf_bars(m1_bars, 240, 120)
 #bars4= process_low_tf_bars(m1_bars, 240, 180)
 
-oos_cut=int(len(bars_b)/3)
-bars= bars_b[oos_cut:]
-bars_oos= bars_b[:oos_cut]
+symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.05, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+#symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+#for binance
+#symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)
 
-#runOpti(bars_m,[1],[63],[1])
+bars_full= bars_b
+oos_cut=int(len(bars_full)/4)
+bars= bars_full[oos_cut:]
+bars_oos= bars_full[:oos_cut]
+
 
 '''
-checkDayFilterByDay(bars_n,
-    symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02,
-                                     takerFee=0.04))
+checkDayFilterByDay(bars,symbol=symbol)
 
 #'''
 
@@ -117,12 +121,13 @@ p.sort_stats(SortKey.TIME).print_stats(10)
 p.print_callers('<functionName>')
 '''
 
-#'''
-runOpti(bars_p,
-        min=   [1,1,1],
-        max=   [30,30,30],
+'''
+runOpti(bars,
+        min=   [10,10,2],
+        max=   [20,20,5],
         steps= [1,1,1],
-        randomCount=1000)
+        randomCount=-1,
+        symbol=symbol)
 
 #'''
 

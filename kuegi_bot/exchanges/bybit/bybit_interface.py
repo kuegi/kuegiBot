@@ -157,7 +157,7 @@ class ByBitInterface(ExchangeInterface):
                     # 'position_status': 'Normal', 'position_seq': 505770784}
                     for pos in msgs:
                         sizefac = -1 if pos["side"] == "Sell" else 1
-                        if self.positions[pos['symbol']].quantity != pos["size"] * sizefac:
+                        if  pos['symbol'] == self.symbol and self.positions[pos['symbol']].quantity != pos["size"] * sizefac:
                             self.logger.info("position changed %.2f -> %.2f" %(self.positions[pos['symbol']].quantity,pos["size"] * sizefac))
                         if pos['symbol'] not in self.positions.keys():
                             self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
