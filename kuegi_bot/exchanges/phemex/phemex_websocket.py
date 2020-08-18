@@ -13,7 +13,6 @@ class PhemexWebsocket(KuegiWebsocket):
 
     def __init__(self, wsURL, api_key, api_secret, logger, callback):
         """Initialize"""
-        self.got_auth_response = False
         self.auth_id = 0
         super().__init__(wsURL, api_key, api_secret, logger, callback)
 
@@ -28,26 +27,17 @@ class PhemexWebsocket(KuegiWebsocket):
 
     def do_auth(self):
         self.logger.info("doing auth")
-        self.got_auth_response = False
         self.auth_id = 0
         [signature, expiry] = Client.generate_signature(message=self.api_key, api_secret=self.api_secret)
         self.send("user.auth", ["API", self.api_key, signature, expiry])
-        waitingTime = 0
-        while not self.got_auth_response > 0 and waitingTime < 100:
-            waitingTime += 1
-            time.sleep(0.1)
-        if not self.got_auth_response:
-            self.logger.error("got no response from auth. outa here")
-            self.ws.exit()
-        else:
-            self.logger.info("authentication success")
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
         message = json.loads(message)
         if 0 < self.auth_id == message['id']:
-            self.got_auth_response = True
+            self.auth = True
             self.auth_id = 0
+            self.logger.info("authentication success")
             return
 
         result = None

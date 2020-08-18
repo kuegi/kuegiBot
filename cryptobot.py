@@ -192,7 +192,13 @@ def run(settings):
                 logger.error("You have to put in apiKey and secret before starting!")
             else:
                 logger.info("starting " + usedSettings.id)
-                activeThreads.append(start_bot(botSettings=usedSettings, telegram=telegram_bot))
+                try:
+                    activeThreads.append(start_bot(botSettings=usedSettings, telegram=telegram_bot))
+                except Exception as e:
+                    if telegram_bot is not None:
+                        telegram_bot.send_log("error in init of "+usedSettings.id)
+                    logger.error("exception in main loop:\n "+ traceback.format_exc())
+                    stop_all_and_exit()
 
     logger.info("init done")
     if telegram_bot is not None:
