@@ -13,9 +13,9 @@ class PhemexWebsocket(KuegiWebsocket):
 
     def __init__(self, wsURL, api_key, api_secret, logger, callback):
         """Initialize"""
-        super().__init__(wsURL, api_key, api_secret, logger, callback)
         self.got_auth_response = False
         self.auth_id = 0
+        super().__init__(wsURL, api_key, api_secret, logger, callback)
 
     def send(self, method, params=None):
         channel = dict()
@@ -46,14 +46,14 @@ class PhemexWebsocket(KuegiWebsocket):
         """Handler for parsing WS messages."""
         message = json.loads(message)
         if 0 < self.auth_id == message['id']:
-            self.got_auth_response= True
+            self.got_auth_response = True
             self.auth_id = 0
             return
 
         result = None
         responseType = None
         if 'error' in message and message['error'] is not None:
-            self.logger.error("error in ws reply: "+message)
+            self.logger.error("error in ws reply: " + message)
             self.on_error(message)
         if "accounts" in message and message['accounts']:
             # account update
@@ -68,7 +68,7 @@ class PhemexWebsocket(KuegiWebsocket):
             try:
                 self.callback(responseType, result)
             except Exception as e:
-                self.logger.error("Exception in callback: "+str(e)+"\n message: "+str(message))
+                self.logger.error("Exception in callback: " + str(e) + "\n message: " + str(message))
 
     def subscribe_candlestick_event(self, symbol: str, intervalMinutes: int):
         self.send("kline.subscribe", [symbol, intervalMinutes * 60])

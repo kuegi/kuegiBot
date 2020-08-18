@@ -1,12 +1,11 @@
-import math
 import threading
-
-from time import sleep
 from typing import List
 
+import math
 import websocket
+from time import sleep
 
-from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars, Symbol
+from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars
 
 
 class KuegiWebsocket(object):
@@ -24,6 +23,7 @@ class KuegiWebsocket(object):
         self.api_secret = api_secret
 
         self.exited = False
+        self.auth = False
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
         self.logger.info("Connecting to %s" % wsURL)
@@ -59,6 +59,9 @@ class KuegiWebsocket(object):
             self.exit()
             raise websocket.WebSocketTimeoutException('Error！Couldnt not connect to WebSocket!.')
 
+        if self.api_key and self.api_secret:
+            self.do_auth()
+
     def do_auth(self):
         pass
 
@@ -70,7 +73,7 @@ class KuegiWebsocket(object):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited:
             self.logger.error("Error : %s" % error)
-            self.logger.error("last ping: "+str(self.ws.last_ping_tm)+" last pong: "+str(self.ws.last_pong_tm))
+            self.logger.error("last ping: " + str(self.ws.last_ping_tm) + " last pong: " + str(self.ws.last_pong_tm))
             raise websocket.WebSocketException(error)
 
     def __on_open(self):
@@ -92,39 +95,47 @@ class KuegiWebsocket(object):
 
 class ExchangeWithWS(ExchangeInterface):
 
-    def __init__(self, settings, logger, websocket: KuegiWebsocket, on_tick_callback=None):
+    def __init__(self, settings, logger, ws: KuegiWebsocket, on_tick_callback=None):
         super().__init__(settings, logger, on_tick_callback)
         self.symbol = settings.SYMBOL
         self.baseCurrency = settings.BASE
-        self.symbol_info:Symbol= None
-        self.ws = websocket
+        self.ws = ws
 
         self.orders = {}
         self.positions = {}
         self.bars: List[Bar] = []
         self.last = 0
+        self.symbol_info = self.get_instrument()
         self.init()
 
     def init(self):
         self.logger.info("loading market data. this may take a moment")
         self.initOrders()
         self.initPositions()
-        self.symbol_info= self.get_instrument()
         self.logger.info(
             "starting with %.2f in wallet and pos  %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
                                                                    self.positions[self.symbol].quantity,
                                                                    self.positions[self.symbol].avgEntryPrice))
 
         self.logger.info("got all data. subscribing to live updates.")
-        self.subscribeRealtimeData()
-        self.logger.info("ready to go")
+        retry_times = 5
+        while not self.ws.auth and retry_times:
+            sleep(1)
+            retry_times -= 1
+        if self.ws.auth:
+            self.subscribeRealtimeData()
+            self.logger.info("ready to go")
+        else:
+            self.logger.error("couldn't auth the socket, exiting")
+            self.exit()
+            raise Exception('Error！Couldn not auth the WebSocket!.')
 
-    def normalizePrice(self,price, roundUp):
+    def normalizePrice(self, price, roundUp):
         if price is None:
             return None
-        rou= math.ceil if roundUp else math.floor
-        toTicks= rou(price/self.symbol_info.tickSize)*self.symbol_info.tickSize
-        return round(toTicks,self.symbol_info.pricePrecision)
+        rou = math.ceil if roundUp else math.floor
+        toTicks = rou(price / self.symbol_info.tickSize) * self.symbol_info.tickSize
+        return round(toTicks, self.symbol_info.pricePrecision)
 
     def subscribeRealtimeData(self):
         pass
@@ -139,6 +150,9 @@ class ExchangeWithWS(ExchangeInterface):
         pass
 
     def get_ticker(self, symbol=None):
+        pass
+
+    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
         pass
 
     def internal_cancel_order(self, order: Order):
@@ -160,7 +174,7 @@ class ExchangeWithWS(ExchangeInterface):
         return self._aggregate_bars(self.bars, timeframe_minutes, start_offset_minutes)
 
     def _aggregate_bars(self, bars: List[Bar], timeframe_minutes, start_offset_minutes) -> List[Bar]:
-        ''' bars need to be ordered newest bar = index 0 '''
+        """ bars need to be ordered newest bar = index 0 """
         return process_low_tf_bars(bars, timeframe_minutes, start_offset_minutes)
 
     def get_position(self, symbol=None):

@@ -23,7 +23,7 @@ class PhemexInterface(ExchangeWithWS):
         self.client = Client(is_testnet=settings.IS_TEST,
                              api_key=settings.API_KEY,
                              api_secret=settings.API_SECRET)
-        super().__init__(settings, logger, websocket=ws, on_tick_callback=on_tick_callback)
+        super().__init__(settings, logger, ws=ws, on_tick_callback=on_tick_callback)
 
     def init(self):
         if self.symbol != "BTCUSD":
@@ -32,7 +32,6 @@ class PhemexInterface(ExchangeWithWS):
         super().init()
 
     def subscribeRealtimeData(self):
-        self.ws.do_auth()
         self.ws.subscribe_account_updates()
         subbarsIntervall = 1 if self.settings.MINUTES_PER_BAR <= 60 else 60
         self.ws.subscribe_candlestick_event(self.symbol, subbarsIntervall)
@@ -71,7 +70,8 @@ class PhemexInterface(ExchangeWithWS):
                     walletBalance = account['accountBalanceEv'] / self.valueScale
 
             for pos in data['positions']:
-                entryPrice= pos["avgEntryPrice"] if "avgEntryPrice" in pos else pos['avgEntryPriceEp'] / self.priceScale
+                entryPrice = pos["avgEntryPrice"] if "avgEntryPrice" in pos \
+                            else pos['avgEntryPriceEp'] / self.priceScale
                 if pos['symbol'] in self.positions:
                     gotTick = True
                     sizefac = -1 if pos["side"] == Client.SIDE_SELL else 1
@@ -91,7 +91,7 @@ class PhemexInterface(ExchangeWithWS):
                                                                     walletBalance=balance)
 
             for json_order in data['orders']:
-                if 'ordStatus' in json_order: # otherwise its SettleFunding
+                if 'ordStatus' in json_order:  # otherwise its SettleFunding
                     order = self.orderDictToOrder(json_order)
                     self.orders[order.exchange_id] = order
                     if data['type'] != "snapshot":
@@ -117,7 +117,8 @@ class PhemexInterface(ExchangeWithWS):
             walletBalance = account['data']['account']['accountBalanceEv'] / self.valueScale
             for pos in account['data']['positions']:
                 sizefac = -1 if pos["side"] == Client.SIDE_SELL else 1
-                entryPrice= pos["avgEntryPrice"] if "avgEntryPrice" in pos else pos['avgEntryPriceEp'] / self.priceScale
+                entryPrice = pos["avgEntryPrice"] if "avgEntryPrice" in pos \
+                                                    else self.unscale_price(pos['avgEntryPriceEp'])
                 self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
                                                                 avgEntryPrice=entryPrice,
                                                                 quantity=pos["size"] * sizefac,
@@ -135,7 +136,7 @@ class PhemexInterface(ExchangeWithWS):
         else:
             return scaledPrice / self.priceScale
 
-    def noneIfZero(self,price,scaled= False):
+    def noneIfZero(self, price, scaled=False):
         if price == 0:
             return None
         else:
@@ -143,6 +144,7 @@ class PhemexInterface(ExchangeWithWS):
                 return self.unscale_price(price)
             else:
                 return price
+
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
@@ -150,8 +152,8 @@ class PhemexInterface(ExchangeWithWS):
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
-        if order.stop_price is not None and (self.last - order.stop_price)*order.amount >= 0:
-            order.stop_price= None # already triggered
+        if order.stop_price is not None and (self.last - order.stop_price) * order.amount >= 0:
+            order.stop_price = None  # already triggered
         if order.limit_price is not None:
             if order.stop_price is not None:
                 order_type = "StopLimit"
@@ -160,7 +162,7 @@ class PhemexInterface(ExchangeWithWS):
         elif order.stop_price is not None:
             order_type = "Stop"
             if (order.stop_price >= self.last and order.amount < 0) or \
-                    (order.stop_price <= self.last and order.amount > 0): # prevent error of "would trigger immediatly"
+                    (order.stop_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
                 order_type = "Market"
                 stop = None
 
@@ -179,8 +181,8 @@ class PhemexInterface(ExchangeWithWS):
 
     def internal_update_order(self, order: Order):
         order_type = "Market"
-        if order.stop_price is not None and (self.last - order.stop_price)*order.amount >= 0:
-            order.stop_price= None # already triggered
+        if order.stop_price is not None and (self.last - order.stop_price) * order.amount >= 0:
+            order.stop_price = None  # already triggered
         if order.limit_price is not None:
             if order.stop_price is not None:
                 order_type = "StopLimit"
@@ -189,7 +191,7 @@ class PhemexInterface(ExchangeWithWS):
         elif order.stop_price is not None:
             order_type = "Stop"
             if (order.stop_price >= self.last and order.amount < 0) or \
-                    (order.stop_price <= self.last and order.amount > 0): # prevent error of "would trigger immediatly"
+                    (order.stop_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
                 order_type = "Market"
                 stop = None
 
@@ -244,7 +246,7 @@ class PhemexInterface(ExchangeWithWS):
                    volume=kline[7]
                    )
 
-    def orderDictToOrder(self,o) -> Order:
+    def orderDictToOrder(self, o) -> Order:
         """
         {
                 "bizError": 0,
@@ -277,8 +279,8 @@ class PhemexInterface(ExchangeWithWS):
             },
         """
         sideMult = -1 if o['side'] == Client.SIDE_SELL else 1
-        stop= self.noneIfZero(o['stopPx']) if 'stopPx' in o else self.noneIfZero(o['stopPxEp'],True)
-        price= self.noneIfZero(o['price']) if 'price' in o else self.noneIfZero(o['priceEp'],True)
+        stop = self.noneIfZero(o['stopPx']) if 'stopPx' in o else self.noneIfZero(o['stopPxEp'], True)
+        price = self.noneIfZero(o['price']) if 'price' in o else self.noneIfZero(o['priceEp'], True)
         order = Order(orderId=o['clOrdID'],
                       stop=stop,
                       limit=price,
@@ -287,9 +289,9 @@ class PhemexInterface(ExchangeWithWS):
         order.tstamp = o['actionTimeNs'] / 1000000000
         order.active = o['ordStatus'] in [Client.ORDER_STATUS_NEW, Client.ORDER_STATUS_UNTRIGGERED,
                                           Client.ORDER_STATUS_TRIGGERED]
-        order.executed_amount = o['cumQty']*sideMult
-        val= o['cumValue'] if 'cumValue' in o else o['cumValueEv']/self.valueScale
-        order.executed_price = o['cumQty']/val if val != 0 else 0
+        order.executed_amount = o['cumQty'] * sideMult
+        val = o['cumValue'] if 'cumValue' in o else o['cumValueEv'] / self.valueScale
+        order.executed_price = o['cumQty'] / val if val != 0 else 0
         if order.executed_amount != 0:
             order.execution_tstamp = o['transactTimeNs'] / 1000000000
         order.stop_triggered = order.stop_price is not None and o['ordStatus'] == Client.ORDER_STATUS_TRIGGERED
