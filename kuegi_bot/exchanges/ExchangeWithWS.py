@@ -70,6 +70,7 @@ class KuegiWebsocket(object):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited:
             self.logger.error("Error : %s" % error)
+            self.logger.error("last ping: "+str(self.ws.last_ping_tm)+" last pong: "+str(self.ws.last_pong_tm))
             raise websocket.WebSocketException(error)
 
     def __on_open(self):

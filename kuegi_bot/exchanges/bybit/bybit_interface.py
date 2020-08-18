@@ -238,6 +238,9 @@ class ByBitInterface(ExchangeInterface):
         if order.limit_price is not None:
             order_type = "Limit"
         result = None
+        if order.stop_price is not None and (self.last - order.stop_price)*order.amount >= 0:
+            order.stop_price= None # already triggered
+
         if order.stop_price is not None:
             # conditional order
             base_side = 1 if order.amount < 0 else -1  # buy stops are triggered when price goes higher (so it is

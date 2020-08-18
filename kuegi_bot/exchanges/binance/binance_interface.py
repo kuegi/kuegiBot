@@ -217,6 +217,9 @@ class BinanceInterface(ExchangeInterface):
         self.client.cancel_order(symbol=self.symbol, origClientOrderId=order.id)
 
     def internal_send_order(self, order: Order):
+        if order.stop_price is not None and (self.last - order.stop_price)*order.amount >= 0:
+            order.stop_price= None # already triggered
+
         if order.limit_price is not None:
             order.limit_price = round(order.limit_price, self.symbol_object.pricePrecision)
             if order.stop_price is not None:
