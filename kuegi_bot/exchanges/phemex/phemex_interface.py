@@ -4,7 +4,7 @@ from typing import List
 from kuegi_bot.exchanges.ExchangeWithWS import ExchangeWithWS
 from kuegi_bot.exchanges.phemex.client import Client
 from kuegi_bot.exchanges.phemex.phemex_websocket import PhemexWebsocket
-from kuegi_bot.utils.trading_classes import ExchangeInterface, Order, Bar, Account, AccountPosition, Symbol
+from kuegi_bot.utils.trading_classes import Order, Bar, AccountPosition, Symbol
 
 
 class PhemexInterface(ExchangeWithWS):
@@ -71,7 +71,7 @@ class PhemexInterface(ExchangeWithWS):
 
             for pos in data['positions']:
                 entryPrice = pos["avgEntryPrice"] if "avgEntryPrice" in pos \
-                            else pos['avgEntryPriceEp'] / self.priceScale
+                    else pos['avgEntryPriceEp'] / self.priceScale
                 if pos['symbol'] in self.positions:
                     gotTick = True
                     sizefac = -1 if pos["side"] == Client.SIDE_SELL else 1
@@ -118,7 +118,7 @@ class PhemexInterface(ExchangeWithWS):
             for pos in account['data']['positions']:
                 sizefac = -1 if pos["side"] == Client.SIDE_SELL else 1
                 entryPrice = pos["avgEntryPrice"] if "avgEntryPrice" in pos \
-                                                    else self.unscale_price(pos['avgEntryPriceEp'])
+                    else self.unscale_price(pos['avgEntryPriceEp'])
                 self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
                                                                 avgEntryPrice=entryPrice,
                                                                 quantity=pos["size"] * sizefac,
@@ -164,7 +164,6 @@ class PhemexInterface(ExchangeWithWS):
             if (order.stop_price >= self.last and order.amount < 0) or \
                     (order.stop_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
                 order_type = "Market"
-                stop = None
 
         params = dict(symbol=self.symbol,
                       clOrdID=order.id,
@@ -193,7 +192,6 @@ class PhemexInterface(ExchangeWithWS):
             if (order.stop_price >= self.last and order.amount < 0) or \
                     (order.stop_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
                 order_type = "Market"
-                stop = None
 
         params = dict(symbol=self.symbol,
                       side="Buy" if order.amount > 0 else "Sell",
