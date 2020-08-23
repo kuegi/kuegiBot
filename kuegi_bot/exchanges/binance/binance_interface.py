@@ -91,6 +91,7 @@ class BinanceInterface(ExchangeInterface):
                     else:
                         self.candles.append(candle)
                         gotTick = True
+                    self.last = self.candles[0].close
             elif event.eventType == "ACCOUNT_UPDATE":
                 # {'eventType': 'ACCOUNT_UPDATE', 'eventTime': 1587063874367, 'transactionTime': 1587063874365,
                 # 'balances': [<binance_f.model.accountupdate.Balance object at 0x000001FAF470E100>,...],
@@ -300,13 +301,13 @@ class BinanceInterface(ExchangeInterface):
         for symb in instr.symbols:
             if symb.symbol == symbol:
                 baseLength = len(symb.baseAsset)
-                lotSize = 0
-                tickSize = 0
+                lotSize = 1
+                tickSize = 1
                 for filterIt in symb.filters:
                     if filterIt['filterType'] == 'LOT_SIZE':
-                        lotSize = filterIt['stepSize']
+                        lotSize = float(filterIt['stepSize'])
                     if filterIt['filterType'] == 'PRICE_FILTER':
-                        tickSize = filterIt['tickSize']
+                        tickSize = float(filterIt['tickSize'])
 
                 return Symbol(symbol=symb.symbol,
                               isInverse=symb.baseAsset != symb.symbol[:baseLength],

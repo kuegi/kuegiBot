@@ -228,8 +228,8 @@ class PhemexInterface(ExchangeWithWS):
                 self.ratioScale = pow(10, symb['ratioScale'])
                 return Symbol(symbol=symb['symbol'],
                               isInverse=True if symbol[:len(settle)] else False,
-                              lotSize=symb['lotSize'],
-                              tickSize=symb['tickSize'],
+                              lotSize=float(symb['lotSize']),
+                              tickSize=float(symb['tickSize']),
                               makerFee=symb['makerFeeRateEr'] / self.ratioScale,
                               takerFee=symb['takerFeeRateEr'] / self.ratioScale)
         return None
