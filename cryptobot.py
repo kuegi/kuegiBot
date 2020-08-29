@@ -142,6 +142,7 @@ def write_dashboard(dashboardFile):
                     'alive': engine.alive,
                     "last_time": bot.last_time,
                     "last_tick": str(bot.last_tick_time),
+                    "last_tick_tstamp": bot.last_tick_time.timestamp(),
                     "equity": engine.account.equity,
                     "risk_reference":bot.risk_reference,
                     "max_equity":bot.max_equity,

@@ -14,6 +14,11 @@ td {
     padding:2px 4px;
 }
 
+tr.head td {
+    text-align:left !important;
+    font-weight: bold;
+}
+
 tr.openLong {
 background-color:#0d0
 }
