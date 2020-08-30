@@ -112,6 +112,7 @@ class ExchangeWithWS(ExchangeInterface):
         self.logger.info("loading market data. this may take a moment")
         self.initOrders()
         self.initPositions()
+        # TODO: init bars and self.last
         self.logger.info(
             "starting with %.2f in wallet and pos  %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
                                                                    self.positions[self.symbol].quantity,

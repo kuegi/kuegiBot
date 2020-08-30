@@ -19,7 +19,8 @@ class BinanceInterface(ExchangeInterface):
         super().__init__(settings, logger, on_tick_callback)
         self.symbol: str = settings.SYMBOL
         self.client = RequestClient(api_key=settings.API_KEY,
-                                    secret_key=settings.API_SECRET)
+                                    secret_key=settings.API_SECRET,
+                                    url="https://fapi.binance.com")
         self.ws = BinanceWebsocket(wsURL="wss://fstream.binance.com/ws",
                                    api_key=settings.API_KEY,
                                    api_secret=settings.API_SECRET,
