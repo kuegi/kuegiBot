@@ -5,7 +5,7 @@
             <th>PositionId</th><th>status</th><th>signalTime</th>
             <th>amount</th>
             <th>wEntry</th><th>initSL</th><th>entryTime</th>
-            <th>entry</th><th>stop</th><th>worstCase</th><th>initialRisk</th>
+            <th>entry</th><th>stop</th><th>worst</th><th>Risk</th>
         </tr>
         </thead>
         <tbody id="positions">
@@ -20,7 +20,7 @@
             <td>{{drawdown}} {{uwdays}} d</td>
             <td></td>
             <td></td>
-            <td></td>
+            <td>{{formatResult totalWorstCase}}</td>
             <td> R={{risk_reference}}</td>
         </tr>
         {{#each positions}}

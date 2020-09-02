@@ -210,7 +210,11 @@ class LiveTrading(OrderInterface):
 
     def run_loop(self):
         if self.alive:
-            self.bot.init(bars=self.bars, account=self.account, symbol=self.symbolInfo, unique_id=self.settings.id)
+            try:
+                self.bot.init(bars=self.bars, account=self.account, symbol=self.symbolInfo, unique_id=self.settings.id)
+            except Exception as e:
+                self.logger.error("Exception in bot init: " + traceback.format_exc())
+                self.alive= False
 
         last = 0
         while self.alive:
