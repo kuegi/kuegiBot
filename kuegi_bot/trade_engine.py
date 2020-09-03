@@ -179,6 +179,10 @@ class LiveTrading(OrderInterface):
                         self.bars[0] = newBar
                 else:  # b.tstamp > self.bars[0].tstamp
                     self.bars.insert(0, b)
+        del self.bars[400:]
+        for bar in self.bars[3:]:
+            # remove minute data from older bars
+            bar.subbars= []
 
     def check_connection(self):
         """Ensure the WS connections are still open."""

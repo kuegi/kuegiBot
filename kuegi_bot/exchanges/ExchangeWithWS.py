@@ -3,7 +3,7 @@ from typing import List
 
 import math
 import websocket
-from time import sleep
+from time import sleep, time
 
 from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars
 
@@ -24,20 +24,23 @@ class KuegiWebsocket(object):
 
         self.exited = False
         self.auth = False
+        self.restart_count= 0
+        self.last_restart= 0
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        self.logger.info("Connecting to %s" % wsURL)
-        self.__connect(wsURL)
+        self.wsURL= wsURL
+        self.__connect()
         self.callback = callback
 
     def __del__(self):
         self.exit()
 
-    def __connect(self, wsURL):
+    def __connect(self):
         """Connect to the websocket in a thread."""
+        self.logger.info("Connecting to %s" % self.wsURL)
         self.logger.debug("Starting thread")
 
-        self.ws = websocket.WebSocketApp(wsURL,
+        self.ws = websocket.WebSocketApp(self.wsURL,
                                          on_message=self.on_message,
                                          on_close=self.__on_close,
                                          on_open=self.__on_open,
@@ -69,12 +72,27 @@ class KuegiWebsocket(object):
         """Handler for parsing WS messages."""
         pass
 
+    def try_restart(self):
+        now= time()
+        if self.last_restart < now - 60*15:
+            self.restart_count= 0
+        if self.restart_count < 5:
+            # up to 5 restarts or with delta of 15 minutes allowed
+            self.restart_count += 1
+            self.last_restart= now
+            self.ws.close()
+            self.__connect()
+        else:
+            raise websocket.WebSocketException("too many restarts")
+
+
     def on_error(self, error):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited:
             self.logger.error("Error : %s" % error)
-            self.logger.error("last ping: " + str(self.ws.last_ping_tm) + " last pong: " + str(self.ws.last_pong_tm))
-            raise websocket.WebSocketException(error)
+            self.logger.error("last ping: " + str(self.ws.last_ping_tm) + " last pong: " + str(self.ws.last_pong_tm) +
+                               " delta: "+str(self.ws.last_pong_tm-self.ws.last_ping_tm))
+            self.try_restart()
 
     def __on_open(self):
         """
