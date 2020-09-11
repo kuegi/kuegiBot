@@ -11,10 +11,12 @@ def get_current_timestamp():
 
 class PhemexWebsocket(KuegiWebsocket):
 
-    def __init__(self, wsURL, api_key, api_secret, logger, callback):
+    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
         """Initialize"""
         self.auth_id = 0
-        super().__init__(wsURL, api_key, api_secret, logger, callback)
+        self.symbol= symbol
+        self.minutesPerBar= minutesPerBar
+        super().__init__(wsURLs, api_key, api_secret, logger, callback)
 
     def send(self, method, params=None):
         channel = dict()
@@ -24,6 +26,11 @@ class PhemexWebsocket(KuegiWebsocket):
         if method == "user.auth":
             self.auth_id = channel['id']
         self.ws.send(json.dumps(channel))
+
+    def subscribeRealtimeData(self):
+        self.subscribe_account_updates()
+        subbarsIntervall = 1 if self.minutesPerBar <= 60 else 60
+        self.subscribe_candlestick_event(self.symbol, subbarsIntervall)
 
     def do_auth(self):
         self.logger.info("doing auth")

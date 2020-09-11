@@ -11,11 +11,13 @@ class PhemexInterface(ExchangeWithWS):
 
     def __init__(self, settings, logger, on_tick_callback=None):
         host = "wss://testnet.phemex.com/ws" if settings.IS_TEST else "wss://phemex.com/ws"
-        ws = PhemexWebsocket(wsURL=host,
+        ws = PhemexWebsocket(wsURLs=[host],
                              api_key=settings.API_KEY,
                              api_secret=settings.API_SECRET,
                              logger=logger,
-                             callback=self.socket_callback)
+                             callback=self.socket_callback,
+                             symbol= settings.symbol,
+                             minutesPerBar=settings.MINUTES_PER_BAR)
 
         self.priceScale = 10000
         self.valueScale = 100000000
@@ -30,11 +32,6 @@ class PhemexInterface(ExchangeWithWS):
             self.valueScale = 10000
         self.get_instrument(self.symbol)
         super().init()
-
-    def subscribeRealtimeData(self):
-        self.ws.subscribe_account_updates()
-        subbarsIntervall = 1 if self.settings.MINUTES_PER_BAR <= 60 else 60
-        self.ws.subscribe_candlestick_event(self.symbol, subbarsIntervall)
 
     def socket_callback(self, messageType, data):
         gotTick = False

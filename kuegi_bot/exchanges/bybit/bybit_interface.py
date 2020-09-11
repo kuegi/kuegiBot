@@ -17,23 +17,18 @@ class ByBitInterface(ExchangeWithWS):
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
                                  api_secret=settings.API_SECRET)
-        host = "wss://stream-testnet.bybit.com/realtime" if settings.IS_TEST else "wss://stream.bybit.com/realtime"
+        hosts = ["wss://stream-testnet.bybit.com/realtime"] if settings.IS_TEST \
+            else ["wss://stream.bybit.com/realtime","wss://stream.bytick.com/realtime"]
         super().__init__(settings, logger,
-                         ws=BybitWebsocket(wsURL=host,
+                         ws=BybitWebsocket(wsURLs=hosts,
                                            api_key=settings.API_KEY,
                                            api_secret=settings.API_SECRET,
                                            logger=logger,
-                                           callback=self.socket_callback),
+                                           callback=self.socket_callback,
+                                           symbol= settings.SYMBOL,
+                                           minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback)
 
-    def subscribeRealtimeData(self):
-        self.ws.subscribe_order()
-        self.ws.subscribe_stop_order()
-        self.ws.subscribe_execution()
-        self.ws.subscribe_position()
-        subbarsIntervall = '1' if self.settings.MINUTES_PER_BAR <= 60 else '60'
-        self.ws.subscribe_klineV2(subbarsIntervall, self.symbol)
-        self.ws.subscribe_instrument_info(self.symbol)
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Untriggered,New', symbol=self.symbol))
@@ -56,10 +51,6 @@ class ByBitInterface(ExchangeWithWS):
                                                                 avgEntryPrice=pos["entry_price"],
                                                                 quantity=pos["size"] * sizefac,
                                                                 walletBalance=float(pos['wallet_balance']))
-        self.logger.info(
-            "starting with %.2f in wallet and pos  %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
-                                                                   self.positions[self.symbol].quantity,
-                                                                   self.positions[self.symbol].avgEntryPrice))
 
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():

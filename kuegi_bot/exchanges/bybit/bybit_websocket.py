@@ -11,9 +11,11 @@ class BybitWebsocket(KuegiWebsocket):
     MAX_DATA_CAPACITY = 200
     PRIVATE_TOPIC = ['position', 'execution', 'order']
 
-    def __init__(self, wsURL, api_key, api_secret, logger, callback):
+    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
         self.data = {}
-        super().__init__(wsURL, api_key, api_secret, logger, callback)
+        self.symbol= symbol
+        self.minutesPerBar= minutesPerBar
+        super().__init__(wsURLs, api_key, api_secret, logger, callback)
 
     def generate_signature(self, expires):
         """Generate a request signature."""
@@ -25,6 +27,15 @@ class BybitWebsocket(KuegiWebsocket):
         signature = self.generate_signature(expires)
         auth = {"op": "auth", "args": [self.api_key, expires, signature]}
         self.ws.send(json.dumps(auth))
+
+    def subscribeRealtimeData(self):
+        self.subscribe_order()
+        self.subscribe_stop_order()
+        self.subscribe_execution()
+        self.subscribe_position()
+        subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
+        self.subscribe_klineV2(subbarsIntervall, self.symbol)
+        self.subscribe_instrument_info(self.symbol)
 
     def on_message(self, message):
         """Handler for parsing WS messages."""

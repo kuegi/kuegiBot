@@ -10,7 +10,7 @@ from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterfa
 
 class KuegiWebsocket(object):
 
-    def __init__(self, wsURL, api_key, api_secret, logger, callback):
+    def __init__(self, wsURLs:List[str], api_key, api_secret, logger, callback):
         """Initialize"""
         super().__init__()
         self.logger = logger
@@ -24,11 +24,13 @@ class KuegiWebsocket(object):
 
         self.exited = False
         self.auth = False
+        self.restarting= False
         self.restart_count= 0
         self.last_restart= 0
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        self.wsURL= wsURL
+        self.wsURLs= wsURLs
+        self.lastUsedUrlIdx= -1
         self.__connect()
         self.callback = callback
 
@@ -37,27 +39,33 @@ class KuegiWebsocket(object):
 
     def __connect(self):
         """Connect to the websocket in a thread."""
-        self.logger.info("Connecting to %s" % self.wsURL)
+        self.lastUsedUrlIdx +=1
+        if self.lastUsedUrlIdx >= len(self.wsURLs):
+            self.lastUsedUrlIdx= 0
+        usedUrl= self.wsURLs[self.lastUsedUrlIdx]
+        self.logger.info("Connecting to %s" % usedUrl)
         self.logger.debug("Starting thread")
+        self.exited = False
+        self.auth = False
 
-        self.ws = websocket.WebSocketApp(self.wsURL,
+        self.ws = websocket.WebSocketApp(usedUrl,
                                          on_message=self.on_message,
                                          on_close=self.__on_close,
                                          on_open=self.__on_open,
                                          on_error=self.on_error,
                                          keep_running=True)
 
-        self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=10))
+        self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=5))
         self.wst.daemon = True
         self.wst.start()
         self.logger.debug("Started thread")
 
         # Wait for connect before continuing
         retry_times = 5
-        while not self.ws.sock or not self.ws.sock.connected and retry_times:
+        while (self.ws.sock is None or not self.ws.sock.connected) and retry_times > 0:
             sleep(1)
             retry_times -= 1
-        if retry_times == 0 and not self.ws.sock.connected:
+        if retry_times == 0 and (self.ws.sock is None or not self.ws.sock.connected):
             self.logger.error("Couldn't connect to WebSocket! Exiting.")
             self.exit()
             raise websocket.WebSocketTimeoutException('Error！Couldnt not connect to WebSocket!.')
@@ -68,31 +76,67 @@ class KuegiWebsocket(object):
     def do_auth(self):
         pass
 
+    def subscribeDataAfterAuth(self):
+        self.logger.info("subscribing to live updates.")
+        retry_times = 5
+        while not self.auth and retry_times:
+            sleep(1)
+            retry_times -= 1
+        if self.auth:
+            self.subscribeRealtimeData()
+            self.logger.info("ready to go")
+        else:
+            self.logger.error("couldn't auth the socket, exiting")
+            self.exit()
+            raise Exception('Error！Couldn not auth the WebSocket!.')
+
+    def subscribeRealtimeData(self):
+        pass
+
     def on_message(self, message):
         """Handler for parsing WS messages."""
         pass
 
     def try_restart(self):
-        now= time()
-        if self.last_restart < now - 60*15:
-            self.restart_count= 0
-        if self.restart_count < 5:
-            # up to 5 restarts or with delta of 15 minutes allowed
-            self.restart_count += 1
-            self.last_restart= now
-            self.ws.close()
-            self.__connect()
-        else:
-            raise websocket.WebSocketException("too many restarts")
+        self.restarting = True
+        self.ws.close()
+        restartThread = threading.Thread(target=lambda: self.try_restart_())
+        restartThread.daemon = True
+        restartThread.start()
+
+    def try_restart_(self):
+        try:
+            self.restarting = True
+            sleep(1)
+
+            now= time()
+            if self.last_restart < now - 60*15:
+                self.restart_count= 0
+            if self.restart_count < 5:
+                self.logger.info("trying to restart")
+                # up to 5 restarts or with delta of 15 minutes allowed
+                self.restart_count += 1
+                self.last_restart= now
+                self.__connect()
+                self.subscribeDataAfterAuth()
+                self.restarting= False
+            else:
+                self.exited= True
+                self.restarting= False
+                self.on_error("too many restarts")
+        except Exception as e:
+            self.restarting= False
+            self.on_error("error during restart: "+str(e))
 
 
     def on_error(self, error):
         """Called on fatal websocket errors. We exit on these."""
-        if not self.exited:
+        if not self.exited and not self.restarting:
             self.logger.error("Error : %s" % error)
             self.logger.error("last ping: " + str(self.ws.last_ping_tm) + " last pong: " + str(self.ws.last_pong_tm) +
                                " delta: "+str(self.ws.last_pong_tm-self.ws.last_ping_tm))
             self.try_restart()
+
 
     def __on_open(self):
         """
@@ -102,8 +146,9 @@ class KuegiWebsocket(object):
 
     def __on_close(self):
         """Called on websocket close."""
-        self.logger.info('Websocket Closed')
-        self.exit()
+        self.logger.info('Websocket Closed '+str(self.exited)+" "+str(self.restarting))
+        if not self.exited and not self.restarting:
+            self.exit()
 
     def exit(self):
         """Call this to exit - will close websocket."""
@@ -135,19 +180,7 @@ class ExchangeWithWS(ExchangeInterface):
             "starting with %.2f in wallet and pos  %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
                                                                    self.positions[self.symbol].quantity,
                                                                    self.positions[self.symbol].avgEntryPrice))
-
-        self.logger.info("got all data. subscribing to live updates.")
-        retry_times = 5
-        while not self.ws.auth and retry_times:
-            sleep(1)
-            retry_times -= 1
-        if self.ws.auth:
-            self.subscribeRealtimeData()
-            self.logger.info("ready to go")
-        else:
-            self.logger.error("couldn't auth the socket, exiting")
-            self.exit()
-            raise Exception('Error！Couldn not auth the WebSocket!.')
+        self.ws.subscribeDataAfterAuth()
 
     def normalizePrice(self, price, roundUp):
         if price is None:
@@ -155,9 +188,6 @@ class ExchangeWithWS(ExchangeInterface):
         rou = math.ceil if roundUp else math.floor
         toTicks = rou(price / self.symbol_info.tickSize) * self.symbol_info.tickSize
         return round(toTicks, self.symbol_info.pricePrecision)
-
-    def subscribeRealtimeData(self):
-        pass
 
     def initOrders(self):
         pass
