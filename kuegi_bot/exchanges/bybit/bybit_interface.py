@@ -328,5 +328,8 @@ class ByBitInterface(ExchangeWithWS):
     @staticmethod
     def barDictToBar(b):
         tstamp = int(b['open_time'] if 'open_time' in b.keys() else b['start'])
-        return Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+        bar= Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
                    low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        if 'timestamp' in b:
+            bar.last_tick_tstamp= b['timestamp']/1000000.0
+        return bar

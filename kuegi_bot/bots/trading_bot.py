@@ -553,7 +553,11 @@ class TradingBot:
 
     def on_tick(self, bars: List[Bar], account: Account):
         """checks price and levels to manage current orders and set new ones"""
-        self.last_tick_time = datetime.now()
+        if bars[0].last_tick_tstamp is not None and bars[0].last_tick_tstamp > 0:
+            self.last_tick_time = datetime.fromtimestamp(bars[0].last_tick_tstamp)
+        else:
+            self.last_tick_time = datetime.now()
+
         self.update_new_bar(bars)
         if account.equity > self.max_equity:
             self.max_equity = account.equity

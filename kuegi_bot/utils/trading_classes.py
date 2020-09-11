@@ -40,7 +40,8 @@ class Bar:
         self.subbars: List[Bar] = subbars if subbars is not None else []
         self.bot_data = {"indicators": {}}
         self.did_change: bool = True
-        self.last_tick_tstamp: float = tstamp
+        self.last_tick_tstamp: float = tstamp if subbars is None or len(subbars) == 0 else\
+                                        subbars[0].last_tick_tstamp
 
     def __str__(self):
         result = "%s (%i) %.1f/%.1f\\%.1f-%.1f %.1f" % (
@@ -60,6 +61,7 @@ class Bar:
         self.close = subbar.close
         self.volume += subbar.volume
         self.subbars.insert(0, subbar)
+        self.last_tick_tstamp = max(self.last_tick_tstamp,subbar.last_tick_tstamp)
         self.did_change = True
 
 
