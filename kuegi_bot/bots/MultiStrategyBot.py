@@ -85,7 +85,7 @@ class Strategy:
             if not self.symbol.isInverse:
                 size = risk / delta
             else:
-                size = -int(risk / (1 / entry - 1 / (entry - delta)))
+                size = -risk / (1 / entry - 1 / (entry - delta))
             size = round(size,self.symbol.quantityPrecision)
             return size
 

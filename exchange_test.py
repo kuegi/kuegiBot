@@ -17,11 +17,9 @@ logger = log.setup_custom_logger("cryptobot",
 def onTick(fromAccountAction):
     logger.info("got Tick "+str(fromAccountAction))
 
-#'''phemex
+'''phemex
 
 client= PhemexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
-
-
 
 #'''
 
@@ -77,7 +75,7 @@ result = request_client.close_user_data_stream()
 
 '''
 
-'''
+#'''
 if settings.EXCHANGE == 'bybit':
     interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
     b= interface.bybit
@@ -86,4 +84,7 @@ else:
     interface= BitmexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 
 bars= interface.get_bars(240,0)
-'''
+
+#b.Wallet.Wallet_getRecords().response().result['result']['data']
+
+# '''

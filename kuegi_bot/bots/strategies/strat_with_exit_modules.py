@@ -35,7 +35,7 @@ class StrategyWithExitModulesAndFilter(Strategy):
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
         for module in self.exitModules:
-            module.init(self.logger)
+            module.init(self.logger,symbol)
         for fil in self.entryFilters:
             fil.init(self.logger)
 

@@ -90,8 +90,9 @@ bars_b = load_bars(30 * 18, 240,0,'bybit',"ETHUSD")
 #bars3= process_low_tf_bars(m1_bars, 240, 120)
 #bars4= process_low_tf_bars(m1_bars, 240, 180)
 
-symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.05, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
-#symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+symbol=Symbol(symbol="XRPUSD", isInverse=True, tickSize=0.0001, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=4)
+#symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
 #for binance
 #symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)
 
@@ -141,16 +142,11 @@ bot.add_strategy(KuegiStrategy(
 bot.add_strategy(SfpStrategy(
 ...
                  )
-b= BackTest(bot, bars_b).run()
 
-#binance is not inverse: needs different symbol:
-
-b= BackTest(bot, bars_n,
-        symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02,
-                                     takerFee=0.04, quantityPrecision=5)).run()
+b= BackTest(bot, bars, symbol=symbol,market_slipage_percent=0.15).run()
 
 #performance chart with lots of numbers
-bot.create_performance_plot().show()
+bot.create_performance_plot(bars).show()
 
 # chart with signals:
 b.prepare_plot().show()

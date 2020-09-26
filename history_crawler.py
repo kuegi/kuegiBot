@@ -11,7 +11,7 @@ from datetime import datetime
 # ====================================
 #
 # api-endpoint
-from kuegi_bot.utils.helper import history_file_name
+from kuegi_bot.utils.helper import history_file_name, known_history_files
 from kuegi_bot.utils.trading_classes import parse_utc_timestamp
 
 exchange = sys.argv[1] if len(sys.argv) > 1 else 'bybit'
@@ -25,7 +25,8 @@ urls = {
     "bybit": "https://api.bybit.com/v2/public/kline/list?symbol=##symbol##&interval=1",
     "binance": "https://fapi.binance.com/fapi/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "binanceSpot": "https://api.binance.com/api/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
-    "phemex":"https://api.phemex.com/phemex-user/public/md/kline?resolution=60&symbol=##symbol##"
+    "phemex":"https://api.phemex.com/phemex-user/public/md/kline?resolution=60&symbol=##symbol##",
+    "bitstamp":"https://www.bitstamp.net/api/v2/ohlc/##symbol##/?step=60&limit=1000"
 }
 
 URL = urls[exchange].replace("##symbol##",symbol)
@@ -34,19 +35,15 @@ result = []
 start = 1 if exchange == 'bybit' else 0
 if exchange == 'phemex':
     start= 1574726400 # start of phemex
+elif exchange == 'bitstamp':
+    start= 1313670000
+
 offset = 0
 
 # init
 # TODO: adapt this to your number if you already have history files
-filecount = {
-    "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 17,
-    "bybit_ETHUSD":16,
-    "binance_BTCUSDT": 9,
-    "binanceSpot_BTCUSD": 28,
-    "phemex_BTCUSD":6
-}
-lastknown = filecount[exchange+symbol]
+
+lastknown = known_history_files[exchange+"_"+symbol] if exchange+"_"+symbol in known_history_files else -1
 
 try:
     os.makedirs('history/'+exchange)
@@ -89,11 +86,14 @@ while True:
     data=jsonData
     if exchange == 'bybit':
         data = jsonData["result"]
-    if exchange == 'phemex':
+    elif exchange == 'phemex':
         if jsonData['msg'] == 'OK':
             data = jsonData['data']['rows']
         else:
             data= []
+    elif exchange == "bitstamp":
+        data= jsonData['data']['ohlc']
+
     wasOk= len(data) >= 200
     if not wasOk:
         print(str(data)[:100])
@@ -118,6 +118,8 @@ while True:
                 start = int(data[-1][0]+1)
         elif exchange in ['binance','binanceSpot']:
             start= data[-1][6] # closeTime of last bar
+        elif exchange == 'bitstamp':
+            start= data[-1]['timestamp']
     if lastSync > 15000 or (len(data) < 200 and not wroteData):
         wroteData= True
         lastSync= 0

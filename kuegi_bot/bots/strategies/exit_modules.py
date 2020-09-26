@@ -13,13 +13,15 @@ from kuegi_bot.utils.trading_classes import Position, Bar
 class ExitModule:
     def __init__(self):
         self.logger = None
+        self.symbol= None
         pass
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         pass
 
-    def init(self, logger):
+    def init(self, logger, symbol):
         self.logger = logger
+        self.symbol= symbol
 
     def got_data_for_position_sync(self, bars: List[Bar]) -> bool:
         return True
@@ -69,8 +71,8 @@ class SimpleBE(ExitModule):
         self.buffer = buffer
         self.atrPeriod = atrPeriod
 
-    def init(self, logger):
-        super().init(logger)
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
         self.logger.info("init BE %.1f %.1f %i" % (self.factor, self.buffer, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
@@ -93,7 +95,7 @@ class SimpleBE(ExitModule):
                 be = position.wanted_entry + refRange * self.buffer
                 if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
                         and (be - newStop) * position.amount > 0:
-                    newStop = math.floor(be) if position.amount < 0 else math.ceil(be)
+                    newStop= self.symbol.normalizePrice(be, roundUp=position.amount > 0)
 
             if newStop != order.stop_price:
                 order.stop_price = newStop
@@ -109,8 +111,8 @@ class MaxSLDiff(ExitModule):
         self.maxATRDiff = maxATRDiff
         self.atrPeriod = atrPeriod
 
-    def init(self, logger):
-        super().init(logger)
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
         self.logger.info("init maxATRDiff %.1f %i" % (self.maxATRDiff, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
@@ -127,7 +129,7 @@ class MaxSLDiff(ExitModule):
                 ep = bars[0].high if position.amount > 0 else bars[0].low
                 maxdistStop= ep - math.copysign(refRange*self.maxATRDiff,position.amount)
                 if (maxdistStop - newStop) * position.amount > 0:
-                    newStop = math.floor(maxdistStop) if position.amount < 0 else math.ceil(maxdistStop)
+                    newStop= self.symbol.normalizePrice(maxdistStop, roundUp=position.amount > 0)
 
             if newStop != order.stop_price:
                 order.stop_price = newStop
@@ -155,8 +157,8 @@ class ParaTrail(ExitModule):
         self.accMax = accMax
         self.resetToCurrent= resetToCurrent
 
-    def init(self, logger):
-        super().init(logger)
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
         self.logger.info("init ParaTrail %.2f %.2f %.2f %s" %
                          (self.accInit, self.accInc, self.accMax, self.resetToCurrent))
 
@@ -173,7 +175,7 @@ class ParaTrail(ExitModule):
 
         # trail
         if data is not None and (data.stop - newStop) * position.amount > 0:
-            newStop = math.floor(data.stop) if position.amount < 0 else math.ceil(data.stop)
+            newStop= self.symbol.normalizePrice(data.stop, roundUp=position.amount > 0)
 
         if data is not None and data.actualStop != newStop:
             data.actualStop = newStop

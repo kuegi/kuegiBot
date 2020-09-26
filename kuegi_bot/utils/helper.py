@@ -53,18 +53,19 @@ def history_file_name(index, exchange,symbol='') :
         symbol += "_"
     return 'history/' + exchange + '/' + symbol + 'M1_' + str(index) + '.json'
 
-
-def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bitmex',symbol=''):
-    #empty symbol is legacy and means btcusd
-    knownfiles= {
-        "bitmex_": 49,
-        "bybit_": 17,
-        "bybit_ETHUSD": 16,
-        "binance_": 9,
-        "binanceSpot_": 28,
-        "phemex_":6
+known_history_files= {
+    "bitmex_XBTUSD": 49,
+    "bybit_BTCUSD": 19,
+    "bybit_ETHUSD":16,
+    "bybit_XRPUSD":14,
+    "binance_BTCUSDT": 9,
+    "binanceSpot_BTCUSD": 28,
+    "phemex_BTCUSD":6
     }
-    end = knownfiles[exchange+"_"+symbol]
+
+def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit',symbol='BTCUSD'):
+    #empty symbol is legacy and means btcusd
+    end = known_history_files[exchange+"_"+symbol]
     start = max(0,end - int(days_in_history * 1440 / 50000))
     m1_bars_temp = []
     logger.info("loading " + str(end - start) + " history files from "+exchange)
