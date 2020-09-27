@@ -138,7 +138,8 @@ class LiveTrading(OrderInterface):
                 exec_type = ("executed" if o.executed_amount != 0 else "canceled")
                 price = ("%.1f" % o.executed_price) if o.executed_price is not None else None
                 if self.telegram_bot is not None:
-                    self.telegram_bot.send_execution("%s on %s: %s %.2f@ %s" %
+                    if o.executed_amount != 0:
+                        self.telegram_bot.send_execution("%s on %s: %s %.2f@ %s" %
                                                      (exec_type.upper(), self.id, o.id, o.executed_amount, price))
                     self.telegram_bot.send_log("%s on %s: %s %.2f@ %s" %
                                                      (exec_type.upper(), self.id, o.id, o.executed_amount, price),o.id)
