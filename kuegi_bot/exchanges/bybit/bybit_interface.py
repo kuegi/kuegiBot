@@ -146,7 +146,9 @@ class ByBitInterface(ExchangeWithWS):
                               lotSize=float(entry['lot_size_filter']['qty_step']),
                               tickSize=float(entry['price_filter']['tick_size']),
                               makerFee=float(entry['maker_fee']),
-                              takerFee=float(entry['taker_fee']))
+                              takerFee=float(entry['taker_fee']),
+                              pricePrecision=entry['price_scale'],
+                              quantityPrecision=0) #hardcoded full dollars
         return None
 
     def get_ticker(self, symbol=None):

@@ -98,6 +98,12 @@ class Symbol:
         toTicks= rou(price/self.tickSize)*self.tickSize
         return round(toTicks,self.pricePrecision)
 
+    def normalizeSize(self,size):
+        if size is None:
+            return None
+        toTicks= math.floor(size/self.lotSize)*self.lotSize
+        return round(toTicks,self.quantityPrecision)
+
 
 class OrderType(Enum):
     ENTRY = "ENTRY"
@@ -133,9 +139,9 @@ class Order:
         else:
             price= ""
             if self.stop_price is not None:
-                price += "%.1f" % self.stop_price
+                price += "%.3f" % self.stop_price
             if self.limit_price is not None:
-                price += "/%.1f" % self.limit_price
+                price += "/%.3f" % self.limit_price
             return "%s %s @ %s" % (
                 self.id,
                 amount,

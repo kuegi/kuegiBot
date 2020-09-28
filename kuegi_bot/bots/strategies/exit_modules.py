@@ -7,7 +7,7 @@ from typing import List
 
 from kuegi_bot.indicators.indicator import Indicator, clean_range
 from kuegi_bot.utils.dotdict import dotdict
-from kuegi_bot.utils.trading_classes import Position, Bar
+from kuegi_bot.utils.trading_classes import Position, Bar, Symbol
 
 
 class ExitModule:
@@ -19,7 +19,7 @@ class ExitModule:
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         pass
 
-    def init(self, logger, symbol):
+    def init(self, logger, symbol: Symbol):
         self.logger = logger
         self.symbol= symbol
 
@@ -95,7 +95,7 @@ class SimpleBE(ExitModule):
                 be = position.wanted_entry + refRange * self.buffer
                 if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
                         and (be - newStop) * position.amount > 0:
-                    newStop= self.symbol.normalizePrice(be, roundUp=position.amount > 0)
+                    newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
 
             if newStop != order.stop_price:
                 order.stop_price = newStop
@@ -129,9 +129,9 @@ class MaxSLDiff(ExitModule):
                 ep = bars[0].high if position.amount > 0 else bars[0].low
                 maxdistStop= ep - math.copysign(refRange*self.maxATRDiff,position.amount)
                 if (maxdistStop - newStop) * position.amount > 0:
-                    newStop= self.symbol.normalizePrice(maxdistStop, roundUp=position.amount > 0)
+                    newStop= self.symbol.normalizePrice(maxdistStop, roundUp=position.amount < 0)
 
-            if newStop != order.stop_price:
+            if math.fabs(newStop - order.stop_price) > 0.5*self.symbol.tickSize:
                 order.stop_price = newStop
                 to_update.append(order)
 
@@ -175,7 +175,7 @@ class ParaTrail(ExitModule):
 
         # trail
         if data is not None and (data.stop - newStop) * position.amount > 0:
-            newStop= self.symbol.normalizePrice(data.stop, roundUp=position.amount > 0)
+            newStop= self.symbol.normalizePrice(data.stop, roundUp=position.amount < 0)
 
         if data is not None and data.actualStop != newStop:
             data.actualStop = newStop
@@ -186,7 +186,7 @@ class ParaTrail(ExitModule):
             lastdata.actualStop= order.stop_price
             self.write_data(bar=bars[1], dataId=self.data_id(position), data=lastdata)
 
-        if newStop != order.stop_price:
+        if math.fabs(newStop - order.stop_price) > 0.5*self.symbol.tickSize:
             order.stop_price = newStop
             to_update.append(order)
 

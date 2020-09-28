@@ -86,7 +86,7 @@ class Strategy:
                 size = risk / delta
             else:
                 size = -risk / (1 / entry - 1 / (entry - delta))
-            size = round(size,self.symbol.quantityPrecision)
+            size = self.symbol.normalizeSize(size)
             return size
 
 class MultiStrategyBot(TradingBot):

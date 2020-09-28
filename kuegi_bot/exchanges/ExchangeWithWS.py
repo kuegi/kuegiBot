@@ -182,13 +182,6 @@ class ExchangeWithWS(ExchangeInterface):
                                                                    self.positions[self.symbol].avgEntryPrice))
         self.ws.subscribeDataAfterAuth()
 
-    def normalizePrice(self, price, roundUp):
-        if price is None:
-            return None
-        rou = math.ceil if roundUp else math.floor
-        toTicks = rou(price / self.symbol_info.tickSize) * self.symbol_info.tickSize
-        return round(toTicks, self.symbol_info.pricePrecision)
-
     def initOrders(self):
         pass
 
