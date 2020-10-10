@@ -47,6 +47,8 @@ def increment(min,max,steps,current)->bool:
 
 def runOpti(bars,min,max,steps,symbol= None, randomCount= -1):
     v= min[:]
+    while len(steps) < len(min):
+        steps.append(1)
     while True:
         msg= ""
         if randomCount > 0:
@@ -76,10 +78,13 @@ def checkDayFilterByDay(bars,symbol= None):
 
         b= BackTest(bot, bars,symbol).run()
 
+pair= "BTCUSD"
+#pair= "ETHUSD"
+
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-bars_b = load_bars(30 * 18, 240,0,'bybit',"ETHUSD")
+bars_b = load_bars(30 * 18, 240,0,'bybit',pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
@@ -90,9 +95,14 @@ bars_b = load_bars(30 * 18, 240,0,'bybit',"ETHUSD")
 #bars3= process_low_tf_bars(m1_bars, 240, 120)
 #bars4= process_low_tf_bars(m1_bars, 240, 180)
 
-symbol=Symbol(symbol="XRPUSD", isInverse=True, tickSize=0.0001, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=4)
-#symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
-symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+symbol=None
+if pair == "BTCUSD":
+    symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+elif pair == "XRPUSD":
+    symbol=Symbol(symbol="XRPUSD", isInverse=True, tickSize=0.0001, lotSize=0.01, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=4)
+elif pair == "ETHUSD":
+    symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=0.1, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+#
 #for binance
 #symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)
 

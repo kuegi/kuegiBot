@@ -55,12 +55,13 @@ def history_file_name(index, exchange,symbol='') :
 
 known_history_files= {
     "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 19,
+    "bybit_BTCUSD": 20,
     "bybit_ETHUSD":16,
     "bybit_XRPUSD":14,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
-    "phemex_BTCUSD":6
+    "phemex_BTCUSD":6,
+    "bitstamp_btceur": 56
     }
 
 def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit',symbol='BTCUSD'):

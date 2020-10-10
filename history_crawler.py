@@ -62,6 +62,8 @@ if lastknown >= 0:
                 start = int(result[-1][0]) + 1
             elif exchange in ['binance','binanceSpot']:
                 start= int(result[-1][6])
+            elif exchange in ['bitstamp']:
+                start= int(result[-1]['timestamp'])
             offset= lastknown*batchsize
     except Exception as e:
         print("lier! you didn't have any history yet! ("+str(e)+")")

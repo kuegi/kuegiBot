@@ -155,7 +155,7 @@ class SfpStrategy(ChannelStrategy):
             stop = extreme + (extreme - bars[1].close) * 0.5
         else:
             stop = capFunc(swing, (extreme + bars[1].close) / 2)
-        stop = stop + oppDirectionFactor  # buffer
+        stop = stop + oppDirectionFactor*self.symbol.tickSize*2  # buffer
 
         entry = bars[0].open
         signalId = self.get_signal_id(bars)

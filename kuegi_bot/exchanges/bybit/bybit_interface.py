@@ -18,17 +18,16 @@ class ByBitInterface(ExchangeWithWS):
                                  api_key=settings.API_KEY,
                                  api_secret=settings.API_SECRET)
         hosts = ["wss://stream-testnet.bybit.com/realtime"] if settings.IS_TEST \
-            else ["wss://stream.bybit.com/realtime","wss://stream.bytick.com/realtime"]
+            else ["wss://stream.bybit.com/realtime", "wss://stream.bytick.com/realtime"]
         super().__init__(settings, logger,
                          ws=BybitWebsocket(wsURLs=hosts,
                                            api_key=settings.API_KEY,
                                            api_secret=settings.API_SECRET,
                                            logger=logger,
                                            callback=self.socket_callback,
-                                           symbol= settings.SYMBOL,
+                                           symbol=settings.SYMBOL,
                                            minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback)
-
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Untriggered,New', symbol=self.symbol))
@@ -56,9 +55,10 @@ class ByBitInterface(ExchangeWithWS):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
         if order.stop_price is not None:
-            self._execute(self.bybit.Conditional.Conditional_cancel(stop_order_id=order.exchange_id,symbol=self.symbol))
+            self._execute(
+                self.bybit.Conditional.Conditional_cancel(stop_order_id=order.exchange_id, symbol=self.symbol))
         else:
-            self._execute(self.bybit.Order.Order_cancelV2(order_id=order.exchange_id,symbol=self.symbol))
+            self._execute(self.bybit.Order.Order_cancelV2(order_id=order.exchange_id, symbol=self.symbol))
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
@@ -113,6 +113,18 @@ class ByBitInterface(ExchangeWithWS):
                                                          p_r_price=self.symbol_info.normalizePrice(order.limit_price,
                                                                                                    order.amount < 0)))
 
+    def get_current_liquidity(self) -> tuple:
+        book = self._execute(self.bybit.Market.Market_orderbook(symbol=self.symbol))
+        buy = 0
+        sell = 0
+        for entry in book:
+            if entry['side'] == "Buy":
+                buy += entry['size']
+            else:
+                sell += entry['size']
+
+        return buy, sell
+
     def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
         tf = 1 if timeframe_minutes <= 60 else 60
         start = int(datetime.now().timestamp() - tf * 60 * 199)
@@ -148,7 +160,7 @@ class ByBitInterface(ExchangeWithWS):
                               makerFee=float(entry['maker_fee']),
                               takerFee=float(entry['taker_fee']),
                               pricePrecision=entry['price_scale'],
-                              quantityPrecision=0) #hardcoded full dollars
+                              quantityPrecision=0)  # hardcoded full dollars
         return None
 
     def get_ticker(self, symbol=None):
@@ -330,8 +342,8 @@ class ByBitInterface(ExchangeWithWS):
     @staticmethod
     def barDictToBar(b):
         tstamp = int(b['open_time'] if 'open_time' in b.keys() else b['start'])
-        bar= Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
-                   low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+                  low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
         if 'timestamp' in b:
-            bar.last_tick_tstamp= b['timestamp']/1000000.0
+            bar.last_tick_tstamp = b['timestamp'] / 1000000.0
         return bar

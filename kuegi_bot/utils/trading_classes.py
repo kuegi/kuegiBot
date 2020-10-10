@@ -95,13 +95,21 @@ class Symbol:
         if price is None:
             return None
         rou= math.ceil if roundUp else math.floor
-        toTicks= rou(price/self.tickSize)*self.tickSize
+        closestTicks= round(price / self.tickSize)
+        if math.fabs(closestTicks - price/self.tickSize) < 0.01: #already rounded close enough
+            toTicks= closestTicks*self.tickSize
+        else:
+            toTicks= rou(price/self.tickSize)*self.tickSize
         return round(toTicks,self.pricePrecision)
 
     def normalizeSize(self,size):
         if size is None:
             return None
-        toTicks= math.floor(size/self.lotSize)*self.lotSize
+        closestLot= round(size / self.lotSize)
+        if math.fabs(closestLot-size/self.lotSize) < 0.01: #already rounded close enough
+            toTicks= closestLot*self.lotSize
+        else:
+            toTicks= math.floor(size/self.lotSize)*self.lotSize
         return round(toTicks,self.quantityPrecision)
 
 
