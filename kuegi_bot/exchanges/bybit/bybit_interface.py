@@ -36,7 +36,6 @@ class ByBitInterface(ExchangeWithWS):
         apiOrders = self._execute(self.bybit.Conditional.Conditional_getOrders(symbol=self.symbol))
         self.processOrders(apiOrders)
 
-        self.logger.info("got %i orders on startup" % len(self.orders))
         for order in self.orders.values():
             self.logger.debug(str(order))
 

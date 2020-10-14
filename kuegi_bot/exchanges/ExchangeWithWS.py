@@ -163,6 +163,7 @@ class ExchangeWithWS(ExchangeInterface):
         self.symbol = settings.SYMBOL
         self.baseCurrency = settings.BASE
         self.ws = ws
+        self.last_order_sync= 0
 
         self.orders = {}
         self.positions = {}
@@ -173,29 +174,38 @@ class ExchangeWithWS(ExchangeInterface):
 
     def init(self):
         self.logger.info("loading market data. this may take a moment")
-        self.initOrders()
+        self.resyncOrders()
         self.initPositions()
         # TODO: init bars and self.last
         self.logger.info(
-            "starting with %.2f in wallet and pos  %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
-                                                                   self.positions[self.symbol].quantity,
-                                                                   self.positions[self.symbol].avgEntryPrice))
+            "starting with %.2f in wallet, %i orders, pos %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
+                                                                           len(self.orders),
+                                                                           self.positions[self.symbol].quantity,
+                                                                           self.positions[self.symbol].avgEntryPrice))
         self.ws.subscribeDataAfterAuth()
 
     def initOrders(self):
-        pass
+        raise NotImplementedError
+
+    def resyncOrders(self):
+        prev= len(self.orders)
+        self.orders = {}
+        self.initOrders()
+        if prev != len(self.orders):
+            self.logger.warn("different order count after resync %i vs %i" % (prev, len(self.orders)))
+        self.last_order_sync= time()
 
     def initPositions(self):
-        pass
+        raise NotImplementedError
 
     def get_instrument(self, symbol=None):
-        pass
+        raise NotImplementedError
 
     def get_ticker(self, symbol=None):
-        pass
+        raise NotImplementedError
 
     def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
-        pass
+        raise NotImplementedError
 
     def internal_cancel_order(self, order: Order):
         pass
@@ -210,6 +220,8 @@ class ExchangeWithWS(ExchangeInterface):
         self.ws.exit()
 
     def get_orders(self) -> List[Order]:
+        if self.last_order_sync < time() - 5*60: # resync every 5 minutes
+            self.resyncOrders()
         return list(self.orders.values())
 
     def recent_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:

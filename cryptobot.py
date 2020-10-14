@@ -198,12 +198,14 @@ def run(settings):
                 except Exception as e:
                     if telegram_bot is not None:
                         telegram_bot.send_log("error in init of "+usedSettings.id)
+                        telegram_bot.send_execution("error in init of "+usedSettings.id)
                     logger.error("exception in main loop:\n "+ traceback.format_exc())
                     stop_all_and_exit()
 
     logger.info("init done")
     if telegram_bot is not None:
         telegram_bot.send_log("init_done")
+        telegram_bot.send_execution("init_done")
 
     if len(activeThreads) > 0:
         failures= 0
@@ -218,6 +220,7 @@ def run(settings):
                         logger.info("%s died. stopping" % thread.bot.id)
                         if telegram_bot is not None:
                             telegram_bot.send_log(thread.bot.id+" died. restarting")
+                            telegram_bot.send_execution(thread.bot.id+" died. restarting")
                         toRestart.append(thread.originalSettings)
                         thread.bot.exit()
                         toRemove.append(thread)
