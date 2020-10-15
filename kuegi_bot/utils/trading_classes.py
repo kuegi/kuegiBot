@@ -310,6 +310,9 @@ class ExchangeInterface(OrderInterface):
     def internal_update_order(self, order: Order):
         pass
 
+    def resyncOrders(self):
+        raise NotImplementedError
+
     def get_orders(self) -> List[Order]:
         return []
 

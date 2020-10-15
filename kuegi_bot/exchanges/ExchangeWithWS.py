@@ -174,7 +174,8 @@ class ExchangeWithWS(ExchangeInterface):
 
     def init(self):
         self.logger.info("loading market data. this may take a moment")
-        self.resyncOrders()
+        self.initOrders()
+        self.last_order_sync= time()
         self.initPositions()
         # TODO: init bars and self.last
         self.logger.info(
@@ -188,11 +189,16 @@ class ExchangeWithWS(ExchangeInterface):
         raise NotImplementedError
 
     def resyncOrders(self):
-        prev= len(self.orders)
+        prev= self.orders
         self.orders = {}
-        self.initOrders()
-        if prev != len(self.orders):
-            self.logger.warn("different order count after resync %i vs %i" % (prev, len(self.orders)))
+        try:
+            self.initOrders()
+        except Exception as e:
+            self.logger.warn("error syncing orders, back to previous ones. "+str(e))
+            self.orders= prev
+
+        if len(prev) != len(self.orders):
+            self.logger.warn("different order count after resync %i vs %i" % (len(prev), len(self.orders)))
         self.last_order_sync= time()
 
     def initPositions(self):
@@ -220,7 +226,7 @@ class ExchangeWithWS(ExchangeInterface):
         self.ws.exit()
 
     def get_orders(self) -> List[Order]:
-        if self.last_order_sync < time() - 5*60: # resync every 5 minutes
+        if self.last_order_sync < time() - 10*60: # resync every 10 minutes
             self.resyncOrders()
         return list(self.orders.values())
 

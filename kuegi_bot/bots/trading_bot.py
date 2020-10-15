@@ -39,6 +39,7 @@ class TradingBot:
         self.time_of_max_equity = 0
         self.position_history: List[Position] = []
         self.openPositionRolling = 1
+        self.unaccountedPositionCoolOff= 0
         self.reset()
 
     def uid(self) -> str:
@@ -375,28 +376,36 @@ class TradingBot:
         remainingPosition = round(remainingPosition, self.symbol.quantityPrecision)
         # now there should not be any mismatch between positions and orders.
         if remainingPosition != 0:
-            unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
-            signalId = str(bars[1].tstamp) + '+' + str(randint(0, 99))
-            if unmatched_stop is not None:
-                posId = self.full_pos_id(signalId,
-                                         PositionDirection.LONG if remainingPosition > 0 else PositionDirection.SHORT)
-                newPos = Position(id=posId, entry=None, amount=remainingPosition,
-                                  stop=unmatched_stop, tstamp=bars[0].tstamp)
-                newPos.status = PositionStatus.OPEN
-                self.open_positions[posId] = newPos
-                # add stop
-                self.logger.info(
-                    "couldn't account for " + str(newPos.amount) + " open contracts. Adding position with stop for it")
-                self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL),
-                                                      stop=newPos.initial_stop, amount=-newPos.amount))
-            elif account.open_position.quantity * remainingPosition > 0:
-                self.logger.info(
-                    "couldn't account for " + str(remainingPosition) + " open contracts. Market close")
-                self.order_interface.send_order(Order(orderId=signalId + "_marketClose", amount=-remainingPosition))
+            if self.unaccountedPositionCoolOff > 1:
+                unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
+                signalId = str(bars[1].tstamp) + '+' + str(randint(0, 99))
+                if unmatched_stop is not None:
+                    posId = self.full_pos_id(signalId,
+                                             PositionDirection.LONG if remainingPosition > 0 else PositionDirection.SHORT)
+                    newPos = Position(id=posId, entry=None, amount=remainingPosition,
+                                      stop=unmatched_stop, tstamp=bars[0].tstamp)
+                    newPos.status = PositionStatus.OPEN
+                    self.open_positions[posId] = newPos
+                    # add stop
+                    self.logger.info(
+                        "couldn't account for " + str(newPos.amount) + " open contracts. Adding position with stop for it")
+                    self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL),
+                                                          stop=newPos.initial_stop, amount=-newPos.amount))
+                elif account.open_position.quantity * remainingPosition > 0:
+                    self.logger.info(
+                        "couldn't account for " + str(remainingPosition) + " open contracts. Market close")
+                    self.order_interface.send_order(Order(orderId=signalId + "_marketClose", amount=-remainingPosition))
+                else:
+                    self.logger.info(
+                        "couldn't account for " + str(
+                            remainingPosition) + " open contracts. But close would increase exposure-> ignored")
             else:
                 self.logger.info(
-                    "couldn't account for " + str(
-                        remainingPosition) + " open contracts. But close would increase exposure-> ignored")
+                        "couldn't account for " + str(
+                            remainingPosition) + " open contracts. cooling off, hoping it's a glitch")
+                self.unaccountedPositionCoolOff += 1
+        else:
+            self.unaccountedPositionCoolOff = 0
 
     #####################################################
 

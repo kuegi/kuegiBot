@@ -204,6 +204,8 @@ class LiveTrading(OrderInterface):
 
     def handle_tick(self):
         try:
+            if self.bot.unaccountedPositionCoolOff > 0:
+                self.exchange.resyncOrders()
             self.update_bars()
             self.update_account()
             self.bot.on_tick(self.bars, self.account)

@@ -173,6 +173,10 @@ class BinanceInterface(ExchangeInterface):
             if order.active:
                 self.orders[order.id] = order
 
+    def resyncOrders(self):
+        self.orders = {}
+        self.initOrders()
+
     @staticmethod
     def convertOrder(apiOrder: binance_f.model.Order) -> Order:
         direction = 1 if apiOrder.side == OrderSide.BUY else -1
