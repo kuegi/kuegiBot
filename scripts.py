@@ -17,7 +17,15 @@ def eurAt(wanted):
             return bar['close']
 
 eurAt("30-05-19 17:08:40")
+funding = dict()
+with open("history/bybit/BTCUSD_fundraw.json") as f:
+    fund= json.load(f)
+    for key, value in fund.items():
+        tstamp = parse_utc_timestamp(key)
+        funding[int(tstamp)]= value
 
+with open("history/bybit/BTCUSD_funding.json","w") as f:
+    json.dump(funding,f)
 
 '''
 with open("btceur.csv", 'w', newline='') as file:
