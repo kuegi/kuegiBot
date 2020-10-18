@@ -8,7 +8,7 @@ from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, MaxSLDiff
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
-from kuegi_bot.utils.helper import load_bars, prepare_plot
+from kuegi_bot.utils.helper import load_bars, prepare_plot, load_funding
 from kuegi_bot.utils import log
 from kuegi_bot.indicators.kuegi_channel import KuegiChannel
 from kuegi_bot.utils.trading_classes import Symbol
@@ -45,7 +45,7 @@ def increment(min,max,steps,current)->bool:
             return False
 
 
-def runOpti(bars,min,max,steps,symbol= None, randomCount= -1):
+def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
     v= min[:]
     while len(steps) < len(min):
         steps.append(1)
@@ -61,7 +61,7 @@ def runOpti(bars,min,max,steps,symbol= None, randomCount= -1):
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
         bot.add_strategy(SfpStrategy()
                          )
-        BackTest(bot, bars,symbol).run()
+        BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
         if randomCount == 0 or (randomCount < 0 and not increment(min,max,steps,v)):
             break
@@ -80,6 +80,8 @@ def checkDayFilterByDay(bars,symbol= None):
 
 pair= "BTCUSD"
 #pair= "ETHUSD"
+
+funding = load_funding('bybit',pair)
 
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance')
@@ -133,7 +135,7 @@ p.print_callers('<functionName>')
 '''
 
 '''
-runOpti(bars,
+runOpti(bars, funding=funding,
         min=   [10,10,2],
         max=   [20,20,5],
         steps= [1,1,1],
@@ -153,7 +155,7 @@ bot.add_strategy(SfpStrategy(
 ...
                  )
 
-b= BackTest(bot, bars, symbol=symbol,market_slipage_percent=0.15).run()
+b= BackTest(bot, bars, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
 
 #performance chart with lots of numbers
 bot.create_performance_plot(bars).show()

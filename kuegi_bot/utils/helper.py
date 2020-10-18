@@ -64,6 +64,20 @@ known_history_files= {
     "bitstamp_btceur": 56
     }
 
+
+def load_funding(exchange='bybit',symbol='BTCUSD'):
+    try:
+        funding= None
+        with open('history/' + exchange + '/' + symbol + '_funding.json') as f:
+            fund= json.load(f)
+            funding= {}
+            for tstamp, value in fund.items():
+                funding[int(tstamp)] = value
+        return funding
+    except Exception as e:
+        return None
+
+
 def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit',symbol='BTCUSD'):
     #empty symbol is legacy and means btcusd
     end = known_history_files[exchange+"_"+symbol]

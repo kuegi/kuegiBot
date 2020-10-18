@@ -29,8 +29,16 @@ class SilentLogger(object):
 
 class BackTest(OrderInterface):
 
-    def __init__(self, bot: TradingBot, bars: list,symbol:Symbol=None,market_slipage_percent= 0.15):
+    def __init__(self, bot: TradingBot, bars: list, funding:dict= None,symbol:Symbol=None,market_slipage_percent= 0.15):
         self.bars: List[Bar] = bars
+        self.funding= funding
+        self.firstFunding= 9999999999
+        self.lastFunding= 0
+        if funding is not None:
+            for key in funding.keys():
+                self.firstFunding = min(self.firstFunding,key)
+                self.lastFunding= max(self.lastFunding,key)
+
         self.logger= bot.logger
         self.bot = bot
         self.bot.prepare(SilentLogger(),self)
@@ -55,7 +63,7 @@ class BackTest(OrderInterface):
         self.maxExposure= 0
         self.lastHHPosition = 0
 
-        self.current_bars = []
+        self.current_bars: List[Bar] = []
 
         self.reset()
 
@@ -201,6 +209,21 @@ class BackTest(OrderInterface):
             self.underwater = 0
         self.max_underwater = max(self.max_underwater, self.underwater)
 
+    def do_funding(self):
+        funding = 0
+        bar = self.current_bars[0]
+        if self.funding is not None and self.firstFunding <= bar.tstamp <= self.lastFunding:
+            if bar.tstamp in self.funding:
+                funding = self.funding[bar.tstamp]
+        else:
+            dt = datetime.fromtimestamp(bar.tstamp)
+            if dt.hour == 0 or dt.hour == 8 or dt.hour == 16:
+                funding = 0.0001
+
+        if funding != 0 and self.account.open_position.quantity != 0:
+            self.account.open_position.walletBalance -= funding * self.account.open_position.quantity / bar.open
+
+
     def run(self):
         self.reset()
         self.logger.info(
@@ -219,6 +242,8 @@ class BackTest(OrderInterface):
             self.current_bars.insert(0, forming_bar)
             self.current_bars[0].did_change = True
             self.current_bars[1].did_change = True
+
+            self.do_funding()
             # self.bot.on_tick(self.current_bars, self.account)
             for subbar in reversed(next_bar.subbars):
                 # check open orders & update account
