@@ -166,7 +166,7 @@ class ParaTrail(ExitModule):
         return position.id + '_paraExit'
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        if position is None:
+        if position is None or order is None or order.stop_price is None:
             return
 
         self.update_bar_data(position, bars)

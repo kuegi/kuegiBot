@@ -37,7 +37,8 @@ class LiveTrading(OrderInterface):
         if settings.EXCHANGE == 'bitmex':
             self.exchange = BitmexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'bybit':
-            self.exchange = ByBitInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
+            self.exchange = ByBitInterface(settings=settings, logger=self.logger,
+                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution)
         elif settings.EXCHANGE == 'binance':
             self.exchange = BinanceInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':

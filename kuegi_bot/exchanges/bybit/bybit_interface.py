@@ -13,7 +13,8 @@ from ..ExchangeWithWS import ExchangeWithWS
 
 class ByBitInterface(ExchangeWithWS):
 
-    def __init__(self, settings, logger, on_tick_callback=None):
+    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None):
+        self.on_api_error= on_api_error
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
                                  api_secret=settings.API_SECRET)
@@ -70,16 +71,16 @@ class ByBitInterface(ExchangeWithWS):
             # conditional order
             base_side = 1 if order.amount < 0 else -1  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
+            normalizedStop= self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
             result = self._execute(self.bybit.Conditional.Conditional_new(side=("Buy" if order.amount > 0 else "Sell"),
                                                                           symbol=self.symbol,
                                                                           order_type=order_type,
                                                                           qty=abs(order.amount),
                                                                           price=self.symbol_info.normalizePrice(
                                                                               order.limit_price, order.amount < 0),
-                                                                          stop_px=self.symbol_info.normalizePrice(
-                                                                              order.stop_price, order.amount > 0),
+                                                                          stop_px=normalizedStop,
                                                                           order_link_id=order.id,
-                                                                          base_price=order.stop_price + base_side,
+                                                                          base_price=normalizedStop + base_side,
                                                                           time_in_force="GoodTillCancel"))
             if result is not None:
                 order.exchange_id = result['stop_order_id']
@@ -307,6 +308,12 @@ class ByBitInterface(ExchangeWithWS):
                 self.logger.debug('retry after empty result for %s: %s' % (call.operation.operation_id, str(result)))
                 return self._execute(call, silent, remainingRetries - 1)
             else:
+                if self.on_api_error is not None:
+                    msg = "unkown error"
+                    if 'ret_msg' in result.keys():
+                        msg = result['ret_msg']
+                    self.on_api_error("problem sending request: %s %s: %s" %
+                                      (str(call.operation.http_method).upper(), call.operation.path_name, msg))
                 self.logger.error('got empty result for %s: %s' % (call.operation.operation_id, str(result)))
                 return None
 

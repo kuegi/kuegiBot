@@ -61,8 +61,11 @@ def start_bot(botSettings,telegram:TelegramBot=None):
             elif stratId == "sfp":
                 strat = SfpStrategy(min_stop_diff_perc=stratSettings.SFP_MIN_STOP_DIFF,
                                     init_stop_type=stratSettings.SFP_STOP_TYPE,
+                                    stop_buffer_fac=stratSettings.SFP_STOP_BUFFER_FAC,
                                     tp_fac=stratSettings.SFP_TP_FAC,
                                     min_wick_fac=stratSettings.SFP_MIN_WICK_FAC,
+                                    min_air_wick_fac=stratSettings.SFP_MIN_AIR_WICK_FAC,
+                                    min_wick_to_body=stratSettings.SFP_MIN_WICK_TO_BODY,
                                     min_swing_length=stratSettings.SFP_MIN_SWING_LENGTH,
                                     range_length=stratSettings.SFP_RANGE_LENGTH,
                                     min_rej_length=stratSettings.SFP_MIN_REJ_LENGTH,
