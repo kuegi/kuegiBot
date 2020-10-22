@@ -297,8 +297,6 @@ class ByBitInterface(ExchangeWithWS):
             self.logger.error("error in socket data(%s): %s " % (topic, str(e)))
 
     def _execute(self, call: HttpFuture, silent=False, remainingRetries=0):
-        if not silent:
-            self.logger.info("executing %s %s" % (str(call.operation.http_method).upper(), call.operation.path_name))
         # TODO: handle exception
         result = call.response().result
         if 'result' in result.keys() and result['result'] is not None:
