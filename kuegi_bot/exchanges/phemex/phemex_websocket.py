@@ -11,11 +11,12 @@ def get_current_timestamp():
 
 class PhemexWebsocket(KuegiWebsocket):
 
-    def __init__(self, wsURL, api_key, api_secret, logger, callback):
+    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
         """Initialize"""
-        super().__init__(wsURL, api_key, api_secret, logger, callback)
-        self.got_auth_response = False
         self.auth_id = 0
+        self.symbol= symbol
+        self.minutesPerBar= minutesPerBar
+        super().__init__(wsURLs, api_key, api_secret, logger, callback)
 
     def send(self, method, params=None):
         channel = dict()
@@ -26,34 +27,30 @@ class PhemexWebsocket(KuegiWebsocket):
             self.auth_id = channel['id']
         self.ws.send(json.dumps(channel))
 
+    def subscribeRealtimeData(self):
+        self.subscribe_account_updates()
+        subbarsIntervall = 1 if self.minutesPerBar <= 60 else 60
+        self.subscribe_candlestick_event(self.symbol, subbarsIntervall)
+
     def do_auth(self):
         self.logger.info("doing auth")
-        self.got_auth_response = False
         self.auth_id = 0
         [signature, expiry] = Client.generate_signature(message=self.api_key, api_secret=self.api_secret)
         self.send("user.auth", ["API", self.api_key, signature, expiry])
-        waitingTime = 0
-        while not self.got_auth_response > 0 and waitingTime < 100:
-            waitingTime += 1
-            time.sleep(0.1)
-        if not self.got_auth_response:
-            self.logger.error("got no response from auth. outa here")
-            self.ws.exit()
-        else:
-            self.logger.info("authentication success")
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
         message = json.loads(message)
         if 0 < self.auth_id == message['id']:
-            self.got_auth_response= True
+            self.auth = True
             self.auth_id = 0
+            self.logger.info("authentication success")
             return
 
         result = None
         responseType = None
         if 'error' in message and message['error'] is not None:
-            self.logger.error("error in ws reply: "+message)
+            self.logger.error("error in ws reply: " + message)
             self.on_error(message)
         if "accounts" in message and message['accounts']:
             # account update
@@ -68,7 +65,7 @@ class PhemexWebsocket(KuegiWebsocket):
             try:
                 self.callback(responseType, result)
             except Exception as e:
-                self.logger.error("Exception in callback: "+str(e)+"\n message: "+str(message))
+                self.logger.error("Exception in callback: " + str(e) + "\n message: " + str(message))
 
     def subscribe_candlestick_event(self, symbol: str, intervalMinutes: int):
         self.send("kline.subscribe", [symbol, intervalMinutes * 60])

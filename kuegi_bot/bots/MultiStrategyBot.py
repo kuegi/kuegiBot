@@ -24,8 +24,8 @@ class Strategy:
 
     def get_signal_id(self,bars:List[Bar]):
         delta= bars[0].tstamp-bars[1].tstamp
-        timepart= int((bars[0].tstamp / delta) % 10000)
-        return self.myId()+"+"+str(timepart)
+        timepart= self.symbol.symbol+str(int((bars[0].tstamp / delta) % 10000))
+        return self.myId()+"+"+timepart
 
     def prepare(self, logger, order_interface):
         self.logger = logger
@@ -85,8 +85,8 @@ class Strategy:
             if not self.symbol.isInverse:
                 size = risk / delta
             else:
-                size = -int(risk / (1 / entry - 1 / (entry - delta)))
-            size = round(size,self.symbol.quantityPrecision)
+                size = -risk / (1 / entry - 1 / (entry - delta))
+            size = self.symbol.normalizeSize(size)
             return size
 
 class MultiStrategyBot(TradingBot):

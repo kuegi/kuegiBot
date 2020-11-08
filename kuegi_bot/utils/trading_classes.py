@@ -1,3 +1,4 @@
+import math
 from typing import List
 from time import sleep
 from datetime import datetime
@@ -39,7 +40,8 @@ class Bar:
         self.subbars: List[Bar] = subbars if subbars is not None else []
         self.bot_data = {"indicators": {}}
         self.did_change: bool = True
-        self.last_tick_tstamp: float = tstamp
+        self.last_tick_tstamp: float = tstamp if subbars is None or len(subbars) == 0 else\
+                                        subbars[0].last_tick_tstamp
 
     def __str__(self):
         result = "%s (%i) %.1f/%.1f\\%.1f-%.1f %.1f" % (
@@ -59,6 +61,7 @@ class Bar:
         self.close = subbar.close
         self.volume += subbar.volume
         self.subbars.insert(0, subbar)
+        self.last_tick_tstamp = max(self.last_tick_tstamp,subbar.last_tick_tstamp)
         self.did_change = True
 
 
@@ -87,6 +90,27 @@ class Symbol:
 
     def __str__(self):
         return str(self.__dict__)
+
+    def normalizePrice(self,price, roundUp):
+        if price is None:
+            return None
+        rou= math.ceil if roundUp else math.floor
+        closestTicks= round(price / self.tickSize)
+        if math.fabs(closestTicks - price/self.tickSize) < 0.01: #already rounded close enough
+            toTicks= closestTicks*self.tickSize
+        else:
+            toTicks= rou(price/self.tickSize)*self.tickSize
+        return round(toTicks,self.pricePrecision)
+
+    def normalizeSize(self,size):
+        if size is None:
+            return None
+        closestLot= round(size / self.lotSize)
+        if math.fabs(closestLot-size/self.lotSize) < 0.01: #already rounded close enough
+            toTicks= closestLot*self.lotSize
+        else:
+            toTicks= math.floor(size/self.lotSize)*self.lotSize
+        return round(toTicks,self.quantityPrecision)
 
 
 class OrderType(Enum):
@@ -123,9 +147,9 @@ class Order:
         else:
             price= ""
             if self.stop_price is not None:
-                price += "%.1f" % self.stop_price
+                price += "%.3f" % self.stop_price
             if self.limit_price is not None:
-                price += "/%.1f" % self.limit_price
+                price += "/%.3f" % self.limit_price
             return "%s %s @ %s" % (
                 self.id,
                 amount,
@@ -285,6 +309,9 @@ class ExchangeInterface(OrderInterface):
 
     def internal_update_order(self, order: Order):
         pass
+
+    def resyncOrders(self):
+        raise NotImplementedError
 
     def get_orders(self) -> List[Order]:
         return []

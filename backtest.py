@@ -1,3 +1,4 @@
+import logging
 import random
 
 from kuegi_bot.backtest_engine import BackTest
@@ -5,14 +6,14 @@ from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
 from kuegi_bot.bots.strategies.MACross import MACross
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
-from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail
+from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, MaxSLDiff
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
-from kuegi_bot.utils.helper import load_bars, prepare_plot
+from kuegi_bot.utils.helper import load_bars, prepare_plot, load_funding
 from kuegi_bot.utils import log
 from kuegi_bot.indicators.kuegi_channel import KuegiChannel
 from kuegi_bot.utils.trading_classes import Symbol
 
-logger = log.setup_custom_logger()
+logger = log.setup_custom_logger(log_level=logging.INFO)
 
 
 def plot(bars):
@@ -44,8 +45,10 @@ def increment(min,max,steps,current)->bool:
             return False
 
 
-def runOpti(bars,min,max,steps,symbol= None, randomCount= -1):
+def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
     v= min[:]
+    while len(steps) < len(min):
+        steps.append(1)
     while True:
         msg= ""
         if randomCount > 0:
@@ -58,7 +61,7 @@ def runOpti(bars,min,max,steps,symbol= None, randomCount= -1):
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
         bot.add_strategy(SfpStrategy()
                          )
-        BackTest(bot, bars,symbol).run()
+        BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
         if randomCount == 0 or (randomCount < 0 and not increment(min,max,steps,v)):
             break
@@ -75,10 +78,15 @@ def checkDayFilterByDay(bars,symbol= None):
 
         b= BackTest(bot, bars,symbol).run()
 
-bars_p = load_bars(30 * 12, 240,0,'phemex')
+pair= "BTCUSD"
+#pair= "ETHUSD"
+
+funding = load_funding('bybit',pair)
+
+#bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-#bars_b = load_bars(30 * 18, 240,0,'bybit')
+bars_b = load_bars(30 * 18, 240,0,'bybit',pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
@@ -89,16 +97,25 @@ bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars3= process_low_tf_bars(m1_bars, 240, 120)
 #bars4= process_low_tf_bars(m1_bars, 240, 180)
 
-oos_cut=int(len(bars_b)/3)
-bars= bars_b[oos_cut:]
-bars_oos= bars_b[:oos_cut]
+symbol=None
+if pair == "BTCUSD":
+    symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+elif pair == "XRPUSD":
+    symbol=Symbol(symbol="XRPUSD", isInverse=True, tickSize=0.0001, lotSize=0.01, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=4)
+elif pair == "ETHUSD":
+    symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=0.1, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+#
+#for binance
+#symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)
 
-#runOpti(bars_m,[1],[63],[1])
+bars_full= bars_b
+oos_cut=int(len(bars_full)/4)
+bars= bars_full[oos_cut:]
+bars_oos= bars_full[:oos_cut]
+
 
 '''
-checkDayFilterByDay(bars_n,
-    symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02,
-                                     takerFee=0.04))
+checkDayFilterByDay(bars,symbol=symbol)
 
 #'''
 
@@ -117,12 +134,13 @@ p.sort_stats(SortKey.TIME).print_stats(10)
 p.print_callers('<functionName>')
 '''
 
-#'''
-runOpti(bars_p,
-        min=   [1,1,1],
-        max=   [30,30,30],
+'''
+runOpti(bars, funding=funding,
+        min=   [10,10,2],
+        max=   [20,20,5],
         steps= [1,1,1],
-        randomCount=1000)
+        randomCount=-1,
+        symbol=symbol)
 
 #'''
 
@@ -136,16 +154,11 @@ bot.add_strategy(KuegiStrategy(
 bot.add_strategy(SfpStrategy(
 ...
                  )
-b= BackTest(bot, bars_b).run()
 
-#binance is not inverse: needs different symbol:
-
-b= BackTest(bot, bars_n,
-        symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02,
-                                     takerFee=0.04, quantityPrecision=5)).run()
+b= BackTest(bot, bars, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
 
 #performance chart with lots of numbers
-bot.create_performance_plot().show()
+bot.create_performance_plot(bars).show()
 
 # chart with signals:
 b.prepare_plot().show()

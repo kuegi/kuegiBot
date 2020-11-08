@@ -7,19 +7,21 @@ from typing import List
 
 from kuegi_bot.indicators.indicator import Indicator, clean_range
 from kuegi_bot.utils.dotdict import dotdict
-from kuegi_bot.utils.trading_classes import Position, Bar
+from kuegi_bot.utils.trading_classes import Position, Bar, Symbol
 
 
 class ExitModule:
     def __init__(self):
         self.logger = None
+        self.symbol= None
         pass
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         pass
 
-    def init(self, logger):
+    def init(self, logger, symbol: Symbol):
         self.logger = logger
+        self.symbol= symbol
 
     def got_data_for_position_sync(self, bars: List[Bar]) -> bool:
         return True
@@ -69,8 +71,8 @@ class SimpleBE(ExitModule):
         self.buffer = buffer
         self.atrPeriod = atrPeriod
 
-    def init(self, logger):
-        super().init(logger)
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
         self.logger.info("init BE %.1f %.1f %i" % (self.factor, self.buffer, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
@@ -93,7 +95,7 @@ class SimpleBE(ExitModule):
                 be = position.wanted_entry + refRange * self.buffer
                 if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
                         and (be - newStop) * position.amount > 0:
-                    newStop = math.floor(be) if position.amount < 0 else math.ceil(be)
+                    newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
 
             if newStop != order.stop_price:
                 order.stop_price = newStop
@@ -109,8 +111,8 @@ class MaxSLDiff(ExitModule):
         self.maxATRDiff = maxATRDiff
         self.atrPeriod = atrPeriod
 
-    def init(self, logger):
-        super().init(logger)
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
         self.logger.info("init maxATRDiff %.1f %i" % (self.maxATRDiff, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
@@ -127,9 +129,9 @@ class MaxSLDiff(ExitModule):
                 ep = bars[0].high if position.amount > 0 else bars[0].low
                 maxdistStop= ep - math.copysign(refRange*self.maxATRDiff,position.amount)
                 if (maxdistStop - newStop) * position.amount > 0:
-                    newStop = math.floor(maxdistStop) if position.amount < 0 else math.ceil(maxdistStop)
+                    newStop= self.symbol.normalizePrice(maxdistStop, roundUp=position.amount < 0)
 
-            if newStop != order.stop_price:
+            if math.fabs(newStop - order.stop_price) > 0.5*self.symbol.tickSize:
                 order.stop_price = newStop
                 to_update.append(order)
 
@@ -155,8 +157,8 @@ class ParaTrail(ExitModule):
         self.accMax = accMax
         self.resetToCurrent= resetToCurrent
 
-    def init(self, logger):
-        super().init(logger)
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
         self.logger.info("init ParaTrail %.2f %.2f %.2f %s" %
                          (self.accInit, self.accInc, self.accMax, self.resetToCurrent))
 
@@ -164,7 +166,7 @@ class ParaTrail(ExitModule):
         return position.id + '_paraExit'
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        if position is None:
+        if position is None or order is None or order.stop_price is None:
             return
 
         self.update_bar_data(position, bars)
@@ -173,7 +175,7 @@ class ParaTrail(ExitModule):
 
         # trail
         if data is not None and (data.stop - newStop) * position.amount > 0:
-            newStop = math.floor(data.stop) if position.amount < 0 else math.ceil(data.stop)
+            newStop= self.symbol.normalizePrice(data.stop, roundUp=position.amount < 0)
 
         if data is not None and data.actualStop != newStop:
             data.actualStop = newStop
@@ -184,7 +186,7 @@ class ParaTrail(ExitModule):
             lastdata.actualStop= order.stop_price
             self.write_data(bar=bars[1], dataId=self.data_id(position), data=lastdata)
 
-        if newStop != order.stop_price:
+        if math.fabs(newStop - order.stop_price) > 0.5*self.symbol.tickSize:
             order.stop_price = newStop
             to_update.append(order)
 
