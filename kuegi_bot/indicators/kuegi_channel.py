@@ -87,8 +87,11 @@ class KuegiChannel(Indicator):
 
         if sinceReset >= 3:
             last_data: Data = self.get_data(bars[1])
-            lastLongSwing = self.calc_swing(bars, 1, last_data.longSwing, sinceReset, buffer)
-            lastShortSwing = self.calc_swing(bars, -1, last_data.shortSwing, sinceReset, buffer)
+            #lastLongSwing = self.calc_swing(bars, 1, last_data.longSwing, sinceReset, buffer)
+            #lastShortSwing = self.calc_swing(bars, -1, last_data.shortSwing, sinceReset, buffer)
+            lastLongSwing = self.calc_swing_SW(bars, 1, sinceReset)
+            lastShortSwing = self.calc_swing_SW(bars, -1, sinceReset)
+
             if last_data.longSwing is not None and last_data.longSwing < bars[0].high:
                 lastLongSwing = None
             if last_data.shortSwing is not None and last_data.shortSwing > bars[0].low:
@@ -118,6 +121,16 @@ class KuegiChannel(Indicator):
                 return e + direction * minDelta
 
         return default
+
+    def calc_swing_SW(self, bars: List[Bar], direction, maxLookBack):
+        series = BarSeries.HIGH if direction > 0 else BarSeries.LOW
+
+        if direction > 0:
+            highestHigh = highest(bars, maxLookBack, 0, series)
+            return 1.005 * highestHigh
+        else:
+            lowestLow = lowest(bars, maxLookBack, 0, series)
+            return 0.995 * lowestLow
 
     def calc_trail(self, bars: List[Bar], offset, direction, move_length, threshold, maxDist):
         if direction > 0:
