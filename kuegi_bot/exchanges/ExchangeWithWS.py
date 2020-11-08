@@ -1,4 +1,5 @@
 import threading
+from functools import reduce
 from typing import List
 
 import math
@@ -189,16 +190,40 @@ class ExchangeWithWS(ExchangeInterface):
         raise NotImplementedError
 
     def resyncOrders(self):
-        prev= self.orders
+        self.resync_internal(1)
+
+    def resync_internal(self, retrycount):
+        prev: dict = self.orders
+        # resync doesn't get the executed orders, but maybe we don't know about the execution yet -> keep recent executions
+        executed = [o for o in prev.values() if not o.active]
         self.orders = {}
+        rem_exec = 0
         try:
             self.initOrders()
-        except Exception as e:
-            self.logger.warn("error syncing orders, back to previous ones. "+str(e))
-            self.orders= prev
+            # readd executed orders
+            for o in executed:
+                if o.execution_tstamp > time() - 30 * 60:
+                    self.orders[o.id] = o
+                else:
+                    rem_exec += 1
 
-        if len(prev) != len(self.orders):
-            self.logger.warn("different order count after resync %i vs %i" % (len(prev), len(self.orders)))
+        except Exception as e:
+            self.logger.warn("error syncing orders, back to previous ones. " + str(e))
+            self.orders = prev
+
+        if len(prev) - rem_exec != len(self.orders):
+            self.logger.warn("different order count after resync %i-%i vs %i" % (len(prev), rem_exec, len(self.orders)))
+            prev_str = reduce(lambda x, y: x + " " + y.id, prev.values(), "")
+            new_str = reduce(lambda x, y: x + " " + y.id, self.orders.values(), "")
+            self.logger.warn("prevs: [" + prev_str + "], new: [" + new_str + "]")
+
+            if retrycount <= 0:
+                self.orders = prev
+            else:
+                self.logger.warn("waiting 5 sec for resync in case its a glitch")
+                sleep(5)
+                self.resync_internal(retrycount-1)
+
         self.last_order_sync= time()
 
     def initPositions(self):
@@ -224,6 +249,9 @@ class ExchangeWithWS(ExchangeInterface):
 
     def exit(self):
         self.ws.exit()
+
+    def reset_order_sync_timer(self):
+        self.last_order_sync= time()
 
     def get_orders(self) -> List[Order]:
         if self.last_order_sync < time() - 10*60: # resync every 10 minutes

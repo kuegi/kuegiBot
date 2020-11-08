@@ -290,6 +290,7 @@ class ByBitInterface(ExchangeWithWS):
             # new bars is handling directly in the messagecause we get a new one on each tick
             if topic in ["order", "stop_order", "execution"]:
                 gotTick = True
+                self.reset_order_sync_timer() # only when something with orders changed
             if gotTick and self.on_tick_callback is not None:
                 self.on_tick_callback(
                     fromAccountAction=topic in ["order", "stop_order", "execution"])  # got something new

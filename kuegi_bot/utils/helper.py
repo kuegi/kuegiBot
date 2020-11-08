@@ -61,7 +61,7 @@ known_history_files= {
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
     "phemex_BTCUSD":6,
-    "bitstamp_btceur": 56
+    "bitstamp_btceur": 97
     }
 
 

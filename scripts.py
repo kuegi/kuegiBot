@@ -2,21 +2,47 @@ import csv
 import json
 from datetime import datetime
 
+from kuegi_bot.utils.trading_classes import parse_utc_timestamp
+
+#'''
 bars= []
-for i in range(56):
+for i in range(85,97):
     with open("history/bitstamp/btceur_M1_"+str(i)+".json") as f:
         bars += json.load(f)
 
 
-def eurAt(wanted):
-    dt = datetime.strptime(wanted, "%d-%m-%y %H:%M:%S")
-    wantedstamp= dt.timestamp()
-    for bar in bars:
+def eurAt(wantedtstamp):
+    if wantedtstamp is None:
+        return None
+    start= int(bars[0]['timestamp'])
+    end= int(bars[-1]['timestamp'])
+    idx= int(len(bars)*(wantedtstamp-start)/(end-start))
+    for bar in bars[max(0,idx-2):min(len(bars)-1,idx+2)]:
         tstamp= int(bar['timestamp'])
-        if tstamp <= wantedstamp <= tstamp + 60:
-            return bar['close']
+        if tstamp <= wantedtstamp <= tstamp + 60:
+            return float(bar['close'])
+    return None
 
-eurAt("30-05-19 17:08:40")
+
+def eurAtArray(format,wantedArray):
+    result= []
+    for wanted in wantedArray:
+        dt= None
+        try:
+            dt = datetime.strptime(wanted, format)
+        except Exception as e:
+            print(e)
+            pass
+        result.append(eurAt(dt.timestamp() if dt is not None else None))
+    return result
+
+
+res= eurAtArray( "%d.%m.%Y %H:%M", [
+])
+
+#'''
+
+'''
 funding = dict()
 with open("history/bybit/BTCUSD_fundraw.json") as f:
     fund= json.load(f)
@@ -26,6 +52,7 @@ with open("history/bybit/BTCUSD_fundraw.json") as f:
 
 with open("history/bybit/BTCUSD_funding.json","w") as f:
     json.dump(funding,f)
+#'''
 
 '''
 with open("btceur.csv", 'w', newline='') as file:
