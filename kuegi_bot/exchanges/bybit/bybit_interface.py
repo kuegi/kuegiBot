@@ -37,10 +37,12 @@ class ByBitInterface(ExchangeWithWS):
                          on_tick_callback=on_tick_callback)
 
     def initOrders(self):
-        apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Untriggered,New', symbol=self.symbol))
-        self.processOrders(apiOrders)
+        apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Created', symbol=self.symbol))['data']
+        apiOrders += self._execute(self.bybit.Order.Order_getOrders(order_status='New', symbol=self.symbol))['data']
+        apiOrders += self._execute(self.bybit.Order.Order_getOrders(order_status='PartiallyFilled', symbol=self.symbol))['data']
 
-        apiOrders = self._execute(self.bybit.Conditional.Conditional_getOrders(symbol=self.symbol))
+        apiOrders += self._execute(
+            self.bybit.Conditional.Conditional_getOrders(stop_order_status="Untriggered", symbol=self.symbol))['data']
         self.processOrders(apiOrders)
 
         for order in self.orders.values():
@@ -184,13 +186,11 @@ class ByBitInterface(ExchangeWithWS):
     # internal methods
 
     def processOrders(self, apiOrders):
-        if len(apiOrders) > 0 and 'data' in apiOrders.keys():
-            apiOrders = apiOrders['data']
-            if apiOrders is not None:
-                for o in apiOrders:
-                    order = self.orderDictToOrder(o)
-                    if order.active:
-                        self.orders[order.exchange_id] = order
+        if apiOrders is not None:
+            for o in apiOrders:
+                order = self.orderDictToOrder(o)
+                if order.active:
+                    self.orders[order.exchange_id] = order
 
     def socket_callback(self, topic):
         try:
