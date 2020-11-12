@@ -96,7 +96,7 @@ class ByBitInterface(ExchangeWithWS):
                 order.exchange_id = result['stop_order_id']
 
         else:
-            result = self._execute(self.bybit.Order.Order_newV2(side=("Buy" if order.amount > 0 else "Sell"),
+            result = self._execute(self.bybit.Order.Order_new(side=("Buy" if order.amount > 0 else "Sell"),
                                                                 symbol=self.symbol,
                                                                 order_type=order_type,
                                                                 qty=strOrNone(int(abs(order.amount))),
