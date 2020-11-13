@@ -20,7 +20,7 @@ def strOrNone(input):
 class ByBitInterface(ExchangeWithWS):
 
     def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None):
-        self.on_api_error= on_api_error
+        self.on_api_error = on_api_error
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
                                  api_secret=settings.API_SECRET)
@@ -39,7 +39,8 @@ class ByBitInterface(ExchangeWithWS):
     def initOrders(self):
         apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Created', symbol=self.symbol))['data']
         apiOrders += self._execute(self.bybit.Order.Order_getOrders(order_status='New', symbol=self.symbol))['data']
-        apiOrders += self._execute(self.bybit.Order.Order_getOrders(order_status='PartiallyFilled', symbol=self.symbol))['data']
+        apiOrders += \
+        self._execute(self.bybit.Order.Order_getOrders(order_status='PartiallyFilled', symbol=self.symbol))['data']
 
         apiOrders += self._execute(
             self.bybit.Conditional.Conditional_getOrders(stop_order_status="Untriggered", symbol=self.symbol))['data']
@@ -53,7 +54,7 @@ class ByBitInterface(ExchangeWithWS):
         self.positions[self.symbol] = AccountPosition(self.symbol, 0, 0, 0)
         if api_positions is not None:
             for pos in api_positions:
-                if pos['is_valid'] :
+                if pos['is_valid']:
                     posdata = pos['data']
                     sizefac = -1 if posdata["side"] == "Sell" else 1
                     self.positions[posdata['symbol']] = AccountPosition(posdata['symbol'],
@@ -79,31 +80,36 @@ class ByBitInterface(ExchangeWithWS):
 
         if order.stop_price is not None:
             # conditional order
-            base_side = 1 if order.amount < 0 else -1  # buy stops are triggered when price goes higher (so it is
+            base_side = self.symbol_info.tickSize * (
+                1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
-            normalizedStop= self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
+            normalizedStop = self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
             result = self._execute(self.bybit.Conditional.Conditional_new(side=("Buy" if order.amount > 0 else "Sell"),
                                                                           symbol=self.symbol,
                                                                           order_type=order_type,
                                                                           qty=strOrNone(int(abs(order.amount))),
-                                                                          price=strOrNone(self.symbol_info.normalizePrice(
-                                                                              order.limit_price, order.amount < 0)),
+                                                                          price=strOrNone(
+                                                                              self.symbol_info.normalizePrice(
+                                                                                  order.limit_price, order.amount < 0)),
                                                                           stop_px=strOrNone(normalizedStop),
                                                                           order_link_id=order.id,
-                                                                          base_price=strOrNone(normalizedStop + base_side),
+                                                                          base_price=strOrNone(round(
+                                                                              normalizedStop + base_side,
+                                                                              self.symbol_info.pricePrecision)),
                                                                           time_in_force="GoodTillCancel"))
             if result is not None:
                 order.exchange_id = result['stop_order_id']
 
         else:
             result = self._execute(self.bybit.Order.Order_new(side=("Buy" if order.amount > 0 else "Sell"),
-                                                                symbol=self.symbol,
-                                                                order_type=order_type,
-                                                                qty=strOrNone(int(abs(order.amount))),
-                                                                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,
-                                                                                                      order.amount < 0)),
-                                                                order_link_id=order.id,
-                                                                time_in_force="GoodTillCancel"))
+                                                              symbol=self.symbol,
+                                                              order_type=order_type,
+                                                              qty=strOrNone(int(abs(order.amount))),
+                                                              price=strOrNone(
+                                                                  self.symbol_info.normalizePrice(order.limit_price,
+                                                                                                  order.amount < 0)),
+                                                              order_link_id=order.id,
+                                                              time_in_force="GoodTillCancel"))
             if result is not None:
                 order.exchange_id = result['order_id']
 
@@ -112,16 +118,19 @@ class ByBitInterface(ExchangeWithWS):
             self._execute(self.bybit.Conditional.Conditional_replace(stop_order_id=order.exchange_id,
                                                                      symbol=self.symbol,
                                                                      p_r_qty=strOrNone(int(abs(order.amount))),
-                                                                     p_r_trigger_price=strOrNone(self.symbol_info.normalizePrice(
-                                                                         order.stop_price, order.amount > 0)),
-                                                                     p_r_price=strOrNone(self.symbol_info.normalizePrice(
-                                                                         order.limit_price, order.amount < 0))))
+                                                                     p_r_trigger_price=strOrNone(
+                                                                         self.symbol_info.normalizePrice(
+                                                                             order.stop_price, order.amount > 0)),
+                                                                     p_r_price=strOrNone(
+                                                                         self.symbol_info.normalizePrice(
+                                                                             order.limit_price, order.amount < 0))))
         else:
             self._execute(self.bybit.Order.Order_replace(order_id=order.exchange_id,
                                                          symbol=self.symbol,
                                                          p_r_qty=strOrNone(int(abs(order.amount))),
-                                                         p_r_price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,
-                                                                                                   order.amount < 0))))
+                                                         p_r_price=strOrNone(
+                                                             self.symbol_info.normalizePrice(order.limit_price,
+                                                                                             order.amount < 0))))
 
     def get_current_liquidity(self) -> tuple:
         book = self._execute(self.bybit.Market.Market_orderbook(symbol=self.symbol))
@@ -321,7 +330,7 @@ class ByBitInterface(ExchangeWithWS):
                         msg = result['ret_msg']
                     self.on_api_error("problem sending request: %s %s: %s" %
                                       (str(call.operation.http_method).upper(), call.operation.path_name, msg))
-                self.logger.error('got empty result for %s: %s' % (call.operation.operation_id, str(result)))
+                self.logger.error('got empty result for %s, \nparams:%s\nresult: %s' % (call.operation.operation_id, call.future.request.params, str(result)))
                 return None
 
     @staticmethod
