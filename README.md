@@ -10,13 +10,9 @@ if you like it and wanna start a trading account, feel free to use the ref links
 
 [bybit](https://www.bybit.com/en/register?affiliate_id=4555&language=en&group_id=0&group_type=1)
 
-[bitmex (saves 10% fees for 6 months)](https://www.bitmex.com/register/8cXfka)
-
 [binance (saves you 10% of fees)](https://www.binance.com/en/register?ref=NV9XQ2JE)
 
 [binance futures (saves you 10% of fees)](https://www.binance.com/en/futures/ref/kuegi)
-
-[phemex](https://phemex.com/register?referralCode=F6YFL)
 
 ## disclaimer
 
@@ -42,15 +38,7 @@ i write twitter threads about my journey and the bot. you can either follow me t
 This section describes how to get the environment (i highly recommend virtual environments) set up to run the bot (backtest and trading). As mentioned before, this is highly experimental and use of the bot on real money is not recommended unless you *really* know what you are doing.
 
 ## needed modules
-first install the needed packages via pip. Yes, you have to install them manually at the moment. Sorry for that.
-
-```
-plotly
-requests
-future
-websocket-client
-bybit
-```
+first install the needed packages via pip. They are listed in requirements.txt and can be installed via the standard steps
 
 ## execution
 
@@ -71,14 +59,14 @@ a simple swing-failure pattern strategy. I will provide more information when th
 
 ## crawling history
 To run backtests you first have to collect data history from the exchange.
-For bybit and bitmex i created the history_crawler script. 
+For the known exchanges i created the history_crawler script. 
 make sure that a folder "history" is existing in the main directory (next to the script) and run
 ```
 python3 history_crawler.py bybit
 ```
 if you want to crawl bitmex, you have to replace `bybit` with `bitmex`
 
-for future calls adapt line 30 in history_crawler.py to the highest existing index of the M1 files.
+for future calls adapt  the known_history_files in utils/helper to the highest existing index of the M1 files.
 
 The crawler loads M1 data from the exchange in max batchsize and aggregates it in a way to be easily reused from the backtest afterwards. The download can take a long time since its lots of data to fetch.
 
