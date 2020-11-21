@@ -1,17 +1,28 @@
 <div class="botContainer">
-    <p><b>{{id}}</b> R={{risk_reference}}  last tick={{last_tick}}</p>
-    <p>equity: <b>{{equity}}</b> / {{max_equity}} {{drawdown}} down since {{uwdays}} days ago</p>
-    <p>pos: <b>{{totalPos}}</b></p>
     <table>
         <thead>
         <tr>
             <th>PositionId</th><th>status</th><th>signalTime</th>
             <th>amount</th>
-            <th>wantedEntry</th><th>initialSL</th><th>entryTime</th>
-            <th>entry</th><th>stop</th><th>worstCase</th><th>initialRisk</th>
+            <th>wEntry</th><th>initSL</th><th>entryTime</th>
+            <th>entry</th><th>stop</th><th>worst</th><th>Risk</th>
         </tr>
         </thead>
         <tbody id="positions">
+        {{#each this}}
+        <tr class="head">
+            <td>{{id}}</td>
+            <td></td>
+            <td>{{formatTime last_tick_tstamp}}</td>
+            <td>{{totalPos}}</td>
+            <td>{{equity}}</td>
+            <td style="font-weight:normal">{{max_equity}}</td>
+            <td>{{drawdown}} {{uwdays}} d</td>
+            <td></td>
+            <td></td>
+            <td>{{formatResult totalWorstCase}}</td>
+            <td> R={{risk_reference}}</td>
+        </tr>
         {{#each positions}}
         <tr class="{{classFromPosition this}}">
             <td>{{id}}</td>
@@ -26,6 +37,7 @@
             <td id="result">{{formatResult worstCase}}</td>
             <td>{{formatPrice initialRisk}}</td>
         </tr>
+        {{/each}}
         {{/each}}
         </tbody>
     </table>

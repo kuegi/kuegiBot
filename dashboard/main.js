@@ -1,4 +1,9 @@
 (function() {
+    $.ajaxSetup ({
+        // Disable caching of AJAX responses
+        cache: false
+    });
+
     Handlebars.registerHelper('formatPrice',function(aPrice) {
         if(typeof aPrice === "number")
             return aPrice.toFixed(Math.abs(aPrice) < 10?2:1);
@@ -45,18 +50,17 @@ function refresh() {
         var template = Handlebars.templates.openPositions;
         var container= $('#positions')[0];
         container.innerHTML= '';
+        bots= []
         for (let id in data) {
             var bot= data[id];
             bot.id= id;
             bot.drawdown = ((bot.max_equity - bot.equity)/bot.risk_reference).toFixed(1)+"R"
-            bot.uwdays= ((Date.now()-bot.time_of_max_equity*1000)/(1000*60*60*24)).toFixed(1)
+            bot.uwdays= ((Date.now()-bot.time_of_max_equity*1000)/(1000*60*60*24)).toFixed(0)
             bot.equity = bot.equity.toFixed(3)
             bot.max_equity = bot.max_equity.toFixed(3)
             var totalPos= 0;
+            var totalWorstCase= 0;
             bot.positions.forEach(function(pos) {
-                if(pos.status == "open") {
-                    totalPos += pos.amount;
-                }
 
                 pos.connectedOrders.forEach(function(order) {
                     if(order.id.includes("_SL_")) {
@@ -69,10 +73,16 @@ function refresh() {
                         pos.initialRisk= pos.amount*(pos.wanted_entry-pos.initial_stop);
                     }
                 });
+                if(pos.status == "open") {
+                    totalPos += pos.amount;
+                    totalWorstCase += pos.initialRisk*pos.worstCase;
+                }
             });
-            bot.totalPos = totalPos;
-            var div= template(bot);
-            container.insertAdjacentHTML('beforeend',div);
+            bot.totalWorstCase= (totalWorstCase/bot.risk_reference);
+            bot.totalPos = totalPos.toFixed(Math.abs(totalPos) > 100 ? 0 : 3);
+            bots.push(bot)
         }
+        var div= template(bots);
+        container.insertAdjacentHTML('beforeend',div);
     });
 }

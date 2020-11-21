@@ -30,14 +30,16 @@ class TradingBot:
         self.symbol: Symbol = None
         self.unique_id: str = ""
         self.last_time = 0
-        self.last_tick_time = 0
+        self.last_tick_time : datetime = None
         self.is_new_bar = True
         self.open_positions = {}
         self.known_order_history = 0
-        self.risk_reference= 1
-        self.max_equity= 0
-        self.time_of_max_equity= 0
+        self.risk_reference = 1
+        self.max_equity = 0
+        self.time_of_max_equity = 0
         self.position_history: List[Position] = []
+        self.openPositionRolling = 1
+        self.unaccountedPositionCoolOff= 0
         self.reset()
 
     def uid(self) -> str:
@@ -56,8 +58,9 @@ class TradingBot:
         self.known_order_history = 0
         self.position_history = []
 
-    def _get_pos_file(self):
-        return self.symbol.symbol + "_" + self.unique_id + ".json" if self.unique_id is not None else None
+    def _get_pos_file(self, rolling: int = 0):
+        roll = "" if rolling == 0 else "_" + str(rolling)
+        return self.symbol.symbol + "_" + self.unique_id + roll + ".json" if self.unique_id is not None else None
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol, unique_id: str = ""):
         '''init open position etc.'''
@@ -82,19 +85,19 @@ class TradingBot:
     @staticmethod
     def position_id_and_type_from_order_id(order_id: str):
         id_parts = order_id.split("_")
-        posId= None
-        order_type= None
+        posId = None
+        order_type = None
         if len(id_parts) >= 1:
-            posId= id_parts[0]
+            posId = id_parts[0]
         if len(id_parts) >= 2:
             type = id_parts[1]
             if type[0] == OrderType.ENTRY.name[0]:
-                order_type= OrderType.ENTRY
+                order_type = OrderType.ENTRY
             elif type[0] == OrderType.SL.name[0]:
-                order_type= OrderType.SL
+                order_type = OrderType.SL
             elif type[0] == OrderType.TP.name[0]:
-                order_type= OrderType.TP
-        return [posId,order_type]
+                order_type = OrderType.TP
+        return [posId, order_type]
 
     @staticmethod
     def position_id_from_order_id(order_id: str):
@@ -143,17 +146,16 @@ class TradingBot:
 
     ############### handling of open orders
 
-    def check_open_orders_in_position(self,position:Position):
-        gotSL= False
+    def check_open_orders_in_position(self, position: Position):
+        gotSL = False
         for order in position.connectedOrders:
             if self.order_type_from_order_id(order.id) == OrderType.SL:
                 if gotSL:
                     # double SL: cancel
                     self.order_interface.cancel_order(order)
                 else:
-                    gotSL= True
+                    gotSL = True
         # TODO: move handling of missing SL to here
-
 
     def cancel_entry(self, positionId, account: Account):
         to_cancel = self.generate_order_id(positionId, OrderType.ENTRY)
@@ -172,7 +174,8 @@ class TradingBot:
     def handle_opened_position(self, position: Position, order: Order, account: Account, bars: List[Bar]):
         position.status = PositionStatus.OPEN
         position.filled_entry = order.executed_price if order is not None else None
-        position.entry_tstamp = order.execution_tstamp if order is not None and order.execution_tstamp > 0 else bars[0].tstamp
+        position.entry_tstamp = order.execution_tstamp if order is not None and order.execution_tstamp > 0 else bars[
+            0].tstamp
 
         self.position_got_opened(position, bars, account)
 
@@ -188,7 +191,8 @@ class TradingBot:
 
             if position is not None:
                 orderType = self.order_type_from_order_id(order.id)
-                if orderType == OrderType.ENTRY and position.status in [PositionStatus.PENDING, PositionStatus.TRIGGERED, PositionStatus.OPEN] :
+                if orderType == OrderType.ENTRY and position.status in [PositionStatus.PENDING,
+                                                                        PositionStatus.TRIGGERED, PositionStatus.OPEN]:
                     # position got opened, or was open but entry execution was late (in this case we still need to update the executed price.
                     self.logger.info("position %s got opened" % position.id)
                     self.handle_opened_position(position=position, order=order, account=account, bars=bars)
@@ -220,7 +224,7 @@ class TradingBot:
     def sync_positions_with_open_orders(self, bars: List[Bar], account: Account):
         open_pos = 0
         for pos in self.open_positions.values():
-            pos.connectedOrders= [] # will be filled now
+            pos.connectedOrders = []  # will be filled now
             if pos.status == PositionStatus.OPEN:
                 open_pos += pos.amount
 
@@ -238,7 +242,7 @@ class TradingBot:
             if not order.active:
                 remaining_orders.remove(order)
                 continue  # got cancelled during run
-            [posId,orderType] = self.position_id_and_type_from_order_id(order.id)
+            [posId, orderType] = self.position_id_and_type_from_order_id(order.id)
             if orderType is None:
                 remaining_orders.remove(order)
                 continue  # none of ours
@@ -248,7 +252,8 @@ class TradingBot:
                 remaining_orders.remove(order)
                 if posId in remaining_pos_ids:
                     if (orderType == OrderType.SL and pos.status == PositionStatus.OPEN) \
-                            or (orderType == OrderType.ENTRY and pos.status in [PositionStatus.PENDING,PositionStatus.TRIGGERED]):
+                            or (orderType == OrderType.ENTRY and pos.status in [PositionStatus.PENDING,
+                                                                                PositionStatus.TRIGGERED]):
                         # only remove from remaining if its open with SL or pending with entry. every position needs
                         # a stoploss!
                         remaining_pos_ids.remove(posId)
@@ -301,8 +306,9 @@ class TradingBot:
                            order.stop_price if order.stop_price is not None else order.limit_price))
                     self.order_interface.cancel_order(order)
 
-            elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(round(remainingPosition,self.symbol.quantityPrecision)) > abs(
-                    order.amount):
+            elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(
+                    round(remainingPosition, self.symbol.quantityPrecision)) > abs(
+                order.amount):
                 # only assume open position for the waiting SL with the remainingPosition also indicates it, 
                 # otherwise it might be a pending cancel (from executed TP) or already executed
                 newPos = Position(id=posId, entry=None, amount=-order.amount,
@@ -335,7 +341,8 @@ class TradingBot:
             if pos.status == PositionStatus.PENDING or pos.status == PositionStatus.TRIGGERED:
                 # should have the opening order in the system, but doesn't
                 # not sure why: in doubt: not create wrong orders
-                if remainingPosition * pos.amount > 0 and abs(round(remainingPosition,self.symbol.quantityPrecision)) >= abs(pos.amount):
+                if remainingPosition * pos.amount > 0 and abs(
+                        round(remainingPosition, self.symbol.quantityPrecision)) >= abs(pos.amount):
                     # assume position was opened without us realizing (during downtime)
                     self.logger.warn(
                         "pending position with no entry order but open position looks like it was opened: %s" % (posId))
@@ -347,54 +354,62 @@ class TradingBot:
                     pos.status = PositionStatus.MISSED
                     self.position_closed(pos, account)
             elif pos.status == PositionStatus.OPEN:
-                if round(remainingPosition,self.symbol.quantityPrecision) == 0 and pos.initial_stop is not None:
+                if round(remainingPosition, self.symbol.quantityPrecision) == 0 and pos.initial_stop is not None:
                     # for some reason everything matches but we are missing the stop in the market
                     self.logger.warn(
                         "found position with no stop in market. added stop for it: %s with %.1f contracts" % (
-                        posId, pos.amount))
+                            posId, pos.amount))
                     self.order_interface.send_order(
                         Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-pos.amount,
                               stop=pos.initial_stop))
                 else:
                     self.logger.warn(
                         "found position with no stop in market. %s with %.1f contracts. but remaining Position doesn't match so assume it was already closed." % (
-                        posId, pos.amount))
+                            posId, pos.amount))
                     self.position_closed(pos, account)
                     remainingPosition += pos.amount
             else:
                 self.logger.warn(
-                        "pending position with noconnection order not pending or open? closed: %s" % (posId))
+                    "pending position with noconnection order not pending or open? closed: %s" % (posId))
                 self.position_closed(pos, account)
 
-        remainingPosition= round(remainingPosition,self.symbol.quantityPrecision)
+        remainingPosition = round(remainingPosition, self.symbol.quantityPrecision)
         # now there should not be any mismatch between positions and orders.
         if remainingPosition != 0:
-            unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
-            signalId = str(bars[1].tstamp) + '+' + str(randint(0, 99))
-            if unmatched_stop is not None:
-                posId = self.full_pos_id(signalId,
-                                         PositionDirection.LONG if remainingPosition > 0 else PositionDirection.SHORT)
-                newPos = Position(id=posId, entry=None, amount=remainingPosition,
-                                  stop=unmatched_stop, tstamp=bars[0].tstamp)
-                newPos.status = PositionStatus.OPEN
-                self.open_positions[posId] = newPos
-                # add stop
-                self.logger.info(
-                    "couldn't account for " + str(newPos.amount) + " open contracts. Adding position with stop for it")
-                self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL),
-                                                      stop=newPos.initial_stop, amount=-newPos.amount))
-            elif account.open_position.quantity * remainingPosition > 0:
-                self.logger.info(
-                    "couldn't account for " + str(remainingPosition) + " open contracts. Market close")
-                self.order_interface.send_order(Order(orderId=signalId + "_marketClose", amount=-remainingPosition))
+            if self.unaccountedPositionCoolOff > 1:
+                unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
+                signalId = str(bars[1].tstamp) + '+' + str(randint(0, 99))
+                if unmatched_stop is not None:
+                    posId = self.full_pos_id(signalId,
+                                             PositionDirection.LONG if remainingPosition > 0 else PositionDirection.SHORT)
+                    newPos = Position(id=posId, entry=None, amount=remainingPosition,
+                                      stop=unmatched_stop, tstamp=bars[0].tstamp)
+                    newPos.status = PositionStatus.OPEN
+                    self.open_positions[posId] = newPos
+                    # add stop
+                    self.logger.info(
+                        "couldn't account for " + str(newPos.amount) + " open contracts. Adding position with stop for it")
+                    self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL),
+                                                          stop=newPos.initial_stop, amount=-newPos.amount))
+                elif account.open_position.quantity * remainingPosition > 0:
+                    self.logger.info(
+                        "couldn't account for " + str(remainingPosition) + " open contracts. Market close")
+                    self.order_interface.send_order(Order(orderId=signalId + "_marketClose", amount=-remainingPosition))
+                else:
+                    self.logger.info(
+                        "couldn't account for " + str(
+                            remainingPosition) + " open contracts. But close would increase exposure-> ignored")
             else:
                 self.logger.info(
-                    "couldn't account for " + str(
-                        remainingPosition) + " open contracts. But close would increase exposure-> ignored")
+                        "couldn't account for " + str(
+                            remainingPosition) + " open contracts. cooling off, hoping it's a glitch")
+                self.unaccountedPositionCoolOff += 1
+        else:
+            self.unaccountedPositionCoolOff = 0
 
     #####################################################
 
-    def save_open_positions(self, bars:List[Bar]):
+    def save_open_positions(self, bars: List[Bar]):
         if self.unique_id is None:
             return
         base = 'openPositions/'
@@ -402,25 +417,78 @@ class TradingBot:
             os.makedirs(base)
         except Exception:
             pass
-        with open(base + self._get_pos_file(), 'w') as file:
+
+        try:
             pos_json = []
             for pos in self.open_positions:
                 pos_json.append(self.open_positions[pos].to_json())
             moduleData = {}
             for idx in range(5):
-                moduleData[bars[idx].tstamp]=ExitModule.get_data_for_json(bars[idx])
+                moduleData[bars[idx].tstamp] = ExitModule.get_data_for_json(bars[idx])
 
             data = {"last_time": self.last_time,
+                    "last_tick_tstamp": self.last_tick_time.timestamp(),
                     "last_tick": str(self.last_tick_time),
                     "positions": pos_json,
-                    "moduleData":moduleData,
-                    "risk_reference":self.risk_reference,
-                    "max_equity":self.max_equity,
-                    "time_of_max_equity":self.time_of_max_equity}
-            json.dump(data, file, sort_keys=False, indent=4)
+                    "moduleData": moduleData,
+                    "risk_reference": self.risk_reference,
+                    "max_equity": self.max_equity,
+                    "time_of_max_equity": self.time_of_max_equity}
+            string = json.dumps(data, sort_keys=False, indent=4)
+            with open(base + self._get_pos_file(), 'w') as file:
+                file.write(string)
+            # backup if no error happened: this is need to have a backup of the status
+            # for manual intervention when something breaks massivly
+            with open(base + self._get_pos_file(self.openPositionRolling), 'w') as file:
+                file.write(string)
+            self.openPositionRolling += 1
+            if self.openPositionRolling > 10:
+                self.openPositionRolling = 1
+        except Exception as e:
+            self.logger.error("Error saving positions " + str(e))
+            raise e
 
+    def fill_openpositions(self, data, bars: List[Bar]):
+        self.last_time = data["last_time"]
+        if "last_tick_tstamp" in data:
+            self.last_tick_time = datetime.fromtimestamp(data["last_tick_tstamp"])
+        if "max_equity" in data.keys():
+            self.max_equity = data["max_equity"]
+            self.time_of_max_equity = data["time_of_max_equity"]
+        for pos_json in data["positions"]:
+            pos: Position = Position.from_json(pos_json)
+            self.open_positions[pos.id] = pos
+        if "moduleData" in data.keys():
+            for idx in range(5):
+                if str(bars[idx].tstamp) in data["moduleData"].keys():
+                    moduleData = data['moduleData'][str(bars[idx].tstamp)]
+                    ExitModule.set_data_from_json(bars[idx], moduleData)
 
-    def read_open_positions(self,bars: List[Bar]):
+    def read_position_backup(self, bars: List[Bar]):
+        self.logger.warn("trying backups")
+        if self.unique_id is not None:
+            base = 'openPositions/'
+            try:
+                os.makedirs(base)
+            except Exception:
+                pass
+            success= False
+            for idx in range(10):
+                try:
+                    with open(base + self._get_pos_file(idx), 'r') as file:
+                        data = json.load(file)
+                        if self.last_tick_time is None or\
+                                self.last_tick_time.timestamp() < data["last_tick_tstamp"]:
+                            self.fill_openpositions(data, bars)
+                            success= True
+                except Exception as e:
+                    pass
+            if success:
+                self.logger.info("done loading " + str(
+                    len(self.open_positions)) + " positions from " + self._get_pos_file() + " last time " + str(
+                    self.last_time))
+
+    def read_open_positions(self, bars: List[Bar]):
         if self.unique_id is not None:
             base = 'openPositions/'
             try:
@@ -430,26 +498,16 @@ class TradingBot:
             try:
                 with open(base + self._get_pos_file(), 'r') as file:
                     data = json.load(file)
-                    self.last_time = data["last_time"]
-                    if "max_equity" in data.keys():
-                        self.max_equity= data["max_equity"]
-                        self.time_of_max_equity= data["time_of_max_equity"]
-                    for pos_json in data["positions"]:
-                        pos: Position = Position.from_json(pos_json)
-                        self.open_positions[pos.id] = pos
-                    if "moduleData" in data.keys():
-                        for idx in range(5):
-                            if str(bars[idx].tstamp) in data["moduleData"].keys():
-                                moduleData = data['moduleData'][str(bars[idx].tstamp)]
-                                ExitModule.set_data_from_json(bars[idx], moduleData)
-
+                    self.fill_openpositions(data, bars)
                     self.logger.info("done loading " + str(
                         len(self.open_positions)) + " positions from " + self._get_pos_file() + " last time " + str(
                         self.last_time))
             except Exception as e:
                 self.logger.warn("Error loading open positions: " + str(e))
                 self.open_positions = {}
-
+                self.read_position_backup(bars)
+            if self.last_tick_time is None:
+                self.read_position_backup(bars)
 
     def cancel_all_orders_for_position(self, positionId, account: Account):
         to_cancel = []
@@ -504,11 +562,15 @@ class TradingBot:
 
     def on_tick(self, bars: List[Bar], account: Account):
         """checks price and levels to manage current orders and set new ones"""
-        self.last_tick_time = datetime.now()
+        if bars[0].last_tick_tstamp is not None and bars[0].last_tick_tstamp > 0:
+            self.last_tick_time = datetime.fromtimestamp(bars[0].last_tick_tstamp)
+        else:
+            self.last_tick_time = datetime.now()
+
         self.update_new_bar(bars)
         if account.equity > self.max_equity:
-            self.max_equity= account.equity
-            self.time_of_max_equity= time.time()
+            self.max_equity = account.equity
+            self.time_of_max_equity = time.time()
         self.prep_bars(bars)
         try:
             self.manage_open_orders(bars, account)
@@ -544,7 +606,7 @@ class TradingBot:
     # additional stuff
     ###
 
-    def create_performance_plot(self,bars:List[Bar]):
+    def create_performance_plot(self, bars: List[Bar]):
         self.logger.info("preparing stats")
         stats = {
             "dd": 0,
@@ -577,7 +639,7 @@ class TradingBot:
         if firstPos.status != PositionStatus.CLOSED:
             for pos in self.position_history:
                 if pos.status == PositionStatus.CLOSED:
-                    firstPos= pos
+                    firstPos = pos
                     break
         lastHHTstamp = firstPos.signal_tstamp
         startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
@@ -586,7 +648,7 @@ class TradingBot:
         # temporarily add filled exit to have position in the result
         for pos in self.position_history:
             if pos.status == PositionStatus.OPEN:
-                pos.filled_exit= bars[0].close
+                pos.filled_exit = bars[0].close
 
         actual_history = list(
             filter(lambda p1: p1.filled_entry is not None and p1.filled_exit is not None, self.position_history))
@@ -637,7 +699,7 @@ class TradingBot:
         # undo temporarily filled exit
         for pos in self.position_history:
             if pos.status == PositionStatus.OPEN:
-                pos.filled_exit= None
+                pos.filled_exit = None
 
         data = []
         for key in yaxis.keys():

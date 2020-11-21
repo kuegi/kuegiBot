@@ -61,8 +61,11 @@ def start_bot(botSettings,telegram:TelegramBot=None):
             elif stratId == "sfp":
                 strat = SfpStrategy(min_stop_diff_perc=stratSettings.SFP_MIN_STOP_DIFF,
                                     init_stop_type=stratSettings.SFP_STOP_TYPE,
+                                    stop_buffer_fac=stratSettings.SFP_STOP_BUFFER_FAC,
                                     tp_fac=stratSettings.SFP_TP_FAC,
                                     min_wick_fac=stratSettings.SFP_MIN_WICK_FAC,
+                                    min_air_wick_fac=stratSettings.SFP_MIN_AIR_WICK_FAC,
+                                    min_wick_to_body=stratSettings.SFP_MIN_WICK_TO_BODY,
                                     min_swing_length=stratSettings.SFP_MIN_SWING_LENGTH,
                                     range_length=stratSettings.SFP_RANGE_LENGTH,
                                     min_rej_length=stratSettings.SFP_MIN_REJ_LENGTH,
@@ -142,6 +145,7 @@ def write_dashboard(dashboardFile):
                     'alive': engine.alive,
                     "last_time": bot.last_time,
                     "last_tick": str(bot.last_tick_time),
+                    "last_tick_tstamp": bot.last_tick_time.timestamp() if bot.last_tick_time is not None else None,
                     "equity": engine.account.equity,
                     "risk_reference":bot.risk_reference,
                     "max_equity":bot.max_equity,
@@ -192,11 +196,19 @@ def run(settings):
                 logger.error("You have to put in apiKey and secret before starting!")
             else:
                 logger.info("starting " + usedSettings.id)
-                activeThreads.append(start_bot(botSettings=usedSettings, telegram=telegram_bot))
+                try:
+                    activeThreads.append(start_bot(botSettings=usedSettings, telegram=telegram_bot))
+                except Exception as e:
+                    if telegram_bot is not None:
+                        telegram_bot.send_log("error in init of "+usedSettings.id)
+                        telegram_bot.send_execution("error in init of "+usedSettings.id)
+                    logger.error("exception in main loop:\n "+ traceback.format_exc())
+                    stop_all_and_exit()
 
     logger.info("init done")
     if telegram_bot is not None:
         telegram_bot.send_log("init_done")
+        telegram_bot.send_execution("init_done")
 
     if len(activeThreads) > 0:
         failures= 0
@@ -209,7 +221,9 @@ def run(settings):
                 for thread in activeThreads:
                     if not thread.is_alive() or not thread.bot.alive:
                         logger.info("%s died. stopping" % thread.bot.id)
-                        telegram_bot.send_log(thread.bot.id+" died. restarting")
+                        if telegram_bot is not None:
+                            telegram_bot.send_log(thread.bot.id+" died. restarting")
+                            telegram_bot.send_execution(thread.bot.id+" died. restarting")
                         toRestart.append(thread.originalSettings)
                         thread.bot.exit()
                         toRemove.append(thread)

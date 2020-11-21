@@ -1,3 +1,5 @@
+https://twitter.com/mkuegi/status/1288433020547076099?s=20
+
 My bot just made 70% within 5 days while i was lying in the sun enjoying time with my family. Sounds awesome right? Who wouldn't want that? But would you stand the heat that lead up to this?
 Let me take you on a small tour throu reality :thread:
 

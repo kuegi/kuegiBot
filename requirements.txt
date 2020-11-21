@@ -2,4 +2,4 @@ plotly>=4.8.2
 requests>=2.24.0
 future>=0.18.2
 websocket-client>=0.57.0
-bybit>=0.2.6
+bybit>=0.2.10

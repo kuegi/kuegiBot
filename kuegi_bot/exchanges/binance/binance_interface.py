@@ -19,7 +19,8 @@ class BinanceInterface(ExchangeInterface):
         super().__init__(settings, logger, on_tick_callback)
         self.symbol: str = settings.SYMBOL
         self.client = RequestClient(api_key=settings.API_KEY,
-                                    secret_key=settings.API_SECRET)
+                                    secret_key=settings.API_SECRET,
+                                    url="https://fapi.binance.com")
         self.ws = BinanceWebsocket(wsURL="wss://fstream.binance.com/ws",
                                    api_key=settings.API_KEY,
                                    api_secret=settings.API_SECRET,
@@ -91,6 +92,7 @@ class BinanceInterface(ExchangeInterface):
                     else:
                         self.candles.append(candle)
                         gotTick = True
+                    self.last = self.candles[0].close
             elif event.eventType == "ACCOUNT_UPDATE":
                 # {'eventType': 'ACCOUNT_UPDATE', 'eventTime': 1587063874367, 'transactionTime': 1587063874365,
                 # 'balances': [<binance_f.model.accountupdate.Balance object at 0x000001FAF470E100>,...],
@@ -171,6 +173,10 @@ class BinanceInterface(ExchangeInterface):
             if order.active:
                 self.orders[order.id] = order
 
+    def resyncOrders(self):
+        self.orders = {}
+        self.initOrders()
+
     @staticmethod
     def convertOrder(apiOrder: binance_f.model.Order) -> Order:
         direction = 1 if apiOrder.side == OrderSide.BUY else -1
@@ -217,6 +223,9 @@ class BinanceInterface(ExchangeInterface):
         self.client.cancel_order(symbol=self.symbol, origClientOrderId=order.id)
 
     def internal_send_order(self, order: Order):
+        if order.stop_price is not None and (self.last - order.stop_price)*order.amount >= 0:
+            order.stop_price= None # already triggered
+
         if order.limit_price is not None:
             order.limit_price = round(order.limit_price, self.symbol_object.pricePrecision)
             if order.stop_price is not None:
@@ -297,13 +306,13 @@ class BinanceInterface(ExchangeInterface):
         for symb in instr.symbols:
             if symb.symbol == symbol:
                 baseLength = len(symb.baseAsset)
-                lotSize = 0
-                tickSize = 0
+                lotSize = 1
+                tickSize = 1
                 for filterIt in symb.filters:
                     if filterIt['filterType'] == 'LOT_SIZE':
-                        lotSize = filterIt['stepSize']
+                        lotSize = float(filterIt['stepSize'])
                     if filterIt['filterType'] == 'PRICE_FILTER':
-                        tickSize = filterIt['tickSize']
+                        tickSize = float(filterIt['tickSize'])
 
                 return Symbol(symbol=symb.symbol,
                               isInverse=symb.baseAsset != symb.symbol[:baseLength],

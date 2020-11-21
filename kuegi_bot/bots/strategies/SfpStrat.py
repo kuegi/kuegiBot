@@ -10,14 +10,18 @@ from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Pos
 
 class SfpStrategy(ChannelStrategy):
     def __init__(self, tp_fac: float = 0, tp_use_atr: bool= False,
-                 init_stop_type: int = 0, min_stop_diff_perc:float = 0, ignore_on_tight_stop:bool = False,
-                 min_wick_fac: float = 0.2, min_swing_length: int = 2,
+                 init_stop_type: int = 0,stop_buffer_fac:int=2, min_stop_diff_perc:float = 0, ignore_on_tight_stop:bool = False,
+                 min_wick_fac: float = 0.2, min_air_wick_fac: float = 0.0, min_wick_to_body:float= 0.5,
+                 min_swing_length: int = 2,
                  range_length: int = 50, min_rej_length: int= 25, range_filter_fac: float = 0,
                  close_on_opposite: bool = False, entries: int = 0):
         super().__init__()
         self.min_wick_fac = min_wick_fac
+        self.min_air_wick_fac = min_air_wick_fac
+        self.min_wick_to_body= min_wick_to_body
         self.min_swing_length = min_swing_length
         self.init_stop_type = init_stop_type
+        self.stop_buffer_fac=stop_buffer_fac
         self.min_stop_diff_perc= min_stop_diff_perc
         self.ignore_on_tight_stop= ignore_on_tight_stop
         self.tp_fac = tp_fac
@@ -32,8 +36,9 @@ class SfpStrategy(ChannelStrategy):
         return "sfp"
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
-        self.logger.info("init with %.1f %i %.1f | %i %i %i %.1f | %i %i | %.1f %s" %
-                         (self.tp_fac,self.init_stop_type, self.min_wick_fac,
+        self.logger.info("init with %.1f %i %i | %.1f %.2f  %.2f | %i %i %i %.1f | %i %i | %.1f %s" %
+                         (self.tp_fac,self.init_stop_type, self.stop_buffer_fac,
+                          self.min_wick_fac, self.min_air_wick_fac, self.min_wick_to_body,
                           self.min_swing_length, self.range_length, self.min_rej_length, self.range_filter_fac,
                           self.close_on_opposite, self.entries,
                           self.min_stop_diff_perc,self.ignore_on_tight_stop))
@@ -114,13 +119,15 @@ class SfpStrategy(ChannelStrategy):
                           gotLowSwing, swingLow, llBack, lowSupreme, ll ,bars[1].close - bars[1].low ))
         
         if (longSFP or longRej) and (bars[1].high - bars[1].close) > atr * self.min_wick_fac \
+                and (bars[1].high - hh) > (bars[1].high - bars[1].close)*self.min_air_wick_fac \
                 and directionFilter <= 0 and bars[1].high > rangeMedian + atr * self.range_filter_fac \
-                    and bars[1].high - bars[1].close > (bars[1].high - bars[1].low) / 2:
+                    and bars[1].high - bars[1].close > (bars[1].high - bars[1].low) * self.min_wick_to_body:
             self.__open_position(PositionDirection.SHORT, bars, swingHigh if gotHighSwing else hh,open_positions)
 
         if (shortSFP or shortRej) and (bars[1].close - bars[1].low) > atr * self.min_wick_fac \
+                and (ll - bars[1].low) > (bars[1].close - bars[1].low)*self.min_air_wick_fac \
                 and directionFilter >= 0 and bars[1].low < rangeMedian - atr * self.range_filter_fac\
-                   and bars[1].close - bars[1].low > (bars[1].high - bars[1].low) / 2:
+                   and bars[1].close - bars[1].low > (bars[1].high - bars[1].low) * self.min_wick_to_body:
             self.__open_position(PositionDirection.LONG, bars, swingLow if gotLowSwing else ll,open_positions)
 
     def __open_position(self, direction, bars, swing ,open_positions):
@@ -155,7 +162,7 @@ class SfpStrategy(ChannelStrategy):
             stop = extreme + (extreme - bars[1].close) * 0.5
         else:
             stop = capFunc(swing, (extreme + bars[1].close) / 2)
-        stop = stop + oppDirectionFactor  # buffer
+        stop = stop + oppDirectionFactor*self.symbol.tickSize*self.stop_buffer_fac  # buffer
 
         entry = bars[0].open
         signalId = self.get_signal_id(bars)
@@ -164,7 +171,7 @@ class SfpStrategy(ChannelStrategy):
         if 0 <= directionFactor*(entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100) - stop) \
                 or not self.ignore_on_tight_stop:
             stop = capFunc(stop, entry * (1 + oppDirectionFactor*self.min_stop_diff_perc / 100))
-
+            stop= self.symbol.normalizePrice(stop,roundUp=direction == PositionDirection.LONG)
             amount = self.calc_pos_size(risk=self.risk_factor,
                                         exitPrice=stop * (1 + oppDirectionFactor*expectedExitSlipagePerc),
                                         entry=entry * (1 + directionFactor*expectedEntrySplipagePerc),

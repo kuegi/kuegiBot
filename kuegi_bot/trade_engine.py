@@ -37,7 +37,8 @@ class LiveTrading(OrderInterface):
         if settings.EXCHANGE == 'bitmex':
             self.exchange = BitmexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'bybit':
-            self.exchange = ByBitInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
+            self.exchange = ByBitInterface(settings=settings, logger=self.logger,
+                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution)
         elif settings.EXCHANGE == 'binance':
             self.exchange = BinanceInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':
@@ -138,7 +139,8 @@ class LiveTrading(OrderInterface):
                 exec_type = ("executed" if o.executed_amount != 0 else "canceled")
                 price = ("%.1f" % o.executed_price) if o.executed_price is not None else None
                 if self.telegram_bot is not None:
-                    self.telegram_bot.send_execution("%s on %s: %s %.2f@ %s" %
+                    if o.executed_amount != 0:
+                        self.telegram_bot.send_execution("%s on %s: %s %.2f@ %s" %
                                                      (exec_type.upper(), self.id, o.id, o.executed_amount, price))
                     self.telegram_bot.send_log("%s on %s: %s %.2f@ %s" %
                                                      (exec_type.upper(), self.id, o.id, o.executed_amount, price),o.id)
@@ -179,6 +181,10 @@ class LiveTrading(OrderInterface):
                         self.bars[0] = newBar
                 else:  # b.tstamp > self.bars[0].tstamp
                     self.bars.insert(0, b)
+        del self.bars[400:]
+        for bar in self.bars[3:]:
+            # remove minute data from older bars
+            bar.subbars= []
 
     def check_connection(self):
         """Ensure the WS connections are still open."""
@@ -199,6 +205,9 @@ class LiveTrading(OrderInterface):
 
     def handle_tick(self):
         try:
+            if self.bot.unaccountedPositionCoolOff > 0:
+                self.telegram_bot.send_execution("%s having problem with unaccounted pos!" % self.id)
+                self.exchange.resyncOrders()
             self.update_bars()
             self.update_account()
             self.bot.on_tick(self.bars, self.account)
@@ -210,7 +219,11 @@ class LiveTrading(OrderInterface):
 
     def run_loop(self):
         if self.alive:
-            self.bot.init(bars=self.bars, account=self.account, symbol=self.symbolInfo, unique_id=self.settings.id)
+            try:
+                self.bot.init(bars=self.bars, account=self.account, symbol=self.symbolInfo, unique_id=self.settings.id)
+            except Exception as e:
+                self.logger.error("Exception in bot init: " + traceback.format_exc())
+                self.alive= False
 
         last = 0
         while self.alive:
