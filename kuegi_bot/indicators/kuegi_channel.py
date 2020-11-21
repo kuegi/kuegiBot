@@ -87,10 +87,10 @@ class KuegiChannel(Indicator):
 
         if sinceReset >= 3:
             last_data: Data = self.get_data(bars[1])
-            #lastLongSwing = self.calc_swing(bars, 1, last_data.longSwing, sinceReset, buffer)
-            #lastShortSwing = self.calc_swing(bars, -1, last_data.shortSwing, sinceReset, buffer)
-            lastLongSwing = self.calc_swing_SW(bars, 1, sinceReset)
-            lastShortSwing = self.calc_swing_SW(bars, -1, sinceReset)
+            lastLongSwing = self.calc_swing(bars, 1, last_data.longSwing, sinceReset, buffer)
+            lastShortSwing = self.calc_swing(bars, -1, last_data.shortSwing, sinceReset, buffer)
+            #lastLongSwing = self.calc_swing_SW(bars, 1, sinceReset)
+            #lastShortSwing = self.calc_swing_SW(bars, -1, sinceReset)
 
             if last_data.longSwing is not None and last_data.longSwing < bars[0].high:
                 lastLongSwing = None
