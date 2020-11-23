@@ -69,7 +69,7 @@ class ByBitInterface(ExchangeWithWS):
             self._execute(
                 self.bybit.Conditional.Conditional_cancel(stop_order_id=order.exchange_id, symbol=self.symbol))
         else:
-            self._execute(self.bybit.Order.Order_cancelV2(order_id=order.exchange_id, symbol=self.symbol))
+            self._execute(self.bybit.Order.Order_cancel(order_id=order.exchange_id, symbol=self.symbol))
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
