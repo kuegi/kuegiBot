@@ -17,9 +17,6 @@ class KuegiWebsocket(object):
         self.logger = logger
         self.logger.debug("Initializing WebSocket.")
 
-        if api_key is None or api_secret is None:
-            raise Exception('api_secret and api_key is needed')
-
         self.api_key = api_key
         self.api_secret = api_secret
 
@@ -119,7 +116,10 @@ class KuegiWebsocket(object):
                 self.restart_count += 1
                 self.last_restart= now
                 self.__connect()
-                self.subscribeDataAfterAuth()
+                if self.api_key and self.api_secret:
+                    self.subscribeDataAfterAuth()
+                else:
+                    self.subscribeRealtimeData()
                 self.restarting= False
             else:
                 self.exited= True
@@ -173,18 +173,25 @@ class ExchangeWithWS(ExchangeInterface):
         self.symbol_info = self.get_instrument()
         self.init()
 
+    def hasAuth(self):
+        return self.settings.API_KEY is not None and self.settings.API_SECRET is not None
+
     def init(self):
         self.logger.info("loading market data. this may take a moment")
         self.initOrders()
         self.last_order_sync= time()
         self.initPositions()
         # TODO: init bars and self.last
-        self.logger.info(
-            "starting with %.2f in wallet, %i orders, pos %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
-                                                                           len(self.orders),
-                                                                           self.positions[self.symbol].quantity,
-                                                                           self.positions[self.symbol].avgEntryPrice))
-        self.ws.subscribeDataAfterAuth()
+
+        if self.hasAuth():
+            self.logger.info(
+                "starting with %.2f in wallet, %i orders, pos %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
+                                                                               len(self.orders),
+                                                                               self.positions[self.symbol].quantity,
+                                                                               self.positions[self.symbol].avgEntryPrice))
+            self.ws.subscribeDataAfterAuth()
+        else:
+            self.ws.subscribeRealtimeData()
 
     def initOrders(self):
         raise NotImplementedError

@@ -1,8 +1,10 @@
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
+from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 
 from kuegi_bot.utils import log
+from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.helper import load_settings_from_args
 from kuegi_bot.utils.trading_classes import Order
 
@@ -16,6 +18,16 @@ logger = log.setup_custom_logger("cryptobot",
 
 def onTick(fromAccountAction):
     logger.info("got Tick "+str(fromAccountAction))
+
+
+#'''bitstamp
+settings= dotdict({})
+settings.SYMBOL = "btcusd"
+client= BitstampInterface(settings=settings,logger=logger,on_tick_callback=onTick)
+
+
+#'''
+
 
 '''phemex
 
@@ -75,7 +87,7 @@ result = request_client.close_user_data_stream()
 
 '''
 
-#'''
+'''
 if settings.EXCHANGE == 'bybit':
     interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
     b= interface.bybit
