@@ -23,6 +23,7 @@ class BitstampInterface(ExchangeWithWS):
 
     def init(self):
         self.ws.subscribeRealtimeData()
+        self.logger.info("subscribed to data")
 
     def get_instrument(self, symbol=None):
         return None
@@ -39,6 +40,8 @@ class BitstampInterface(ExchangeWithWS):
     def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
         if timeframe_minutes == 1:
             return self.m1_bars
+        else:
+            raise NotImplementedError
 
     def socket_callback(self, topic):
         try:

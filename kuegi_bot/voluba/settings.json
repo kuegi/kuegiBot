@@ -1,0 +1,11 @@
+{
+  "LOG_LEVEL": "INFO",
+  "LOG_TO_CONSOLE": true,
+  "LOG_TO_FILE": false,
+  "exchanges": [
+    {
+      "id": "bitstamp",
+      "SYMBOL": "btcusd"
+    }
+  ]
+}
