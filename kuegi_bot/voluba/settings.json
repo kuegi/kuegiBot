@@ -2,6 +2,7 @@
   "LOG_LEVEL": "INFO",
   "LOG_TO_CONSOLE": true,
   "LOG_TO_FILE": false,
+  "dataPath": "volubaFE/",
   "exchanges": [
     {
       "id": "bitstamp",

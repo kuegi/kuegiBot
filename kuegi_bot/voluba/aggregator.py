@@ -16,14 +16,17 @@ class VolubaData:
         self.barsByExchange = {}
 
 
+
 class VolubaAggregator:
 
     def __init__(self,settings,logger):
+        self.settings= settings
         self.exchanges= {}
         self.logger= logger
         self.m1Data = {}
         # read last data
         # init exchanges from settings
+        self.read_data()
         for exset in settings.exchanges:
             exset= dotdict(exset)
             if exset.id == "bitstamp":
@@ -38,8 +41,39 @@ class VolubaAggregator:
                     self.m1Data[bar.tstamp]= VolubaData(bar.tstamp)
                 self.m1Data[bar.tstamp].barsByExchange[exId]= bar
 
+    def read_data(self):
+        base = self.settings.dataPath
+        try:
+            os.makedirs(base)
+        except Exception:
+            pass
+
+        try:
+            today = datetime.today()
+
+            with open(base + today.strftime("%Y-%m-%d.json"), 'r') as file:
+                data = json.load(file)
+                for entry in data:
+                    d= VolubaData(entry['tstamp'])
+                    for exchange, bar in entry['barsByExchange'].items():
+                        bar=dotdict(bar)
+                        b = Bar(tstamp=bar.tstamp,
+                                open=bar.open,
+                                high=bar.high,
+                                low=bar.low,
+                                close=bar.close,
+                                volume=0)
+                        b.buyVolume = bar.buyVolume
+                        b.sellVolume = bar.sellVolume
+                        d.barsByExchange[exchange] = b
+                    self.m1Data[entry['tstamp']] = d
+
+
+        except Exception as e:
+            self.logger.error("Error reading data " + str(e))
+
     def serialize_current_data(self):
-        base = 'voluba/'
+        base = self.settings.dataPath
         try:
             os.makedirs(base)
         except Exception:
@@ -53,14 +87,16 @@ class VolubaAggregator:
             yesterday= today - timedelta(days=1)
             now = time.time()
 
-            last60Min= []
+            latest= []
             todayData= []
             yesterdayData= []
 
             for d in data:
-                dic= dict(d.__dict__)
-                for ex,bar in d.barsByExchange.items():
-                    bard= dict(bar.__dict__)
+                dic = {'tstamp': d.tstamp,
+                       'barsByExchange': {}
+                       }
+                for ex, bar in d.barsByExchange.items():
+                    bard = dict(bar.__dict__)
                     if "did_change" in bard:
                         del bard['did_change']
                     if "bot_data" in bard:
@@ -68,23 +104,23 @@ class VolubaAggregator:
                     if "subbars" in bard:
                         del bard['subbars']
                     dic['barsByExchange'][ex]=bard
-                if d.tstamp >= now - 60*60:
-                    last60Min.append(dic)
+                if d.tstamp >= now - 10*60:
+                    latest.append(dic)
                 if d.tstamp >= startOfToday:
                     todayData.append(dic)
                 if startOfToday - 1440 <= d.tstamp < startOfToday:
                     yesterdayData.append(dic)
 
-            string = json.dumps(last60Min, sort_keys=False, indent=4)
-            with open(base + "last60Min.json", 'w') as file:
+            string = json.dumps(latest, sort_keys=False, indent=4)
+            with open(base + "latest.json", 'w') as file:
                 file.write(string)
 
             string = json.dumps(todayData, sort_keys=False, indent=4)
-            with open(base + today.strftime("%Y%m%d.json"), 'w') as file:
+            with open(base + today.strftime("%Y-%m-%d.json"), 'w') as file:
                 file.write(string)
 
             string = json.dumps(yesterdayData, sort_keys=False, indent=4)
-            with open(base + yesterday.strftime("%Y%m%d.json"), 'w') as file:
+            with open(base + yesterday.strftime("%Y-%m-%d.json"), 'w') as file:
                 file.write(string)
 
             #also write last two days

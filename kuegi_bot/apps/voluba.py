@@ -12,7 +12,7 @@ def run(settings):
         while True:
             voluba.aggregate_data()
             voluba.serialize_current_data()
-            sleep(30)
+            sleep(1)
     except Exception as e:
         logger.error("exception in main loop:\n "+ traceback.format_exc())
 
