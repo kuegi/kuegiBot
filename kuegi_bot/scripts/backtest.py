@@ -93,7 +93,7 @@ pair= "ETHUSD"
 funding = load_funding('bybit',pair)
 
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
-#bars_n = load_bars(30 * 12, 240,0,'binance')
+#bars_n = load_bars(30 * 12, 240,0,'binance_f')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
 bars_b = load_bars(30 * 18, 240,0,'bybit',pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
@@ -114,7 +114,7 @@ elif pair == "XRPUSD":
 elif pair == "ETHUSD":
     symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=0.1, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
 #
-#for binance
+#for binance_f
 #symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)
 
 bars_full= bars_b

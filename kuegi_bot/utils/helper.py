@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 from typing import List
 
-from kuegi_bot.exchanges.binance.binance_interface import BinanceInterface
+from kuegi_bot.exchanges.binance_f.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.indicators.indicator import Indicator
@@ -101,8 +101,8 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
             if b['open'] is None:
                 continue
             subbars.append(BitmexInterface.barDictToBar(b,wanted_tf))
-        elif exchange in ['binance','binanceSpot']:
-            subbars.append(BinanceInterface.barArrayToBar(b))
+        elif exchange in ['binance_f','binanceSpot']:
+            subbars.append(BinanceFuturesInterface.barArrayToBar(b))
         elif exchange == 'phemex':
             subbars.append(PhemexInterface.barArrayToBar(b,10000))
     subbars.reverse()

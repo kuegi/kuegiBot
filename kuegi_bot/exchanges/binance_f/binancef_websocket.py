@@ -18,7 +18,7 @@ def parse_json_from_string(value):
     return JsonWrapper(json.loads(value))
 
 
-class BinanceWebsocket:
+class BinanceFuturesWebsocket:
 
     def __init__(self, wsURL, api_key, api_secret, logger, callback):
         """Initialize"""

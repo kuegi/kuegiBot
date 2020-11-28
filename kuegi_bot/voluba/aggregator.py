@@ -5,6 +5,7 @@ import json
 import os
 from typing import List
 
+from kuegi_bot.exchanges.binance_spot.binance_spot_interface import BinanceSpotInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
 from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.trading_classes import Bar
@@ -23,6 +24,13 @@ class VolubaAggregator:
         self.exchanges = {}
         self.logger = logger
         self.m1Data = {}
+
+        base = self.settings.dataPath
+        try:
+            os.makedirs(base)
+        except Exception:
+            pass
+
         # read last data
         # init exchanges from settings
         self.read_data()
@@ -30,6 +38,9 @@ class VolubaAggregator:
             exset = dotdict(exset)
             if exset.id == "bitstamp":
                 ex = BitstampInterface(settings=exset, logger=logger)
+                self.exchanges[exset.id] = ex
+            if exset.id == "binance":
+                ex = BinanceSpotInterface(settings=exset, logger=logger)
                 self.exchanges[exset.id] = ex
 
     def aggregate_data(self):
@@ -40,17 +51,9 @@ class VolubaAggregator:
                     self.m1Data[bar.tstamp] = VolubaData(bar.tstamp)
                 self.m1Data[bar.tstamp].barsByExchange[exId] = bar
 
-    def read_data(self):
-        base = self.settings.dataPath
+    def read_data_file(self, filename):
         try:
-            os.makedirs(base)
-        except Exception:
-            pass
-
-        try:
-            today = datetime.today()
-
-            with open(base + today.strftime("%Y-%m-%d.json"), 'r') as file:
+            with open(filename, 'r') as file:
                 data = json.load(file)
                 for entry in data:
                     d = VolubaData(entry['tstamp'])
@@ -70,13 +73,15 @@ class VolubaAggregator:
         except Exception as e:
             self.logger.error("Error reading data " + str(e))
 
+    def read_data(self):
+        base = self.settings.dataPath
+        today = datetime.today()
+        for delta in range(0, 4):
+            date = today - timedelta(days=delta)
+            self.read_data_file(base + date.strftime("%Y-%m-%d.json"))
+
     def serialize_current_data(self):
         base = self.settings.dataPath
-        try:
-            os.makedirs(base)
-        except Exception:
-            pass
-
         try:
             data: List[VolubaData] = sorted(self.m1Data.values(), key=lambda d: d.tstamp)
 
@@ -109,6 +114,10 @@ class VolubaAggregator:
                 if startOfToday - 1440 * 60 <= d.tstamp < startOfToday:
                     yesterdayData.append(dic)
 
+                # clear old data (2 days for extra buffer)
+                if d.tstamp < startOfToday - 1440 * 60 * 2:
+                    del self.m1Data[d.tstamp]
+
             string = json.dumps(latest, sort_keys=False, indent=4)
             with open(base + "latest.json", 'w') as file:
                 file.write(string)
@@ -124,4 +133,3 @@ class VolubaAggregator:
             # also write last two days
         except Exception as e:
             self.logger.error("Error saving data " + str(e))
-            raise e

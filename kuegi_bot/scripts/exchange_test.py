@@ -1,3 +1,4 @@
+from kuegi_bot.exchanges.binance_spot.binance_spot_interface import BinanceSpotInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
@@ -20,14 +21,20 @@ def onTick(fromAccountAction):
     logger.info("got Tick "+str(fromAccountAction))
 
 
-#'''bitstamp
+#'''binance_spot
+settings= dotdict({})
+settings.SYMBOL = "btcusdt"
+client= BinanceSpotInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+
+#'''
+
+'''bitstamp
 settings= dotdict({})
 settings.SYMBOL = "btcusd"
 client= BitstampInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 
 
 #'''
-
 
 '''phemex
 
@@ -37,7 +44,7 @@ client= PhemexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 
 
 
-''' binance
+''' binance_f
 
 from binance_f.exception.binanceapiexception import BinanceApiException
 from binance_f.model.candlestickevent import Candlestick

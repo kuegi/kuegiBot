@@ -8,12 +8,12 @@ from binance_f.model import OrderSide, OrderType, TimeInForce, CandlestickInterv
 from binance_f.model.accountupdate import Balance, Position
 from binance_f.model.candlestickevent import Candlestick
 
-from kuegi_bot.exchanges.binance.binance_websocket import BinanceWebsocket
+from kuegi_bot.exchanges.binance_f.binancef_websocket import BinanceFuturesWebsocket
 from kuegi_bot.utils.trading_classes import ExchangeInterface, Order, Bar, Account, AccountPosition, \
     process_low_tf_bars, Symbol
 
 
-class BinanceInterface(ExchangeInterface):
+class BinanceFuturesInterface(ExchangeInterface):
 
     def __init__(self, settings, logger, on_tick_callback=None):
         super().__init__(settings, logger, on_tick_callback)
@@ -21,13 +21,13 @@ class BinanceInterface(ExchangeInterface):
         self.client = RequestClient(api_key=settings.API_KEY,
                                     secret_key=settings.API_SECRET,
                                     url="https://fapi.binance.com")
-        self.ws = BinanceWebsocket(wsURL="wss://fstream.binance.com/ws",
-                                   api_key=settings.API_KEY,
-                                   api_secret=settings.API_SECRET,
-                                   logger=logger,
-                                   callback=self.callback)
+        self.ws = BinanceFuturesWebsocket(wsURL="wss://fstream.binance_f.com/ws",
+                                          api_key=settings.API_KEY,
+                                          api_secret=settings.API_SECRET,
+                                          logger=logger,
+                                          callback=self.callback)
 
-        # for binance the key is the internal id (not the exchange id) cause we can't update order but have to cancel
+        # for binance_f the key is the internal id (not the exchange id) cause we can't update order but have to cancel
         # and reopen with same id. that leads to different exchange id, but we need to know its the same.
         self.orders = {}
         self.positions = {}
@@ -256,7 +256,7 @@ class BinanceInterface(ExchangeInterface):
         order.exchange_id = resultOrder.orderId
 
     def internal_update_order(self, order: Order):
-        self.cancel_order(order)  # stupid binance can't update orders
+        self.cancel_order(order)  # stupid binance_f can't update orders
         self.on_tick_callback(True)  # triggers a reset of the tick-delay.
         # otherwise we risk a tick to be calced after the cancel, before the new order
         self.send_order(order)
