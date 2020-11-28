@@ -11,35 +11,34 @@ from kuegi_bot.utils.trading_classes import Bar
 
 
 class VolubaData:
-    def __init__(self,tstamp):
-        self.tstamp : int = tstamp
+    def __init__(self, tstamp):
+        self.tstamp: int = tstamp
         self.barsByExchange = {}
-
 
 
 class VolubaAggregator:
 
-    def __init__(self,settings,logger):
-        self.settings= settings
-        self.exchanges= {}
-        self.logger= logger
+    def __init__(self, settings, logger):
+        self.settings = settings
+        self.exchanges = {}
+        self.logger = logger
         self.m1Data = {}
         # read last data
         # init exchanges from settings
         self.read_data()
         for exset in settings.exchanges:
-            exset= dotdict(exset)
+            exset = dotdict(exset)
             if exset.id == "bitstamp":
-                ex= BitstampInterface(settings=exset,logger=logger)
-                self.exchanges[exset.id]= ex
+                ex = BitstampInterface(settings=exset, logger=logger)
+                self.exchanges[exset.id] = ex
 
     def aggregate_data(self):
-        for exId,exchange in self.exchanges.items():
-            m1bars= exchange.get_bars(1,0)
+        for exId, exchange in self.exchanges.items():
+            m1bars = exchange.get_bars(1, 0)
             for bar in m1bars:
                 if bar.tstamp not in self.m1Data:
-                    self.m1Data[bar.tstamp]= VolubaData(bar.tstamp)
-                self.m1Data[bar.tstamp].barsByExchange[exId]= bar
+                    self.m1Data[bar.tstamp] = VolubaData(bar.tstamp)
+                self.m1Data[bar.tstamp].barsByExchange[exId] = bar
 
     def read_data(self):
         base = self.settings.dataPath
@@ -54,20 +53,19 @@ class VolubaAggregator:
             with open(base + today.strftime("%Y-%m-%d.json"), 'r') as file:
                 data = json.load(file)
                 for entry in data:
-                    d= VolubaData(entry['tstamp'])
+                    d = VolubaData(entry['tstamp'])
                     for exchange, bar in entry['barsByExchange'].items():
-                        bar=dotdict(bar)
+                        bar = dotdict(bar)
                         b = Bar(tstamp=bar.tstamp,
                                 open=bar.open,
                                 high=bar.high,
                                 low=bar.low,
                                 close=bar.close,
-                                volume=0)
+                                volume=bar.volume)
                         b.buyVolume = bar.buyVolume
                         b.sellVolume = bar.sellVolume
                         d.barsByExchange[exchange] = b
                     self.m1Data[entry['tstamp']] = d
-
 
         except Exception as e:
             self.logger.error("Error reading data " + str(e))
@@ -80,16 +78,16 @@ class VolubaAggregator:
             pass
 
         try:
-            data:List[VolubaData]= sorted(self.m1Data.values(), key=lambda d: d.tstamp)
+            data: List[VolubaData] = sorted(self.m1Data.values(), key=lambda d: d.tstamp)
 
             today = datetime.today()
             startOfToday = datetime(today.year, today.month, today.day, tzinfo=tz.tzutc()).timestamp()
-            yesterday= today - timedelta(days=1)
+            yesterday = today - timedelta(days=1)
             now = time.time()
 
-            latest= []
-            todayData= []
-            yesterdayData= []
+            latest = []
+            todayData = []
+            yesterdayData = []
 
             for d in data:
                 dic = {'tstamp': d.tstamp,
@@ -103,12 +101,12 @@ class VolubaAggregator:
                         del bard['bot_data']
                     if "subbars" in bard:
                         del bard['subbars']
-                    dic['barsByExchange'][ex]=bard
-                if d.tstamp >= now - 10*60:
+                    dic['barsByExchange'][ex] = bard
+                if d.tstamp >= now - 10 * 60:
                     latest.append(dic)
                 if d.tstamp >= startOfToday:
                     todayData.append(dic)
-                if startOfToday - 1440 <= d.tstamp < startOfToday:
+                if startOfToday - 1440 * 60 <= d.tstamp < startOfToday:
                     yesterdayData.append(dic)
 
             string = json.dumps(latest, sort_keys=False, indent=4)
@@ -123,7 +121,7 @@ class VolubaAggregator:
             with open(base + yesterday.strftime("%Y-%m-%d.json"), 'w') as file:
                 file.write(string)
 
-            #also write last two days
+            # also write last two days
         except Exception as e:
             self.logger.error("Error saving data " + str(e))
             raise e

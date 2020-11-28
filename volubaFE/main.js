@@ -9,6 +9,50 @@ var volumes= [];
 var chart;
 
 var volumeGray= 'rgba(150,150,150,0.8)';
+var targetTF= 5;
+
+function aggregateM1Data(m1Data) {
+    var result= [];
+    m1Data.sort((a,b) => {
+        return a.tstamp - b.tstamp;
+    });
+    var lastTstamp = 0;
+    m1Data.forEach(b => {
+        var bar;
+        var barTstamp= Math.floor(b.tstamp /(60*targetTF))*(60*targetTF);
+        var bar= { tstamp: barTstamp,
+        open: 0, high:0, low:999999999, close:0, buyVolume:0, sellVolume:0, volume:0 };
+        var count= 0;
+        for(let exchange in b.barsByExchange) {
+            var exBar= b.barsByExchange[exchange];
+            bar.open += exBar.open;
+            bar.high = Math.max(bar.high,exBar.high);
+            bar.low= Math.min(bar.low,exBar.low);
+            bar.close += exBar.close;
+            bar.volume += exBar.volume;
+            bar.buyVolume += exBar.buyVolume;
+            bar.sellVolume += exBar.sellVolume;
+            count++;
+        }
+        bar.open /= count;
+        bar.close /= count;
+
+        if(barTstamp == lastTstamp) {
+            var existing= result[result.length-1];
+            existing.high= Math.max(existing.high,bar.high);
+            existing.low= Math.min(existing.low,bar.low);
+            existing.close= bar.close;
+            existing.volume += bar.volume;
+            existing.buyVolume += bar.buyVolume;
+            existing.sellVolume += bar.sellVolume;
+        } else {
+            result.push(bar);
+            lastTstamp= bar.tstamp;
+        }
+    });
+    return result;
+}
+
 
 function init() {
     chart = LightweightCharts.createChart(document.getElementById('chart'),{
@@ -29,40 +73,7 @@ function init() {
             bottom: 0,
         },
     });
-    today= new Date();
-    $.getJSON(today.toISOString().substr(0,10)+'.json', function(data) {
-        candles= [];
-        cvds= [];
-        cvd= 0;
-        data.forEach(b => {
-            var bar= { time: b.tstamp,
-            open: 0, high:0, low:999999999, close:0 };
-            var cvdEntry= { time: b.tstamp, value:0 };
-            var count= 0;
-            var volume= 0;
-            for(let exchange in b.barsByExchange) {
-                var exBar= b.barsByExchange[exchange];
-                bar.open += exBar.open;
-                bar.high = Math.max(bar.high,exBar.high);
-                bar.low= Math.min(bar.low,exBar.low);
-                bar.close += exBar.close;
-                volume += exBar.volume;
-                count++;
-                cvd += exBar.buyVolume - exBar.sellVolume;
-            }
-            cvdEntry.value= cvd;
-            bar.open /= count;
-            bar.close /= count;
-            candles.push(bar);
-            cvds.push(cvdEntry);
-            volumes.push({time:b.tstamp, value:volume, color: volumeGray});
-        });
-
-        barSeries.setData(candles);
-        cvdSeries.setData(cvds);
-        volumeSeries.setData(volumes);
-        chart.timeScale().fitContent();
-    });
+    initData();
     window.onresize= resize;
     window.setInterval(refresh, 1000)
 }
@@ -72,30 +83,41 @@ function resize() {
     chart.resize(container.offsetWidth,container.offsetHeight);
 }
 
+function initData() {
+    var targetTF= Number($("#tf").get(0).value);
+    today= new Date();
+    $.getJSON(today.toISOString().substr(0,10)+'.json', function(data) {
+        candles= [];
+        cvds= [];
+        volumes= [];
+        cvd= 0;
+        aggregateM1Data(data).forEach(b => {
+            var bar= { time: b.tstamp,
+            open: b.open, high:b.high, low:b.low, close:b.close };
+            cvd += b.buyVolume-b.sellVolume
+            var cvdEntry= { time: b.tstamp, value: cvd };
+            candles.push(bar);
+            cvds.push(cvdEntry);
+            volumes.push({time:b.tstamp, value:b.volume, color: volumeGray});
+        });
+
+        barSeries.setData(candles);
+        cvdSeries.setData(cvds);
+        volumeSeries.setData(volumes);
+        chart.timeScale().fitContent();
+    });
+}
+
 function refresh() {
     $.getJSON('latest.json', function(data) {
         var totalCVD=cvds[cvds.length-2].value;
-        data.forEach(b => {
-            var bar= { time: b.tstamp,
-            open: 0, high:0, low:999999999, close:0 };
-            var count= 0;
-            var cvd= 0;
-            var volume= 0;
-            for(let exchange in b.barsByExchange) {
-                var exBar= b.barsByExchange[exchange];
-                bar.open += exBar.open;
-                bar.high = Math.max(bar.high,exBar.high);
-                bar.low= Math.min(bar.low,exBar.low);
-                bar.close += exBar.close;
-                volume+= exBar.volume;
-                count++;
-                cvd += exBar.buyVolume - exBar.sellVolume;
-            }
 
+        aggregateM1Data(data).forEach(b => {
+            var bar= { time: b.tstamp,
+            open: b.open, high:b.high, low:b.low, close:b.close };
+            var cvd= b.buyVolume-b.sellVolume;
             var cvdEntry= { time: b.tstamp, value:totalCVD+cvd };
-            bar.open /= count;
-            bar.close /= count;
-            vEntry= {time:b.tstamp, value:volume, color: volumeGray};
+            vEntry= {time:b.tstamp, value:b.volume, color: volumeGray};
 
             if(candles[candles.length-1].time == b.tstamp) {
                 candles[candles.length-1]= bar;
