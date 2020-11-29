@@ -3,29 +3,19 @@ var cvdSeries;
 var volumeSeries;
 var volDeltaSeries;
 
-var candles= [];
-var cvds= [];
-var volumeDeltas= [];
-var volumes= [];
+var m1Data;
 
 var chart;
 
 var volumeGray= 'rgba(150,150,150,0.8)';
 var volumeBuy= 'rgb(50,200,50)';
 var volumeSell= 'rgb(250,50,50)';
-var targetTF= 5;
 
-function aggregateM1Data(m1Data) {
+var targetTF= 5;
+var wantedExchanges;
+
+function aggregateM1Data() {
     var result= [];
-    m1Data.sort((a,b) => {
-        return a.tstamp - b.tstamp;
-    });
-    var wantedExchanges= new Set();
-    document.getElementsByName("exchange").forEach(input => {
-        if(input.checked) {
-            wantedExchanges.add(input.value);
-        }
-    });
     var lastTstamp = 0;
     m1Data.forEach(b => {
         var bar;
@@ -67,7 +57,6 @@ function aggregateM1Data(m1Data) {
     });
     return result;
 }
-
 
 function init() {
     chart = LightweightCharts.createChart(document.getElementById('chart'),{
@@ -121,7 +110,7 @@ function init() {
     });
     initData(false);
     window.onresize= resize;
-    window.setInterval(refresh, 1000)
+    window.setInterval(refresh, 5000)
 }
 
 function resize() {
@@ -153,78 +142,86 @@ function refreshExchanges(m1Data) {
     });
 }
 
-function reinitData() {
-    initData(true);
+function checkWantedExchanges() {
+    wantedExchanges= new Set();
+    document.getElementsByName("exchange").forEach(input => {
+        if(input.checked) {
+            wantedExchanges.add(input.value);
+        }
+    });
 }
 
-function initData(isrefresh) {
+function reinitData() {
     targetTF= Number($("#tf").get(0).value);
+    checkWantedExchanges();
+    fillSeries();
+}
+
+function initData() {
     today= new Date();
-    $.getJSON(today.toISOString().substr(0,10)+'.json', function(data) {
-        candles= [];
-        cvds= [];
-        volumes= [];
-        volumeDeltas= [];
-        cvd= 0;
-        if(!isrefresh) {
-            refreshExchanges(data);
-        }
-        aggregateM1Data(data).forEach(b => {
-            var bar= { time: b.tstamp,
-            open: b.open, high:b.high, low:b.low, close:b.close };
-            cvd += b.buyVolume-b.sellVolume
-            candles.push(bar);
-            cvds.push( { time: b.tstamp, value: cvd });
-            if(b.buyVolume > b.sellVolume) {
-                volumeDeltas.push( { time: b.tstamp, value:b.buyVolume-b.sellVolume, color: volumeBuy });
-            } else {
-                volumeDeltas.push( { time: b.tstamp, value:b.sellVolume-b.buyVolume, color: volumeSell });
-            }
-            volumes.push({time:b.tstamp, value:b.volume, color: volumeGray});
+    yesterday= new Date();
+    yesterday.setDate(today.getDate()-1);
+    $.getJSON(yesterday.toISOString().substr(0,10)+'.json', function(data) {
+        refreshExchanges(data);
+        m1Data= data;
+        m1Data.sort((a,b) => {
+            return a.tstamp - b.tstamp;
         });
 
-        barSeries.setData(candles);
-        cvdSeries.setData(cvds);
-        volumeSeries.setData(volumes);
-        volDeltaSeries.setData(volumeDeltas);
-        chart.timeScale().fitContent();
+        $.getJSON(today.toISOString().substr(0,10)+'.json', function(data) {
+            integrateNewM1Data(data);
+            reinitData();
+            chart.timeScale().fitContent();
+        });
+    });
+}
+
+function fillSeries() {
+    var candles= [];
+    var cvds= [];
+    var volumes= [];
+    var volumeDeltas= [];
+    var cvd= 0;
+    aggregateM1Data(m1Data).forEach(b => {
+        var bar= { time: b.tstamp,
+        open: b.open, high:b.high, low:b.low, close:b.close };
+        cvd += b.buyVolume-b.sellVolume
+        candles.push(bar);
+        cvds.push( { time: b.tstamp, value: cvd });
+        if(b.buyVolume > b.sellVolume) {
+            volumeDeltas.push( { time: b.tstamp, value:b.buyVolume-b.sellVolume, color: volumeBuy });
+        } else {
+            volumeDeltas.push( { time: b.tstamp, value:b.sellVolume-b.buyVolume, color: volumeSell });
+        }
+        volumes.push({time:b.tstamp, value:b.volume, color: volumeGray});
+    });
+
+    barSeries.setData(candles);
+    cvdSeries.setData(cvds);
+    volumeSeries.setData(volumes);
+    volDeltaSeries.setData(volumeDeltas);
+}
+
+function integrateNewM1Data(newData) {
+    newData.sort((a,b) => {
+        return a.tstamp - b.tstamp;
+    });
+    var lastTstamp = m1Data[m1Data.length-1].tstamp;
+    newData.forEach(bar => {
+        if(lastTstamp == bar.tstamp) {
+            m1Data[m1Data.length-1]= bar;
+            lastTstamp= bar.tstamp;
+        }
+        if(lastTstamp < bar.tstamp) {
+            m1Data.push(bar);
+            lastTstamp= bar.tstamp;
+        }
     });
 }
 
 function refresh() {
     $.getJSON('latest.json', function(data) {
-        var totalCVD=cvds[cvds.length-2].value;
-
-        aggregateM1Data(data).forEach(b => {
-            var cvd= b.buyVolume-b.sellVolume;
-            var deltaEntry;
-            if(b.buyVolume > b.sellVolume) {
-                deltaEntry= { time: b.tstamp, value:b.buyVolume-b.sellVolume, color: volumeBuy };
-            } else {
-                deltaEntry= { time: b.tstamp, value:b.sellVolume-b.buyVolume, color: volumeSell };
-            }
-
-            replaceLastOrAdd(candles,{ time: b.tstamp, open: b.open, high:b.high, low:b.low, close:b.close });
-            replaceLastOrAdd(volumes,{ time: b.tstamp, value:b.volume, color: volumeGray});
-            if(replaceLastOrAdd(cvds,{ time: b.tstamp, value:totalCVD+cvd })) {
-                totalCVD += cvd;
-            }
-            replaceLastOrAdd(volumeDeltas,deltaEntry);
-        });
-        barSeries.setData(candles);
-        cvdSeries.setData(cvds);
-        volumeSeries.setData(volumes);
-        volDeltaSeries.setData(volumeDeltas);
+        integrateNewM1Data(data);
+        fillSeries();
     });
-}
-
-function replaceLastOrAdd(array, entry) {
-    if(array[array.length-1].time == entry.time) {
-        array[array.length-1]= entry;
-        return true;
-    } else if(array[array.length-1].time < entry.time) {
-        array.push(entry);
-        return true;
-    }
-    return false;
 }
