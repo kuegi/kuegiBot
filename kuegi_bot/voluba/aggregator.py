@@ -6,7 +6,11 @@ import os
 from typing import List
 
 from kuegi_bot.exchanges.binance_spot.binance_spot_interface import BinanceSpotInterface
+from kuegi_bot.exchanges.bitfinex.bitfinex_interface import BitfinexInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
+from kuegi_bot.exchanges.coinbase.coinbase_interface import CoinbaseInterface
+from kuegi_bot.exchanges.huobi.huobi_interface import HuobiInterface
+from kuegi_bot.exchanges.kraken.kraken_interface import KrakenInterface
 from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.trading_classes import Bar
 
@@ -36,11 +40,20 @@ class VolubaAggregator:
         self.read_data()
         for exset in settings.exchanges:
             exset = dotdict(exset)
+            ex= None
             if exset.id == "bitstamp":
                 ex = BitstampInterface(settings=exset, logger=logger)
-                self.exchanges[exset.id] = ex
             if exset.id == "binance":
                 ex = BinanceSpotInterface(settings=exset, logger=logger)
+            if exset.id == "huobi":
+                ex = HuobiInterface(settings=exset, logger=logger)
+            if exset.id == "coinbase":
+                ex = CoinbaseInterface(settings=exset, logger=logger)
+            if exset.id == "kraken":
+                ex = KrakenInterface(settings=exset, logger=logger)
+            if exset.id == "bitfinex":
+                ex = BitfinexInterface(settings=exset, logger=logger)
+            if ex is not None:
                 self.exchanges[exset.id] = ex
 
     def aggregate_data(self):

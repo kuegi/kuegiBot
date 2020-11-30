@@ -1,7 +1,11 @@
 from kuegi_bot.exchanges.binance_spot.binance_spot_interface import BinanceSpotInterface
+from kuegi_bot.exchanges.bitfinex.bitfinex_interface import BitfinexInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.exchanges.coinbase.coinbase_interface import CoinbaseInterface
+from kuegi_bot.exchanges.huobi.huobi_interface import HuobiInterface
+from kuegi_bot.exchanges.kraken.kraken_interface import KrakenInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 
 from kuegi_bot.utils import log
@@ -20,8 +24,39 @@ logger = log.setup_custom_logger("cryptobot",
 def onTick(fromAccountAction):
     logger.info("got Tick "+str(fromAccountAction))
 
+'''bitfinex
 
-#'''binance_spot
+settings= dotdict({})
+settings.SYMBOL = "tBTCUSD"
+client= BitfinexInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+
+#'''
+
+'''kraken
+
+settings= dotdict({})
+settings.SYMBOL = "XBT/USD"
+client= KrakenInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+
+#'''
+
+'''coinbase
+
+settings= dotdict({})
+settings.SYMBOL = "BTC-USD"
+client= CoinbaseInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+
+#'''
+
+'''huobi
+
+settings= dotdict({})
+settings.SYMBOL = "btcusdt"
+client= HuobiInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+
+#'''
+
+'''binance_spot
 settings= dotdict({})
 settings.SYMBOL = "btcusdt"
 client= BinanceSpotInterface(settings=settings, logger=logger, on_tick_callback=onTick)
@@ -44,12 +79,12 @@ client= PhemexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 
 
 
-''' binance_f
+''' binance_future
 
-from binance_f.exception.binanceapiexception import BinanceApiException
-from binance_f.model.candlestickevent import Candlestick
-from binance_f import RequestClient, SubscriptionClient
-from binance_f.model import CandlestickInterval, OrderSide, OrderType, TimeInForce, SubscribeMessageType
+from binance_future.exception.binanceapiexception import BinanceApiException
+from binance_future.model.candlestickevent import Candlestick
+from binance_future import RequestClient, SubscriptionClient
+from binance_future.model import CandlestickInterval, OrderSide, OrderType, TimeInForce, SubscribeMessageType
 
 request_client = RequestClient(api_key=apiKey, secret_key=apiSecret)
 

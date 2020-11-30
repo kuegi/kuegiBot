@@ -162,7 +162,6 @@ function initData() {
     yesterday= new Date();
     yesterday.setDate(today.getDate()-1);
     $.getJSON(yesterday.toISOString().substr(0,10)+'.json', function(data) {
-        refreshExchanges(data);
         m1Data= data;
         m1Data.sort((a,b) => {
             return a.tstamp - b.tstamp;
@@ -170,6 +169,7 @@ function initData() {
 
         $.getJSON(today.toISOString().substr(0,10)+'.json', function(data) {
             integrateNewM1Data(data);
+            refreshExchanges(data);
             reinitData();
             chart.timeScale().fitContent();
         });

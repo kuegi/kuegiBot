@@ -23,7 +23,7 @@ batchsize = 50000
 urls = {
     "bitmex": "https://www.bitmex.com/api/v1/trade/bucketed?binSize=1m&partial=false&symbol=##symbol##&count=1000&reverse=false",
     "bybit": "https://api.bybit.com/v2/public/kline/list?symbol=##symbol##&interval=1",
-    "binance_f": "https://fapi.binance.com/fapi/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
+    "binance_future": "https://fapi.binance.com/fapi/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "binanceSpot": "https://api.binance.com/api/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "phemex":"https://api.phemex.com/phemex-user/public/md/kline?resolution=60&symbol=##symbol##",
     "bitstamp":"https://www.bitstamp.net/api/v2/ohlc/##symbol##/?step=60&limit=1000"
@@ -60,7 +60,7 @@ if lastknown >= 0:
                 start = int(result[-1]['open_time']) + 1
             elif exchange in ['phemex']:
                 start = int(result[-1][0]) + 1
-            elif exchange in ['binance_f','binanceSpot']:
+            elif exchange in ['binance_future','binanceSpot']:
                 start= int(result[-1][6])
             elif exchange in ['bitstamp']:
                 start= int(result[-1]['timestamp'])
@@ -76,7 +76,7 @@ while True:
     url= URL+"&start="+str(start)
     if exchange == 'bybit':
         url = URL + "&from=" + str(start)
-    elif exchange in ['binance_f','binanceSpot']:
+    elif exchange in ['binance_future','binanceSpot']:
         url= URL + "&startTime="+str(start)
     elif exchange == 'phemex':
         url = URL + "&from=" + str(start)+"&to="+str(start+2000*60)
@@ -118,7 +118,7 @@ while True:
                 start += 2000*60
             else:
                 start = int(data[-1][0]+1)
-        elif exchange in ['binance_f','binanceSpot']:
+        elif exchange in ['binance_future','binanceSpot']:
             start= data[-1][6] # closeTime of last bar
         elif exchange == 'bitstamp':
             start= data[-1]['timestamp']

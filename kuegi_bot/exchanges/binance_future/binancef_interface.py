@@ -8,7 +8,7 @@ from binance_f.model import OrderSide, OrderType, TimeInForce, CandlestickInterv
 from binance_f.model.accountupdate import Balance, Position
 from binance_f.model.candlestickevent import Candlestick
 
-from kuegi_bot.exchanges.binance_f.binancef_websocket import BinanceFuturesWebsocket
+from kuegi_bot.exchanges.binance_future.binancef_websocket import BinanceFuturesWebsocket
 from kuegi_bot.utils.trading_classes import ExchangeInterface, Order, Bar, Account, AccountPosition, \
     process_low_tf_bars, Symbol
 

@@ -11,6 +11,22 @@
     {
       "id": "binance",
       "SYMBOL": "btcusdt"
+    },
+    {
+      "id": "huobi",
+      "SYMBOL": "btcusdt"
+    },
+    {
+      "id": "coinbase",
+      "SYMBOL": "BTC-USD"
+    },
+    {
+      "id": "kraken",
+      "SYMBOL": "XBT/USD"
+    },
+    {
+      "id": "bitfinex",
+      "SYMBOL": "tBTCUSD"
     }
   ]
 }
