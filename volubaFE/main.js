@@ -110,7 +110,7 @@ function init() {
     });
     initData(false);
     window.onresize= resize;
-    window.setInterval(refresh, 5000)
+    window.setInterval(refresh, 15000)
 }
 
 function resize() {

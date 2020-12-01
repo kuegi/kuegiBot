@@ -120,7 +120,7 @@ class VolubaAggregator:
                     if "subbars" in bard:
                         del bard['subbars']
                     dic['barsByExchange'][ex] = bard
-                if d.tstamp >= now - 10 * 60:
+                if d.tstamp >= now - 3 * 60:
                     latest.append(dic)
                 if d.tstamp >= startOfToday:
                     todayData.append(dic)
