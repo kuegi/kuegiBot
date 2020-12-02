@@ -53,7 +53,12 @@ function aggregateM1Data() {
             existing.volume += bar.volume;
             existing.buyVolume += bar.buyVolume;
             existing.sellVolume += bar.sellVolume;
-            existing.cvdByExchange = bar.cvdByExchange;
+            for(let exchange in bar.cvdByExchange) {
+                if(!(exchange in existing.cvdByExchange)) {
+                    existing.cvdByExchange[exchange] = 0;
+                }
+                existing.cvdByExchange[exchange] += bar.cvdByExchange[exchange];
+            }
         } else {
             result.push(bar);
             lastTstamp= bar.tstamp;
@@ -172,8 +177,13 @@ function refreshExchanges(m1Data) {
                 priceLineVisible:false,
                 lastValueVisible: false,
                 color:rect.style.background,
-                lineWidth:1
-
+                lineWidth:1,
+            });
+            exchangeSeries[exchange].priceScale().applyOptions( {
+                scaleMargins: {
+                  top: 0.1,
+                  bottom: 0.1,
+                }
             });
     });
 }
