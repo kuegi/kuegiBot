@@ -10,9 +10,11 @@
 </head>
 <body onload="init()">
 <div id="inputs">
-    TF (minutes): <input id="tf" value="5" onchange="reinitData()"/><br/>
-    Exchanges <div id="exchanges" style="display:inline"></div>
-<div id="chart" style="position:absolute; left:0px; top:5%; width:100%; height:95%;"></div>
+    TF (minutes): <input id="tf" value="5" onchange="reinitData()"/>
+    <input type="checkbox" name="exchangeCvds" id="exchangeCvds" onchange="reinitData()"><label for="exchangeCvds">Show exchange cvds</label>
+    <input type="checkbox" name="showPrice" id="showPrice" checked onchange="fillSeries()"><label for="showPrice">Show price</label> <br/>
+    Exchanges <div id="exchanges" ></div></div>
+<div id="chart" ></div>
 
 </body>
 </html>

@@ -1,1 +1,19 @@
+.exchangeColor {
+    width:10px;
+    height:10px;
+    display:inline-block;
+    margin-left:5px;
+    margin-right:15px;
+}
 
+#exchanges {
+    display:inline;
+}
+
+#chart {
+    position:absolute;
+    left:0px;
+    top:5%;
+    width:100%;
+    height:95%;
+}
