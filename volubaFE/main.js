@@ -12,6 +12,17 @@ var volumeGray= 'rgba(150,150,150,0.8)';
 var volumeBuy= 'rgb(50,200,50)';
 var volumeSell= 'rgb(250,50,50)';
 
+
+var colorByExchange= {
+    "binance":"#F0B90B",
+    "bitstamp":"#333433",
+    "bitfinex":"#16b157",
+    "huobi":"#638bd4",
+    "coinbase":"rgb(22, 82, 240)",
+    "kraken":"Red"
+}
+
+
 var targetTF= 5;
 var wantedExchanges;
 
@@ -134,8 +145,7 @@ function refreshExchanges(m1Data) {
             possibleExchanges.add(exchange);
         }
     });
-    colors= [
-    "Navy",
+    colors= ["Navy",
     "Aqua",
     "Fuchsia",
     "Lime",
@@ -155,6 +165,9 @@ function refreshExchanges(m1Data) {
     possibleExchanges.forEach(exchange => {
         var hue= Math.round(Math.random()*360);
         var color= colors[(colorIdx++) % colors.length];
+        if(exchange in colorByExchange) {
+            color= colorByExchange[exchange];
+        }
         var label = document.createElement("label");
         var input= document.createElement("input");
         var rect= document.createElement("div");

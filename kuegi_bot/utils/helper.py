@@ -55,8 +55,8 @@ def history_file_name(index, exchange,symbol='') :
 
 known_history_files= {
     "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 20,
-    "bybit_ETHUSD":18,
+    "bybit_BTCUSD": 21,
+    "bybit_ETHUSD":19,
     "bybit_XRPUSD":14,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
