@@ -59,16 +59,7 @@ def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
             msg += str(i) + " "
         logger.info(msg)
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
-        bot.add_strategy(KuegiStrategy(
-                min_channel_size_factor=0, max_channel_size_factor=16,
-                entry_tightening=1, bars_till_cancel_triggered=5,
-                limit_entry_offset_perc=-0.15, delayed_entry=False, delayed_cancel=True, cancel_on_filter= False)
-                 .withChannel(max_look_back=11, threshold_factor=v[0]*0.1, buffer_factor=-0.11, max_dist_factor=2,max_swing_length=4)
-                 .withRM(risk_factor=1, max_risk_mul=2, risk_type=1, atr_factor=2)
-                 .withExitModule(SimpleBE(factor=0.5, buffer=-0.2))
-                 .withExitModule(SimpleBE(factor=1.2, buffer=0.5))
-                 .withExitModule(ParaTrail(accInit=0.011, accInc=0.006, accMax=0.25,resetToCurrent=True))
-                 .withEntryFilter(DayOfWeekFilter(63))
+        bot.add_strategy(KuegiStrategy(...)
                          )
         BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
@@ -87,8 +78,8 @@ def checkDayFilterByDay(bars,symbol= None):
 
         b= BackTest(bot, bars,symbol).run()
 
-#pair= "BTCUSD"
-pair= "ETHUSD"
+pair= "BTCUSD"
+#pair= "ETHUSD"
 
 funding = load_funding('bybit',pair)
 
@@ -143,48 +134,23 @@ p.sort_stats(SortKey.TIME).print_stats(10)
 p.print_callers('<functionName>')
 '''
 
-#'''
-runOpti(bars_oos, funding=funding,
-        min=   [17],
-        max=   [22],
-        steps= [1],
+'''
+runOpti(bars, funding=funding,
+        min=   [5,1,13],
+        max=   [5,1,16],
+        steps= [1,1,1],
         randomCount=-1,
         symbol=symbol)
 
 #'''
 
-
 '''
 
 bot=MultiStrategyBot(logger=logger, directionFilter= 0)
-bot.add_strategy(KuegiStrategy(
-    min_channel_size_factor=0, max_channel_size_factor=16,
-    entry_tightening=1, bars_till_cancel_triggered=5,
-    limit_entry_offset_perc=-0.15, delayed_entry=False, delayed_cancel=True, cancel_on_filter= False)
-                 .withChannel(max_look_back=11, threshold_factor=1.8, buffer_factor=-0.11, max_dist_factor=2,max_swing_length=4)
-                 .withRM(risk_factor=1, max_risk_mul=2, risk_type=1, atr_factor=2)
-                 .withExitModule(SimpleBE(factor=0.5, buffer=-0.2))
-                 .withExitModule(SimpleBE(factor=1.2, buffer=0.5))
-                 .withExitModule(ParaTrail(accInit=0.011, accInc=0.006, accMax=0.25,resetToCurrent=True))
-                 .withEntryFilter(DayOfWeekFilter(63))
+bot.add_strategy(KuegiStrategy(...
                  )
-bot.add_strategy(SfpStrategy(
-    min_stop_diff_perc=0.5, ignore_on_tight_stop=False,
-    init_stop_type=1, stop_buffer_fac=100, tp_fac=5,
-    min_wick_fac=1.6, min_air_wick_fac= 0.1, min_wick_to_body=0.65,
-    min_swing_length=10,
-    range_length=35, min_rej_length= 30, range_filter_fac=0,
-    close_on_opposite=False)
-                 .withChannel(max_look_back=13, threshold_factor=0.8, buffer_factor=0.05, max_dist_factor=1,
-                              max_swing_length=4)
-                 .withRM(risk_factor=4, max_risk_mul=2, risk_type=0, atr_factor=1)
-                 .withExitModule(SimpleBE(factor=0.6, buffer=0.2))
-                 .withExitModule(SimpleBE(factor=0.8, buffer=0.5))
-                 .withExitModule(SimpleBE(factor=1.4, buffer=0.9))
-                 .withExitModule(SimpleBE(factor=1.5, buffer=1.1))
-                 .withExitModule(SimpleBE(factor=1.9, buffer=1.2))
-                 .withExitModule(ParaTrail(accInit=0.017, accInc=0.010, accMax=0.04,resetToCurrent=True))
-                 .withEntryFilter(DayOfWeekFilter(63))
+
+bot.add_strategy(SfpStrategy(...
                  )
 
 b= BackTest(bot, bars_full, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
