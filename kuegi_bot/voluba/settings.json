@@ -1,8 +1,8 @@
 {
-  "LOG_LEVEL": "INFO",
+  "LOG_LEVEL": "DEBUG",
   "LOG_TO_CONSOLE": true,
   "LOG_TO_FILE": false,
-  "dataPath": "volubaFE/",
+  "dataPath": "volubaFE/data/",
   "exchanges": [
     {
       "id": "bitstamp",

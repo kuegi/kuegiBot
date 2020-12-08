@@ -7,8 +7,8 @@
 ## FE
 * [ ] add query params for TF and choosen exchanges
 * [ ] update queryparams when settings are changed.
-* [ ] save settings in cookie?
-* [ ] add google analytics
+* [x] save settings in localStorage
+* [x] add google analytics
 * [ ] add reflinks to exchanges and bybit links
 
 # KuegiBot

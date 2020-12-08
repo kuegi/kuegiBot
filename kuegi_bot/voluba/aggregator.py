@@ -29,6 +29,7 @@ class VolubaAggregator:
         self.logger = logger
         self.m1Data = {}
 
+        self.logger.info("### Starting up the Aggregator ###")
         base = self.settings.dataPath
         try:
             os.makedirs(base)
@@ -40,21 +41,25 @@ class VolubaAggregator:
         self.read_data()
         for exset in settings.exchanges:
             exset = dotdict(exset)
+            self.load_exchange(exset)
+        self.logger.info("initial load of exchanges done")
+
+    def load_exchange(self,settings):
             ex= None
-            if exset.id == "bitstamp":
-                ex = BitstampInterface(settings=exset, logger=logger)
-            if exset.id == "binance":
-                ex = BinanceSpotInterface(settings=exset, logger=logger)
-            if exset.id == "huobi":
-                ex = HuobiInterface(settings=exset, logger=logger)
-            if exset.id == "coinbase":
-                ex = CoinbaseInterface(settings=exset, logger=logger)
-            if exset.id == "kraken":
-                ex = KrakenInterface(settings=exset, logger=logger)
-            if exset.id == "bitfinex":
-                ex = BitfinexInterface(settings=exset, logger=logger)
+            if settings.id == "bitstamp":
+                ex = BitstampInterface(settings=settings, logger=self.logger)
+            if settings.id == "binance":
+                ex = BinanceSpotInterface(settings=settings, logger=self.logger)
+            if settings.id == "huobi":
+                ex = HuobiInterface(settings=settings, logger=self.logger)
+            if settings.id == "coinbase":
+                ex = CoinbaseInterface(settings=settings, logger=self.logger)
+            if settings.id == "kraken":
+                ex = KrakenInterface(settings=settings, logger=self.logger)
+            if settings.id == "bitfinex":
+                ex = BitfinexInterface(settings=settings, logger=self.logger)
             if ex is not None:
-                self.exchanges[exset.id] = ex
+                self.exchanges[settings.id] = ex
 
     def aggregate_data(self):
         for exId, exchange in self.exchanges.items():
@@ -63,6 +68,12 @@ class VolubaAggregator:
                 if bar.tstamp not in self.m1Data:
                     self.m1Data[bar.tstamp] = VolubaData(bar.tstamp)
                 self.m1Data[bar.tstamp].barsByExchange[exId] = bar
+
+        for exId, exchange in self.exchanges.items():
+            if not exchange.is_open():
+                self.logger.warn("%s died. restarting the exchange" % exId)
+                del self.exchanges[exId]
+                self.load_exchange(exchange.settings)
 
     def read_data_file(self, filename):
         try:

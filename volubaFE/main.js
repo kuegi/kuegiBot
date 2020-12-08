@@ -136,9 +136,8 @@ function init() {
         priceLineVisible:false,
         lastValueVisible: false
     });
-    initData(false);
+    initData();
     window.onresize= resize;
-    window.setInterval(refresh, 15000)
 }
 
 function resize() {
@@ -211,6 +210,7 @@ function refreshExchanges(m1Data) {
         exchangeSeries[exchange]= chart.addLineSeries({ priceScaleId: exchange+"cvds" ,
                 priceLineVisible:false,
                 lastValueVisible: false,
+                visible:false,
                 color:rect.style.background,
                 lineWidth:1,
             });
@@ -221,6 +221,21 @@ function refreshExchanges(m1Data) {
                 }
             });
     });
+    try {
+        var wantedFromStorage= JSON.parse(localStorage.getItem("wantedExchanges"));
+        if(wantedFromStorage.length > 0) {
+            wantedExchanges= new Set();
+            wantedFromStorage.forEach(ex => {
+                wantedExchanges.add(ex);
+                exchangeSeries[ex].applyOptions({visible:true});
+            });
+
+            document.getElementsByName("exchange").forEach(input => {
+                input.checked= wantedExchanges.has(input.value);
+            });
+        }
+    } catch(e) {
+    }
 }
 
 function checkWantedExchanges() {
@@ -233,15 +248,27 @@ function checkWantedExchanges() {
             exchangeSeries[input.value].applyOptions({visible:false});
         }
     });
+    var serialized= [];
+    wantedExchanges.forEach(ex => {serialized.push(ex);})
+    localStorage.setItem("wantedExchanges", JSON.stringify(serialized));
 }
 
 function reinitData() {
     targetTF= Number($("#tf").get(0).value);
+    localStorage.setItem("tf",targetTF);
     checkWantedExchanges();
     fillSeries();
 }
 
 function initData() {
+    try {
+        var saved= Number(localStorage.getItem("tf"));
+        if(saved > 0) {
+            targetTF= saved;
+            $("#tf").get(0).value= targetTF;
+        }
+    } catch(e) {
+    }
     today= new Date();
     yesterday= new Date();
     yesterday.setDate(today.getDate()-1);
@@ -256,6 +283,7 @@ function initData() {
             refreshExchanges(data);
             reinitData();
             chart.timeScale().fitContent();
+            window.setInterval(refresh, 15000)
         });
     });
 }
@@ -321,7 +349,10 @@ function integrateNewM1Data(newData) {
     newData.sort((a,b) => {
         return a.tstamp - b.tstamp;
     });
-    var lastTstamp = m1Data[m1Data.length-1].tstamp;
+    var lastTstamp = 0;
+     if(m1Data.length > 0) {
+        lastTstamp= m1Data[m1Data.length-1].tstamp;
+     }
     newData.forEach(bar => {
         if(lastTstamp == bar.tstamp) {
             m1Data[m1Data.length-1]= bar;
