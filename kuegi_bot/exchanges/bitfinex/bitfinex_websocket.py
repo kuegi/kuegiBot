@@ -21,6 +21,9 @@ class BitfinexWebsocket(KuegiWebsocket):
         key = "trade"
         if key not in self.data:
             self.data[key] = []
+        key = "tradeupdate"
+        if key not in self.data:
+            self.data[key] = []
 
     def subscribeRealtimeData(self):
         self.subscribeTrades()
@@ -42,10 +45,9 @@ class BitfinexWebsocket(KuegiWebsocket):
                         for data in message[1]:
                             self.data[topic].append(data)
                     else: #update
-                        if message[1] == "tu": #TODO: handle tu (update of existing entry)
-                            self.logger.warn("got tu of trades")
-                        else:
-                            self.data[topic].append(message[2])
+                        if message[1] == "tu":
+                            topic = "tradeupdate"
+                        self.data[topic].append(message[2])
 
                 if self.callback is not None and topic is not None:
                     self.callback(topic)

@@ -12,6 +12,8 @@ var volumeGray= 'rgba(150,150,150,0.8)';
 var volumeBuy= 'rgb(50,200,50)';
 var volumeSell= 'rgb(250,50,50)';
 
+var lastPriceElementPerExchange= {};
+
 
 var colorByExchange= {
     "binance":"#F0B90B",
@@ -26,6 +28,10 @@ var colorByExchange= {
 var targetTF= 5;
 var wantedExchanges;
 
+function dataUrl(file) {
+    return "data/"+file;
+}
+
 function aggregateM1Data() {
     var result= [];
     var lastTstamp = 0;
@@ -33,15 +39,15 @@ function aggregateM1Data() {
         var bar;
         var barTstamp= Math.floor(b.tstamp /(60*targetTF))*(60*targetTF);
         var bar= { tstamp: barTstamp,
-        open: 0, high:0, low:999999999, close:0, buyVolume:0, sellVolume:0, volume:0 };
+        open: 0, high:0, low:0, close:0, buyVolume:0, sellVolume:0, volume:0 };
         var count= 0;
         bar.cvdByExchange= {};
         for(let exchange in b.barsByExchange) {
             var exBar= b.barsByExchange[exchange];
             if(wantedExchanges.has(exchange)) {
                 bar.open += exBar.open;
-                bar.high = Math.max(bar.high,exBar.high);
-                bar.low= Math.min(bar.low,exBar.low);
+                bar.high += exBar.high;
+                bar.low += exBar.low;
                 bar.close += exBar.close;
                 bar.volume += exBar.volume;
                 bar.buyVolume += exBar.buyVolume;
@@ -52,6 +58,8 @@ function aggregateM1Data() {
         }
         if(count > 0) {
             bar.open /= count;
+            bar.high /= count;
+            bar.low /= count;
             bar.close /= count;
         } else {
             return;
@@ -160,7 +168,7 @@ function refreshExchanges(m1Data) {
     "Red"
     ];
     var colorIdx= 0;
-    var exchanges= document.getElementById("exchanges");
+    var exchanges= document.getElementById("exchangecvdinputs");
     exchanges.innerHTML= "";
     possibleExchanges.forEach(exchange => {
         var hue= Math.round(Math.random()*360);
@@ -168,23 +176,37 @@ function refreshExchanges(m1Data) {
         if(exchange in colorByExchange) {
             color= colorByExchange[exchange];
         }
-        var label = document.createElement("label");
+        var exchangeDiv= document.createElement("div");
+        exchangeDiv.className = "exchange";
+        exchanges.appendChild(exchangeDiv);
+
         var input= document.createElement("input");
-        var rect= document.createElement("div");
         input.type= "checkbox";
         input.value= exchange;
         input.name= "exchange";
-        input.id= exchange;
+        input.id= "checkbox"+exchange;
         input.checked= true;
         input.onchange= reinitData;
-        label.innerHTML = exchange;
-        label.htmlFor= exchange;
+        exchangeDiv.appendChild(input);
+
+        var label = document.createElement("label");
+        label.htmlFor= "checkbox"+exchange;
+        label.className="exchangeLabel";
+        exchangeDiv.appendChild(label);
+
+        var rect= document.createElement("div");
         rect.style.background= color;
         rect.className="exchangeColor";
-        exchanges.appendChild(input);
-        exchanges.appendChild(label);
         label.appendChild(rect);
 
+        var exName= document.createElement("span");
+        exName.innerHTML= exchange;
+        label.appendChild(exName);
+
+        var lastPrice= document.createElement("span");
+        lastPrice.className="lastPrice";
+        label.appendChild(lastPrice);
+        lastPriceElementPerExchange[exchange]=lastPrice;
 
         exchangeSeries[exchange]= chart.addLineSeries({ priceScaleId: exchange+"cvds" ,
                 priceLineVisible:false,
@@ -223,13 +245,13 @@ function initData() {
     today= new Date();
     yesterday= new Date();
     yesterday.setDate(today.getDate()-1);
-    $.getJSON(yesterday.toISOString().substr(0,10)+'.json', function(data) {
+    $.getJSON(dataUrl(yesterday.toISOString().substr(0,10)+'.json'), function(data) {
         m1Data= data;
         m1Data.sort((a,b) => {
             return a.tstamp - b.tstamp;
         });
 
-        $.getJSON(today.toISOString().substr(0,10)+'.json', function(data) {
+        $.getJSON(dataUrl(today.toISOString().substr(0,10)+'.json'), function(data) {
             integrateNewM1Data(data);
             refreshExchanges(data);
             reinitData();
@@ -252,7 +274,17 @@ function fillSeries() {
     wantedExchanges.forEach(exchange => {
             exchangeSeries[exchange].applyOptions({visible:element.checked});
     })
-    aggregateM1Data(m1Data).forEach(b => {
+    var last= m1Data[m1Data.length-1];
+    for(let exchange in last.barsByExchange) {
+        var exBar= last.barsByExchange[exchange];
+        if(exchange in lastPriceElementPerExchange) {
+            lastPriceElementPerExchange[exchange].innerHTML= exBar.close.toFixed(1);
+        }
+    }
+
+    let aggregated=  aggregateM1Data(m1Data);
+    document.title= "VoluBa "+aggregated[aggregated.length-1].close.toFixed(1);
+    aggregated.forEach(b => {
         var bar= { time: b.tstamp,
         open: b.open, high:b.high, low:b.low, close:b.close };
         cvd += b.buyVolume-b.sellVolume
@@ -303,7 +335,7 @@ function integrateNewM1Data(newData) {
 }
 
 function refresh() {
-    $.getJSON('latest.json', function(data) {
+    $.getJSON(dataUrl('latest.json'), function(data) {
         integrateNewM1Data(data);
         fillSeries();
     });
