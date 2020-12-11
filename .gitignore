@@ -13,3 +13,4 @@ dashboard.json
 positionHistory/
 *.tpl.js
 volubaFE/*.json
+volubaFE/data/
