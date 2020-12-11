@@ -608,6 +608,9 @@ class TradingBot:
 
     def create_performance_plot(self, bars: List[Bar]):
         self.logger.info("preparing stats")
+        if len(self.position_history) == 0:
+            self.logger.info("no positions done.")
+            return go.Figure()
         stats = {
             "dd": 0,
             "maxDD": 0,
