@@ -364,10 +364,9 @@ class TradingBot:
                               stop=pos.initial_stop))
                 else:
                     self.logger.warn(
-                        "found position with no stop in market. %s with %.1f contracts. but remaining Position doesn't match so assume it was already closed." % (
+                        "found position with no stop in market. %s with %.1f contracts. but no initial stop on position had to close" % (
                             posId, pos.amount))
-                    self.position_closed(pos, account)
-                    remainingPosition += pos.amount
+                    self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-newPos.amount))
             else:
                 self.logger.warn(
                     "pending position with noconnection order not pending or open? closed: %s" % (posId))
@@ -645,7 +644,10 @@ class TradingBot:
                     firstPos = pos
                     break
         lastHHTstamp = firstPos.signal_tstamp
-        startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
+        if firstPos.filled_exit is not None:
+            startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
+        else:
+            startEquity = 100
 
         stats_range = []
         # temporarily add filled exit to have position in the result

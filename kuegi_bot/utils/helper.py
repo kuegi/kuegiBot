@@ -83,7 +83,7 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
     end = known_history_files[exchange+"_"+symbol]
     start = max(0,end - int(days_in_history * 1440 / 50000))
     m1_bars_temp = []
-    logger.info("loading " + str(end - start) + " history files from "+exchange)
+    logger.info("loading " + str(end - start+1) + " history files from "+exchange)
     for i in range(start, end + 1):
         with open(history_file_name(i,exchange,symbol)) as f:
             m1_bars_temp += json.load(f)
