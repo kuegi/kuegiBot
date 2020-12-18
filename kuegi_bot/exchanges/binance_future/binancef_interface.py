@@ -21,13 +21,13 @@ class BinanceFuturesInterface(ExchangeInterface):
         self.client = RequestClient(api_key=settings.API_KEY,
                                     secret_key=settings.API_SECRET,
                                     url="https://fapi.binance.com")
-        self.ws = BinanceFuturesWebsocket(wsURL="wss://fstream.binance_f.com/ws",
+        self.ws = BinanceFuturesWebsocket(wsURL="wss://fstream.binance.com/ws",
                                           api_key=settings.API_KEY,
                                           api_secret=settings.API_SECRET,
                                           logger=logger,
                                           callback=self.callback)
 
-        # for binance_f the key is the internal id (not the exchange id) cause we can't update order but have to cancel
+        # for binance the key is the internal id (not the exchange id) cause we can't update order but have to cancel
         # and reopen with same id. that leads to different exchange id, but we need to know its the same.
         self.orders = {}
         self.positions = {}
@@ -256,7 +256,7 @@ class BinanceFuturesInterface(ExchangeInterface):
         order.exchange_id = resultOrder.orderId
 
     def internal_update_order(self, order: Order):
-        self.cancel_order(order)  # stupid binance_f can't update orders
+        self.cancel_order(order)  # stupid binance can't update orders
         self.on_tick_callback(True)  # triggers a reset of the tick-delay.
         # otherwise we risk a tick to be calced after the cancel, before the new order
         self.send_order(order)
