@@ -657,6 +657,7 @@ class TradingBot:
 
         actual_history = list(
             filter(lambda p1: p1.filled_entry is not None and p1.filled_exit is not None, self.position_history))
+        actual_history.sort(reverse=False,key=lambda p: p.exit_tstamp)
         for pos in actual_history:
             # update range
             stats_range.append(pos)

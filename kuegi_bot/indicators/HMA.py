@@ -61,13 +61,19 @@ class HMA(Indicator):
         sumhalf /= halfLimit
 
         inner = 2 * sumhalf - sum
-        hmasum = inner
         hmalength = int(math.sqrt(self.period))
-        cnt = 1
-        for sub in bars[1:hmalength]:
-            if self.get_data(sub) is not None:
-                hmasum += self.get_data(sub).inner
-                cnt += 1
+        firstInner = self.get_data(bars[hmalength])
+        if firstInner is not None and firstInner.inner is not None:
+            hmasum = prevData.hma*hmalength
+            hmasum += inner - firstInner.inner
+            cnt = hmalength
+        else:
+            hmasum = inner
+            cnt = 1
+            for sub in bars[1:hmalength]:
+                if self.get_data(sub) is not None:
+                    hmasum += self.get_data(sub).inner
+                    cnt += 1
         if cnt > 0:
             hmasum /= cnt
 

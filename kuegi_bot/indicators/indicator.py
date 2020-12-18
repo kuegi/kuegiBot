@@ -88,19 +88,26 @@ class SMA(Indicator):
         self.period = period
 
     def on_tick(self, bars: List[Bar]):
-        for idx, bar in enumerate(bars):
-            if bar.did_change:
-                if idx < len(bars) - self.period:
-                    sum = 0
-                    cnt = 0
-                    for sub in bars[idx:idx + self.period]:
-                        sum += sub.close
-                        cnt += 1
+        first_changed = 0
+        for idx in range(len(bars)):
+            if bars[idx].did_change:
+                first_changed = idx
+            else:
+                break
 
-                    sum /= cnt
-                    self.write_data(bar, sum)
-                else:
-                    self.write_data(bar, None)
+        for idx in range(first_changed, -1, -1):
+            bar= bars[idx]
+            if idx < len(bars) - self.period:
+                sum = 0
+                cnt = 0
+                for sub in bars[idx:idx + self.period]:
+                    sum += sub.close
+                    cnt += 1
+
+                sum /= cnt
+                self.write_data(bar, sum)
+            else:
+                self.write_data(bar, None)
 
     def get_line_names(self):
         return ["sma" + str(self.period)]
