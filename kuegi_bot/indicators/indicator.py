@@ -88,22 +88,55 @@ class SMA(Indicator):
         self.period = period
 
     def on_tick(self, bars: List[Bar]):
-        for idx, bar in enumerate(bars):
-            if bar.did_change:
-                if idx < len(bars) - self.period:
-                    sum = 0
-                    cnt = 0
-                    for sub in bars[idx:idx + self.period]:
-                        sum += sub.close
-                        cnt += 1
+        first_changed = 0
+        for idx in range(len(bars)):
+            if bars[idx].did_change:
+                first_changed = idx
+            else:
+                break
 
-                    sum /= cnt
-                    self.write_data(bar, sum)
-                else:
-                    self.write_data(bar, None)
+        for idx in range(first_changed, -1, -1):
+            bar= bars[idx]
+            if idx < len(bars) - self.period:
+                sum = 0
+                cnt = 0
+                for sub in bars[idx:idx + self.period]:
+                    sum += sub.close
+                    cnt += 1
+
+                sum /= cnt
+                self.write_data(bar, sum)
+            else:
+                self.write_data(bar, None)
 
     def get_line_names(self):
-        return ["sma"+str(self.period)]
+        return ["sma" + str(self.period)]
+
+
+class EMA(Indicator):
+    def __init__(self, period: int):
+        super().__init__("EMA" + str(period))
+        self.period = period
+        self.alpha = 2 / (1 + period)
+
+    def on_tick(self, bars: List[Bar]):
+        first_changed = 0
+        for idx in range(len(bars)):
+            if bars[idx].did_change:
+                first_changed = idx
+            else:
+                break
+
+        for idx in range(first_changed, -1, -1):
+            bar = bars[idx]
+            ema = bar.close
+            last = self.get_data(bars[idx + 1]) if idx < len(bars) - 1 else None
+            if last is not None:
+                ema = bar.close * self.alpha + last * (1 - self.alpha)
+            self.write_data(bar, ema)
+
+    def get_line_names(self):
+        return ["ema" + str(self.period)]
 
 
 from functools import reduce

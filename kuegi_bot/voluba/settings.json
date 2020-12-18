@@ -1,0 +1,32 @@
+{
+  "LOG_LEVEL": "DEBUG",
+  "LOG_TO_CONSOLE": true,
+  "LOG_TO_FILE": false,
+  "dataPath": "volubaFE/data/",
+  "exchanges": [
+    {
+      "id": "bitstamp",
+      "SYMBOL": "btcusd"
+    },
+    {
+      "id": "binance",
+      "SYMBOL": "btcusdt"
+    },
+    {
+      "id": "huobi",
+      "SYMBOL": "btcusdt"
+    },
+    {
+      "id": "coinbase",
+      "SYMBOL": "BTC-USD"
+    },
+    {
+      "id": "kraken",
+      "SYMBOL": "XBT/USD"
+    },
+    {
+      "id": "bitfinex",
+      "SYMBOL": "tBTCUSD"
+    }
+  ]
+}

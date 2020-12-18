@@ -37,6 +37,8 @@ class Bar:
         self.low: float = low
         self.close: float = close
         self.volume: float = volume
+        self.buyVolume: float = 0
+        self.sellVolume: float = 0
         self.subbars: List[Bar] = subbars if subbars is not None else []
         self.bot_data = {"indicators": {}}
         self.did_change: bool = True
