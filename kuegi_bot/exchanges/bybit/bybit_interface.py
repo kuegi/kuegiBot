@@ -37,13 +37,8 @@ class ByBitInterface(ExchangeWithWS):
                          on_tick_callback=on_tick_callback)
 
     def initOrders(self):
-        apiOrders = self._execute(self.bybit.Order.Order_getOrders(order_status='Created', symbol=self.symbol))['data']
-        apiOrders += self._execute(self.bybit.Order.Order_getOrders(order_status='New', symbol=self.symbol))['data']
-        apiOrders += \
-        self._execute(self.bybit.Order.Order_getOrders(order_status='PartiallyFilled', symbol=self.symbol))['data']
-
-        apiOrders += self._execute(
-            self.bybit.Conditional.Conditional_getOrders(stop_order_status="Untriggered", symbol=self.symbol))['data']
+        apiOrders = self._execute(self.bybit.Order.Order_query(symbol=self.symbol))
+        apiOrders += self._execute(self.bybit.Conditional.Conditional_query(symbol=self.symbol))
         self.processOrders(apiOrders)
 
         for order in self.orders.values():
@@ -357,7 +352,8 @@ class ByBitInterface(ExchangeWithWS):
         order.tstamp = parse_utc_timestamp(o['timestamp'] if 'timestamp' in o.keys() else o['created_at'])
         order.exchange_id = o["order_id"] if 'order_id' in o.keys() else o['stop_order_id']
         order.executed_price = None
-        if 'cum_exec_value' in o.keys() and 'cum_exec_qty' in o.keys() and float(o['cum_exec_value']) != 0:
+        if 'cum_exec_value' in o.keys() and 'cum_exec_qty' in o.keys() \
+                and o['cum_exec_value'] is not None and float(o['cum_exec_value']) != 0:
             order.executed_price = o['cum_exec_qty'] / float(o["cum_exec_value"])  # cause of inverse
         return order
 
