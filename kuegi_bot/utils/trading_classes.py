@@ -37,6 +37,8 @@ class Bar:
         self.low: float = low
         self.close: float = close
         self.volume: float = volume
+        self.buyVolume: float = 0
+        self.sellVolume: float = 0
         self.subbars: List[Bar] = subbars if subbars is not None else []
         self.bot_data = {"indicators": {}}
         self.did_change: bool = True
@@ -228,7 +230,13 @@ class Position:
 
 def parse_utc_timestamp(timestamp: str) -> float:
     import calendar
-    d = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
+    if "." in timestamp:
+        if timestamp[-1] == 'Z' and len(timestamp)> 27:
+            timestamp= timestamp[:26]+"Z"
+        d = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
+    else:
+        d = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
+
     return calendar.timegm(d.timetuple())+d.microsecond/1000000.0
 
 

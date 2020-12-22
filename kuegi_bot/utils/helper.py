@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 from typing import List
 
-from kuegi_bot.exchanges.binance.binance_interface import BinanceInterface
+from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.indicators.indicator import Indicator
@@ -55,8 +55,8 @@ def history_file_name(index, exchange,symbol='') :
 
 known_history_files= {
     "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 20,
-    "bybit_ETHUSD":18,
+    "bybit_BTCUSD": 22,
+    "bybit_ETHUSD":19,
     "bybit_XRPUSD":14,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
@@ -83,7 +83,7 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
     end = known_history_files[exchange+"_"+symbol]
     start = max(0,end - int(days_in_history * 1440 / 50000))
     m1_bars_temp = []
-    logger.info("loading " + str(end - start) + " history files from "+exchange)
+    logger.info("loading " + str(end - start+1) + " history files from "+exchange)
     for i in range(start, end + 1):
         with open(history_file_name(i,exchange,symbol)) as f:
             m1_bars_temp += json.load(f)
@@ -101,8 +101,8 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
             if b['open'] is None:
                 continue
             subbars.append(BitmexInterface.barDictToBar(b,wanted_tf))
-        elif exchange in ['binance','binanceSpot']:
-            subbars.append(BinanceInterface.barArrayToBar(b))
+        elif exchange in ['binance_future','binanceSpot']:
+            subbars.append(BinanceFuturesInterface.barArrayToBar(b))
         elif exchange == 'phemex':
             subbars.append(PhemexInterface.barArrayToBar(b,10000))
     subbars.reverse()
