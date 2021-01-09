@@ -230,6 +230,7 @@ class TradingBot:
 
         if not self.got_data_for_position_sync(bars):
             self.logger.warn("got no initial data, can't sync positions")
+            self.unaccountedPositionCoolOff = 0
             return
 
         remaining_pos_ids = []
@@ -263,6 +264,7 @@ class TradingBot:
 
         if len(remaining_orders) == 0 and len(remaining_pos_ids) == 0 and abs(
                 open_pos - account.open_position.quantity) < 0.1:
+            self.unaccountedPositionCoolOff = 0
             return
 
         self.logger.info("Has to start order/pos sync with bot vs acc: %.3f vs. %.3f and %i vs %i, remaining: %i,  %i"
