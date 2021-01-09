@@ -6,7 +6,7 @@ import math
 import websocket
 from time import sleep, time
 
-from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars
+from kuegi_bot.utils.trading_classes import Order, Account, Bar, ExchangeInterface, process_low_tf_bars, TickerData
 
 
 class KuegiWebsocket(object):
@@ -181,7 +181,8 @@ class ExchangeWithWS(ExchangeInterface):
         self.initOrders()
         self.last_order_sync= time()
         self.initPositions()
-        # TODO: init bars and self.last
+        self.last= self.get_ticker(self.symbol).last
+        # TODO: init bars
 
         if self.hasAuth():
             self.logger.info(
@@ -239,7 +240,7 @@ class ExchangeWithWS(ExchangeInterface):
     def get_instrument(self, symbol=None):
         raise NotImplementedError
 
-    def get_ticker(self, symbol=None):
+    def get_ticker(self, symbol=None) -> TickerData:
         raise NotImplementedError
 
     def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:

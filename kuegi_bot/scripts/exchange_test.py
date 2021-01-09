@@ -3,6 +3,7 @@ from kuegi_bot.exchanges.bitfinex.bitfinex_interface import BitfinexInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
 from kuegi_bot.exchanges.coinbase.coinbase_interface import CoinbaseInterface
 from kuegi_bot.exchanges.huobi.huobi_interface import HuobiInterface
 from kuegi_bot.exchanges.kraken.kraken_interface import KrakenInterface
@@ -134,6 +135,10 @@ if settings.EXCHANGE == 'bybit':
     interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
     b= interface.bybit
     w= interface.ws
+elif settings.EXCHANGE == 'bybit-linear':
+        interface = ByBitLinearInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+        b = interface.bybit
+        w = interface.ws
 else:
     interface= BitmexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 
