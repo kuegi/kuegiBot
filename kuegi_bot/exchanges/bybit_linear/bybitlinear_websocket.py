@@ -6,16 +6,27 @@ import time
 from kuegi_bot.exchanges.ExchangeWithWS import KuegiWebsocket
 
 
+class BybitLinearPublicPart(KuegiWebsocket):
+
+    def __init__(self, wsURLs, api_key, api_secret, logger, callback, on_message):
+        self.messageCallback= on_message
+        super().__init__(wsURLs, api_key, api_secret, logger, callback)
+
+    def on_message(self, message):
+        self.messageCallback(message)
+
+
 class BybitLinearWebsocket(KuegiWebsocket):
     # User can ues MAX_DATA_CAPACITY to control memory usage.
     MAX_DATA_CAPACITY = 200
     PRIVATE_TOPIC = ['position', 'execution', 'order']
 
-    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
+    def __init__(self, wsprivateURLs, wspublicURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
         self.data = {}
         self.symbol= symbol
         self.minutesPerBar= minutesPerBar
-        super().__init__(wsURLs, api_key, api_secret, logger, callback)
+        super().__init__(wsprivateURLs, api_key, api_secret, logger, callback)
+        self.publicWS= BybitLinearPublicPart(wspublicURLs,api_key,api_secret,logger,callback,self.on_message)
 
     def generate_signature(self, expires):
         """Generate a request signature."""
@@ -29,12 +40,19 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.ws.send(json.dumps(auth))
 
     def subscribeRealtimeData(self):
+        retry_times = 5
+        while (self.publicWS.ws.sock is None or not self.publicWS.ws.sock.connected) and retry_times > 0:
+            time.sleep(1)
+            retry_times -= 1
+        if retry_times == 0 and (self.publicWS.ws.sock is None or not self.publicWS.ws.sock.connected):
+            self.logger.error("Couldn't connect to public WebSocket! Exiting.")
+            self.exit()
         self.subscribe_order()
         self.subscribe_stop_order()
         self.subscribe_execution()
         self.subscribe_position()
         subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
-        self.subscribe_klineV2(subbarsIntervall, self.symbol)
+        self.subscribe_candle(subbarsIntervall, self.symbol)
         self.subscribe_instrument_info(self.symbol)
 
     def on_message(self, message):
@@ -57,26 +75,18 @@ class BybitLinearWebsocket(KuegiWebsocket):
             if self.callback is not None:
                 self.callback(message['topic'])
 
-    def subscribe_kline(self, symbol: str, interval: str):
-        param = {'op': 'subscribe',
-                 'args': ['kline.' + symbol + '.' + interval]
-                 }
-        self.ws.send(json.dumps(param))
-        if 'kline.' + symbol + '.' + interval not in self.data:
-            self.data['kline.' + symbol + '.' + interval] = []
-
-    def subscribe_klineV2(self, interval: str, symbol: str):
-        args = 'klineV2.' + interval + '.' + symbol
+    def subscribe_candle(self, interval: str, symbol: str):
+        args = 'candle.' + interval + '.' + symbol
         param = dict(
             op='subscribe',
             args=[args]
         )
-        self.ws.send(json.dumps(param))
+        self.publicWS.ws.send(json.dumps(param))
         if args not in self.data:
             self.data[args] = []
 
     def subscribe_trade(self):
-        self.ws.send('{"op":"subscribe","args":["trade"]}')
+        self.publicWS.ws.send('{"op":"subscribe","args":["trade"]}')
         if "trade.BTCUSD" not in self.data:
             self.data["trade.BTCUSD"] = []
             self.data["trade.ETHUSD"] = []
@@ -105,7 +115,7 @@ class BybitLinearWebsocket(KuegiWebsocket):
             'op': 'subscribe',
             'args': ['instrument_info.100ms.' + symbol]
         }
-        self.ws.send(json.dumps(param))
+        self.publicWS.ws.send(json.dumps(param))
         if 'instrument_info.100ms.' + symbol not in self.data:
             self.data['instrument_info.100ms.' + symbol] = []
 
@@ -113,6 +123,11 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.ws.send('{"op":"subscribe","args":["position"]}')
         if 'position' not in self.data:
             self.data['position'] = []
+
+    def subscribe_wallet(self):
+        self.ws.send('{"op":"subscribe","args":["wallet"]}')
+        if 'wallet' not in self.data:
+            self.data['wallet'] = []
 
     def subscribe_execution(self):
         self.ws.send('{"op":"subscribe","args":["execution"]}')

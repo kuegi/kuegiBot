@@ -5,9 +5,9 @@ from typing import List
 import bybit
 from bravado.http_future import HttpFuture
 
-from kuegi_bot.exchanges.bybit.bybit_websocket import BybitWebsocket
 from kuegi_bot.utils.trading_classes import Order, Bar, TickerData, AccountPosition, \
     Symbol, process_low_tf_bars, parse_utc_timestamp, OrderType
+from .bybitlinear_websocket import BybitLinearWebsocket
 from ..ExchangeWithWS import ExchangeWithWS
 from ...bots.trading_bot import TradingBot
 
@@ -26,10 +26,12 @@ class ByBitLinearInterface(ExchangeWithWS):
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
                                  api_secret=settings.API_SECRET)
-        hosts = ["wss://stream-testnet.bybit.com/realtime"] if settings.IS_TEST \
-            else ["wss://stream.bybit.com/realtime", "wss://stream.bytick.com/realtime"]
+        hosts_private = ["wss://stream-testnet.bybit.com/realtime_private"] if settings.IS_TEST \
+            else ["wss://stream.bybit.com/realtime_private", "wss://stream.bytick.com/realtime_private"]
+        hosts_public = ["wss://stream-testnet.bybit.com/realtime_public"] if settings.IS_TEST \
+            else ["wss://stream.bybit.com/realtime_public", "wss://stream.bytick.com/realtime_public"]
         super().__init__(settings, logger,
-                         ws=BybitWebsocket(wsURLs=hosts,
+                         ws=BybitLinearWebsocket(wspublicURLs=hosts_public, wsprivateURLs= hosts_private,
                                            api_key=settings.API_KEY,
                                            api_secret=settings.API_SECRET,
                                            logger=logger,
@@ -37,6 +39,9 @@ class ByBitLinearInterface(ExchangeWithWS):
                                            symbol=settings.SYMBOL,
                                            minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback)
+
+        self.longPos= AccountPosition(self.symbol, 0, 0, 0)
+        self.shortPos= AccountPosition(self.symbol, 0, 0, 0)
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.LinearOrder.LinearOrder_query(symbol=self.symbol))
@@ -50,24 +55,33 @@ class ByBitLinearInterface(ExchangeWithWS):
         api_wallet=  self._execute(self.bybit.Wallet.Wallet_getBalance(coin=self.baseCurrency))
         balance= api_wallet[self.baseCurrency]["wallet_balance"]
         api_positions = self._execute(self.bybit.LinearPositions.LinearPositions_myPosition(symbol=self.symbol))
-        accLong = AccountPosition(self.symbol, 0, 0, balance)
-        accShort = AccountPosition(self.symbol, 0, 0, balance)
+        self.longPos = AccountPosition(self.symbol, 0, 0, balance)
+        self.shortPos = AccountPosition(self.symbol, 0, 0, balance)
         if api_positions is not None:
             for pos in api_positions:
                 if pos["side"] == "Sell":
-                    accShort.avgEntryPrice=float(pos["entry_price"])
-                    accShort.quantity= -1*pos["size"]
+                    self.shortPos.avgEntryPrice=float(pos["entry_price"])
+                    self.shortPos.quantity= -1*pos["size"]
                 else:
-                    accLong.avgEntryPrice=float(pos["entry_price"])
-                    accLong.quantity= pos["size"]
+                    self.longPos.avgEntryPrice=float(pos["entry_price"])
+                    self.longPos.quantity= pos["size"]
+        self.updatePosition_internally()
 
-        if accLong.quantity > -accShort.quantity:
-            accLong.quantity += accShort.quantity
-            self.positions[self.symbol] = accLong
+    def updatePosition_internally(self):
+        if self.longPos.quantity > -self.shortPos.quantity:
+            entry= self.longPos.avgEntryPrice
         else:
-            accShort.quantity += accLong.quantity
-            self.positions[self.symbol] = accShort
+            entry= self.shortPos.avgEntryPrice
 
+        if self.symbol in self.positions.keys() and \
+                self.positions[self.symbol].quantity != self.longPos.quantity+self.shortPos.quantity:
+            self.logger.info("position changed %.2f -> %.2f" % (
+                self.positions[self.symbol].quantity, self.longPos.quantity+self.shortPos.quantity))
+
+        self.positions[self.symbol] = AccountPosition(self.symbol,
+                                                          quantity=self.longPos.quantity+self.shortPos.quantity,
+                                                          avgEntryPrice= entry,
+                                                          walletBalance=self.longPos.walletBalance)
 
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
@@ -268,10 +282,14 @@ class ByBitLinearInterface(ExchangeWithWS):
                             order.executed_amount = (execution['order_qty'] - execution['leaves_qty']) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
-                            self.logger.info("got order execution: %s %.1f @ %.1f " % (
+                            self.logger.info("got order execution: %s %.3f @ %.2f " % (
                                 execution['order_link_id'], execution['exec_qty'] * sideMulti,
                                 float(execution['price'])))
-
+                elif topic == 'wallet':
+                    for wallet in msgs:
+                        self.longPos.walletBalance= float(wallet["wallet_balance"])
+                        self.shortPos.walletBalance= float(wallet["wallet_balance"])
+                    self.updatePosition_internally()
                 elif topic == 'position':
                     # {'user_id': 712961, 'symbol': 'BTCUSD', 'size': 1, 'side': 'Buy', 'position_value':
                     # '0.00013684', 'entry_price': '7307.80473546', 'liq_price': '6674', 'bust_price': '6643.5',
@@ -281,22 +299,17 @@ class ByBitLinearInterface(ExchangeWithWS):
                     # '0.00000012', 'occ_funding_fee': '0', 'auto_add_margin': 0, 'cum_realised_pnl': '0.00175533',
                     # 'position_status': 'Normal', 'position_seq': 505770784}
                     for pos in msgs:
-                        sizefac = -1 if pos["side"] == "Sell" else 1
-                        if pos['symbol'] == self.symbol and \
-                                self.positions[pos['symbol']].quantity != pos["size"] * sizefac:
-                            self.logger.info("position changed %.2f -> %.2f" % (
-                                self.positions[pos['symbol']].quantity, pos["size"] * sizefac))
-                        if pos['symbol'] not in self.positions.keys():
-                            self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
-                                                                            avgEntryPrice=float(pos["entry_price"]),
-                                                                            quantity=pos["size"] * sizefac,
-                                                                            walletBalance=float(pos['wallet_balance']))
-                        else:
-                            accountPos = self.positions[pos['symbol']]
-                            accountPos.quantity = pos["size"] * sizefac
-                            accountPos.avgEntryPrice = float(pos["entry_price"])
-                            accountPos.walletBalance = float(pos['wallet_balance'])
-                elif topic.startswith('klineV2.') and topic.endswith('.' + self.symbol):
+                        if pos['symbol'] == self.symbol:
+                            if pos["side"] == "Sell":
+                                self.shortPos.quantity= -float(pos['size'])
+                                self.shortPos.avgEntryPrice= float(pos['entry_price'])
+                            else:
+                                self.longPos.quantity= float(pos['size'])
+                                self.longPos.avgEntryPrice= float(pos['entry_price'])
+
+                            self.updatePosition_internally()
+
+                elif topic.startswith('candle.') and topic.endswith('.' + self.symbol):
                     msgs.sort(key=lambda temp: temp['start'], reverse=True)
                     if len(self.bars) > 0:
                         for b in reversed(msgs):
@@ -319,18 +332,18 @@ class ByBitLinearInterface(ExchangeWithWS):
                     if 'update' in obj.keys():
                         obj = obj['update'][0]
                     if obj['symbol'] == self.symbol and 'last_price_e4' in obj.keys():
-                        self.last = obj['last_price_e4'] / 10000
+                        self.last = float(obj['last_price_e4']) / 10000
                 else:
                     self.logger.error('got unkown topic in callback: ' + topic)
                 msgs = self.ws.get_data(topic)
 
             # new bars is handling directly in the messagecause we get a new one on each tick
-            if topic in ["order", "stop_order", "execution"]:
+            if topic in ["order", "stop_order", "execution", "wallet"]:
                 gotTick = True
                 self.reset_order_sync_timer() # only when something with orders changed
             if gotTick and self.on_tick_callback is not None:
                 self.on_tick_callback(
-                    fromAccountAction=topic in ["order", "stop_order", "execution"])  # got something new
+                    fromAccountAction=topic in ["order", "stop_order", "execution", "wallet"])  # got something new
         except Exception as e:
             self.logger.error("error in socket data(%s): %s " % (topic, str(e)))
 
@@ -374,7 +387,7 @@ class ByBitLinearInterface(ExchangeWithWS):
             order.active = o['stop_order_status'] == 'Triggered' or o['stop_order_status'] == 'Untriggered'
         execution = o['cum_exec_qty'] if 'cum_exec_qty' in o.keys() else 0
         order.executed_amount = float(execution) * sideMulti
-        order.tstamp = parse_utc_timestamp(o['updated_time'] if 'updated_time' in o.keys() else o['created_time'])
+        order.tstamp = parse_utc_timestamp(o['updated_time'] if 'updated_time' in o.keys() else o['update_time'])
         order.exchange_id = o["order_id"] if 'order_id' in o.keys() else o['stop_order_id']
         order.executed_price = None
         if 'cum_exec_value' in o.keys() and 'cum_exec_qty' in o.keys() \
