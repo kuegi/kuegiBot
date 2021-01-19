@@ -144,6 +144,20 @@ else:
 
 bars= interface.get_bars(240,0)
 
+
+def get_wallet_records():
+    result = []
+    gotone = True
+    page = 1
+    while gotone:
+        data = b.Wallet.Wallet_getRecords(start_date="2020-01-01", end_date="2021-01-01", limit="50",
+                                          page=str(page)).response().result['result']['data']
+        gotone = len(data) > 0
+        result = result + data
+        page = page + 1
+    return result
+
+
 #b.Wallet.Wallet_getRecords().response().result['result']['data']
 
 # '''

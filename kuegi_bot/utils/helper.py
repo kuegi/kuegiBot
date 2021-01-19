@@ -60,8 +60,10 @@ known_history_files= {
     "bybit_XRPUSD":14,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
-    "phemex_BTCUSD":6,
-    "bitstamp_btceur": 97
+    "phemex_BTCUSD": 6,
+    "bitstamp_btceur": 99,
+    "bitstamp_etheur": 35,
+    "bitstamp_xrpeur": 42
     }
 
 

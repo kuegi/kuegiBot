@@ -36,7 +36,13 @@ start = 1 if exchange == 'bybit' else 0
 if exchange == 'phemex':
     start= 1574726400 # start of phemex
 elif exchange == 'bitstamp':
-    start= 1313670000
+    if symbol == "btceur":
+        start= 1313670000
+    elif symbol == "etheur":
+        start= 1502860000
+    elif symbol == "xrpeur":
+        start= 1483410000
+
 
 offset = 0
 
@@ -99,7 +105,10 @@ while True:
     wasOk= len(data) >= 200
     if not wasOk:
         print(str(data)[:100])
-        sleep(10)
+        if len(result) > 0:
+            sleep(10)
+        if exchange == "bitstamp" and len(result) == 0:
+            start+= 1000*60
     else:
         wroteData= False
         if exchange == 'bitmex':
