@@ -14,13 +14,14 @@ The easiest way to setup the container is by using docker-compose.
 
 ### Volumes
 
-- /settings - the path to your defaults.json and settings.json 
+- /settings - the path to your settings 
 - /logs - the bot logoutput if defined
 - /history - output of the history crawler
 
 ### Environment variables
 - PUID - current user id
 - PGID - current group id 
+- CONFIG - your settings file in /settings, "defaults.json" if not set
 
 
 ```yaml
@@ -39,6 +40,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+      - CONFIG=settings.json
 
 
   kuegibot_history:
