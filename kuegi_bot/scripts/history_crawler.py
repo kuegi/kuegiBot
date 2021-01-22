@@ -42,6 +42,8 @@ elif exchange == 'bitstamp':
         start= 1502860000
     elif symbol == "xrpeur":
         start= 1483410000
+    else:
+        start= 1327090000
 
 
 offset = 0
