@@ -59,7 +59,8 @@ def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
             msg += str(i) + " "
         logger.info(msg)
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
-        bot.add_strategy(KuegiStrategy(...))
+        bot.add_strategy(KuegiStrategy(...)
+                         )
         BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
         if randomCount == 0 or (randomCount < 0 and not increment(min,max,steps,v)):
@@ -146,14 +147,16 @@ runOpti(bars, funding=funding,
 '''
 
 bot=MultiStrategyBot(logger=logger, directionFilter= 0)
-bot.add_strategy(KuegiStrategy(...)
+bot.add_strategy(KuegiStrategy(...
                  )
-bot.add_strategy(SfpStrategy(...)
+
+bot.add_strategy(SfpStrategy(...
                  )
-b= BackTest(bot, bars, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
+
+b= BackTest(bot, bars_full, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
 
 #performance chart with lots of numbers
-bot.create_performance_plot(bars_oos).show()
+bot.create_performance_plot(bars).show()
 
 # chart with signals:
 b.prepare_plot().show()

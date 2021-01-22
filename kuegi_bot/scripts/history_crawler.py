@@ -15,7 +15,7 @@ from kuegi_bot.utils.helper import history_file_name, known_history_files
 from kuegi_bot.utils.trading_classes import parse_utc_timestamp
 
 exchange = sys.argv[1] if len(sys.argv) > 1 else 'bybit'
-symbol=  sys.argv[2] if len(sys.argv) > 1 else 'BTCUSD'
+symbol=  sys.argv[2] if len(sys.argv) > 2 else 'BTCUSD'
 print("crawling from "+exchange)
 
 batchsize = 50000
