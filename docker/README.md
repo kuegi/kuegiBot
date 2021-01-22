@@ -3,6 +3,15 @@ Setup
 
 Build the docker image
 ----------------------
+
+Make sure to also have the Binance submodule checked out
+
+```
+git submodule init
+git submodule update
+```
+
+Then the docker build command should work without any issues
 ```
 docker build -t kuegibot .
 ```
