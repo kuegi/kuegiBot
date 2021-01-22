@@ -24,6 +24,6 @@ setup(name='kuegi-bot',
           'bybit'
       ],
       packages=find_packages(),
-      scripts=["backtest.py","history_crawler.py","cryptobot.py"],
+      scripts=["cryptobot.py"],
       classifiers=["Development Status :: 3 - Alpha" ]
       )

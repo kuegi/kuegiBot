@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VoluBa</title>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-49503411-7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-49503411-7');
+</script>
+
+    <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="main.js"></script>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<body onload="init()">
+<div id="inputs">
+    TF (minutes): <input id="tf" value="10" onchange="reinitData()" style="width:40px;"/><br/>
+    <input type="checkbox" name="exchangeCvds" id="exchangeCvds" onchange="reinitData()"><label for="exchangeCvds">Show exchange cvds</label><br/>
+    <input type="checkbox" name="showPrice" id="showPrice" checked onchange="fillSeries()"><label for="showPrice">Show price</label>
+    <div id="exchanges">Exchanges<div id="exchangecvdinputs" ></div></div></div>
+<div id="chart" ></div>
+
+</body>
+</html>

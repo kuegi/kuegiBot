@@ -16,6 +16,7 @@ if you like it and wanna start a trading account, feel free to use the ref links
 
 [binance futures (saves you 10% of fees)](https://www.binance.com/en/futures/ref/kuegi)
 
+[DigitalOcean](https://m.do.co/c/1767a7ee58ea) The cloud service provider i use for the bot. If you use the reflink you also get a 100$ credit for the first 2 months to try the service risk-free.
 ## disclaimer
 
 right now this is a pure expert tool for my personal use. if you find the code useful thats nice, but don't expect it to be easy to understand or work with it.

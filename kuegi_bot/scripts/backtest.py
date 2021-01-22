@@ -59,8 +59,7 @@ def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
             msg += str(i) + " "
         logger.info(msg)
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
-        bot.add_strategy(SfpStrategy()
-                         )
+        bot.add_strategy(KuegiStrategy(...))
         BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
         if randomCount == 0 or (randomCount < 0 and not increment(min,max,steps,v)):
@@ -84,7 +83,7 @@ pair= "BTCUSD"
 funding = load_funding('bybit',pair)
 
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
-#bars_n = load_bars(30 * 12, 240,0,'binance')
+#bars_n = load_bars(30 * 12, 240,0,'binance_f')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
 bars_b = load_bars(30 * 18, 240,0,'bybit',pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
@@ -105,7 +104,7 @@ elif pair == "XRPUSD":
 elif pair == "ETHUSD":
     symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=0.1, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
 #
-#for binance
+#for binance_f
 #symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)
 
 bars_full= bars_b
@@ -136,29 +135,25 @@ p.print_callers('<functionName>')
 
 '''
 runOpti(bars, funding=funding,
-        min=   [10,10,2],
-        max=   [20,20,5],
+        min=   [5,1,13],
+        max=   [5,1,16],
         steps= [1,1,1],
         randomCount=-1,
         symbol=symbol)
 
 #'''
 
-
 '''
-bot=MultiStrategyBot(logger=logger, directionFilter= 0)
-bot.add_strategy(KuegiStrategy(
-...
-                 )
-                 
-bot.add_strategy(SfpStrategy(
-...
-                 )
 
+bot=MultiStrategyBot(logger=logger, directionFilter= 0)
+bot.add_strategy(KuegiStrategy(...)
+                 )
+bot.add_strategy(SfpStrategy(...)
+                 )
 b= BackTest(bot, bars, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
 
 #performance chart with lots of numbers
-bot.create_performance_plot(bars).show()
+bot.create_performance_plot(bars_oos).show()
 
 # chart with signals:
 b.prepare_plot().show()

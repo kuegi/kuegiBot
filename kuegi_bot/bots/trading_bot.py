@@ -230,6 +230,7 @@ class TradingBot:
 
         if not self.got_data_for_position_sync(bars):
             self.logger.warn("got no initial data, can't sync positions")
+            self.unaccountedPositionCoolOff = 0
             return
 
         remaining_pos_ids = []
@@ -263,6 +264,7 @@ class TradingBot:
 
         if len(remaining_orders) == 0 and len(remaining_pos_ids) == 0 and abs(
                 open_pos - account.open_position.quantity) < 0.1:
+            self.unaccountedPositionCoolOff = 0
             return
 
         self.logger.info("Has to start order/pos sync with bot vs acc: %.3f vs. %.3f and %i vs %i, remaining: %i,  %i"
@@ -364,10 +366,9 @@ class TradingBot:
                               stop=pos.initial_stop))
                 else:
                     self.logger.warn(
-                        "found position with no stop in market. %s with %.1f contracts. but remaining Position doesn't match so assume it was already closed." % (
+                        "found position with no stop in market. %s with %.1f contracts. but no initial stop on position had to close" % (
                             posId, pos.amount))
-                    self.position_closed(pos, account)
-                    remainingPosition += pos.amount
+                    self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-newPos.amount))
             else:
                 self.logger.warn(
                     "pending position with noconnection order not pending or open? closed: %s" % (posId))
@@ -608,6 +609,9 @@ class TradingBot:
 
     def create_performance_plot(self, bars: List[Bar]):
         self.logger.info("preparing stats")
+        if len(self.position_history) == 0:
+            self.logger.info("no positions done.")
+            return go.Figure()
         stats = {
             "dd": 0,
             "maxDD": 0,
@@ -642,7 +646,10 @@ class TradingBot:
                     firstPos = pos
                     break
         lastHHTstamp = firstPos.signal_tstamp
-        startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
+        if firstPos.filled_exit is not None:
+            startEquity = firstPos.exit_equity - firstPos.amount * (1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
+        else:
+            startEquity = 100
 
         stats_range = []
         # temporarily add filled exit to have position in the result
@@ -652,6 +659,7 @@ class TradingBot:
 
         actual_history = list(
             filter(lambda p1: p1.filled_entry is not None and p1.filled_exit is not None, self.position_history))
+        actual_history.sort(reverse=False,key=lambda p: p.exit_tstamp)
         for pos in actual_history:
             # update range
             stats_range.append(pos)

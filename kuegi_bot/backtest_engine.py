@@ -135,10 +135,27 @@ class BackTest(OrderInterface):
         price = min(intrabar.high,
                     max(intrabar.low, price))  # only prices within the bar. might mean less slipage
         order.executed_price = price
+        oldAmount= self.account.open_position.quantity
+        if oldAmount != 0:
+            oldavgentry= self.account.open_position.avgEntryPrice
+            if oldAmount * amount > 0 :
+                self.account.open_position.avgEntryPrice = (oldavgentry*oldAmount + price*amount)/(oldAmount+amount)
+            if oldAmount*amount < 0:
+                if abs(oldAmount) < abs(amount):
+                    profit= oldAmount * ((price-oldavgentry) if not self.symbol.isInverse else (-1 / price + 1/oldavgentry))
+                    self.account.open_position.walletBalance += profit
+                    #close current, open new
+                    self.account.open_position.avgEntryPrice= price
+                else:
+                    #closes the position by "-amount" cause amount is the side and direction of the close
+                    profit = -amount * (
+                        (price - oldavgentry) if not self.symbol.isInverse else (-1 / price + 1 / oldavgentry))
+                    self.account.open_position.walletBalance += profit
+        else:
+            self.account.open_position.avgEntryPrice = price
         self.account.open_position.quantity += amount
-        delta = amount * (price if not self.symbol.isInverse else -1 / price)
-        self.account.open_position.walletBalance -= delta
-        self.account.open_position.walletBalance -= math.fabs(delta) * fee
+        volume = amount * (price if not self.symbol.isInverse else -1 / price)
+        self.account.open_position.walletBalance -= math.fabs(volume) * fee
 
         order.active = False
         order.execution_tstamp = intrabar.tstamp
@@ -184,9 +201,13 @@ class BackTest(OrderInterface):
             self.handle_order_execution(order, intrabarToCheck)
 
         # update equity = balance + current value of open position
-        posValue = self.account.open_position.quantity * (
-            intrabarToCheck.close if not self.symbol.isInverse else -1 / intrabarToCheck.close)
-        self.account.equity = self.account.open_position.walletBalance + posValue
+        avgEntry= self.account.open_position.avgEntryPrice
+        if avgEntry != 0:
+            posValue = self.account.open_position.quantity * (
+                (intrabarToCheck.close-avgEntry) if not self.symbol.isInverse else (-1 / intrabarToCheck.close + 1/avgEntry))
+        else:
+            posValue= 0
+        self.account.equity = self.account.open_position.walletBalance # + posValue # for backtest: ignore equity for better charts
         self.account.usd_equity = self.account.equity * intrabarToCheck.close
 
         self.update_stats()
@@ -228,9 +249,9 @@ class BackTest(OrderInterface):
         self.reset()
         self.logger.info(
             "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.equity) + " equity")
-        for i in range(len(self.bars)):
+        for i in range(self.bot.min_bars_needed(),len(self.bars)):
             if i == len(self.bars) - 1 or i < self.bot.min_bars_needed():
-                continue  # ignore last bar and first 5
+                continue  # ignore last bar and first x
 
             # slice bars. TODO: also slice intrabar to simulate tick
             self.current_bars = self.bars[-(i + 1):]
@@ -257,7 +278,10 @@ class BackTest(OrderInterface):
 
             next_bar.bot_data = forming_bar.bot_data
             for b in self.current_bars:
-                b.did_change = False
+                if b.did_change:
+                    b.did_change = False
+                else:
+                    break # no need to go further
 
         if self.account.open_position.quantity != 0:
             self.send_order(Order(orderId="endOfTest", amount=-self.account.open_position.quantity))

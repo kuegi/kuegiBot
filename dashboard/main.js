@@ -65,7 +65,11 @@ function refresh() {
                 pos.connectedOrders.forEach(function(order) {
                     if(order.id.includes("_SL_")) {
                         pos.currentStop= order.stop_price;
-                        pos.worstCase= (pos.currentStop - pos.filled_entry)/(pos.wanted_entry-pos.initial_stop);
+                        if(Math.abs(pos.amount) > 10) {
+                            pos.worstCase= (1/pos.currentStop - 1/pos.filled_entry)/(1/pos.wanted_entry-1/pos.initial_stop);
+                        } else {
+                            pos.worstCase= (pos.currentStop - pos.filled_entry)/(pos.wanted_entry-pos.initial_stop);
+                        }
                     }
                     if(Math.abs(pos.amount) > 10) {
                         pos.initialRisk= pos.amount/pos.initial_stop - pos.amount/pos.wanted_entry;

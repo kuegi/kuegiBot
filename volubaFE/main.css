@@ -1,0 +1,33 @@
+.exchangeColor {
+    width:10px;
+    height:10px;
+    display:inline-block;
+    margin-left:5px;
+    margin-right:5px;
+}
+
+.lastPrice {
+    margin-left:5px;
+    margin-right:5px;
+}
+
+#exchanges {
+    margin-top:10px;
+}
+
+#chart {
+    position:absolute;
+    left:0px;
+    top:0px;
+    width:90%;
+    height:100%;
+}
+
+#inputs {
+    position:absolute;
+    right:0px;
+    top:0px;
+    width:10%;
+    height:100%;
+}
+
