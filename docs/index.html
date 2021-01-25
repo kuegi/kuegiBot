@@ -1,0 +1,228 @@
+<html>
+
+<head>
+    <title>Learn - Dashboard v2</title>
+    <script src="/dashboard/libs/vue.global.js"></script>
+    <script src="/dashboard/libs/markdown-it.min.js"></script>
+    <link href="/dashboard/libs/tailwind.min.css" rel="stylesheet">
+    <link href="/dashboard/libs/typography.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="kuegibot">
+        <div class="bg-gray-800 pb-32">
+            <header class="py-10 px-8">
+                <h1 class="text-3xl font-bold text-white">
+                    Learn
+                </h1>
+            </header>
+        </div>
+
+        <main class="-mt-36">
+            <div class="mx-auto max-w-4xl pb-12 px-4">
+                <div class="bg-white rounded-lg shadow p-12">
+                    <div class="rounded-lg">
+                        <template v-if="viewInitialized">
+                            <div v-if="view == 'learn'"
+                                class="rounded-lg bg-gray-200 overflow-hidden border border-gray-200 grid grid-cols-3 gap-px">
+                                <template v-for="document in learn.documents" :key="document.path">
+                                    <a :href="'/docs/index.html?doc=' + document.path"
+                                        class="relative block group bg-white p-6">
+                                        <div>
+                                            <span v-if="document.type == 'Article'"
+                                                class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700">
+                                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </span>
+                                            <span v-else-if="document.type == 'Sample Strategy'"
+                                                class="rounded-lg inline-flex p-3 bg-green-50 text-green-700">
+                                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <div class="mt-8">
+                                            <p class="text-sm text-gray-500">
+                                                {{ document.preTitle }}
+                                            </p>
+                                            <h3 class="font-medium text-lg">
+                                                {{ document.title }} <span class="text-sm text-gray-500">{{
+                                                    document.author }}</span>
+                                            </h3>
+                                        </div>
+                                        <span
+                                            class="absolute top-6 right-6 text-gray-300">
+                                            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                            </svg>
+                                        </span>
+                                    </a>
+                                </template>
+                            </div>
+
+                            <div v-if="view == 'detail'">
+                                <div class="text-center mt-8 mb-12">
+                                    <h2 class="text-center text-5xl font-bold text-gray-700">{{
+                                        detail.document.title}}</h2>
+                                    <a href="/docs/index.html"
+                                        class="block mt-3 text-sm text-gray-500 underline">
+                                        back to overview
+                                    </a>
+                                </div>
+
+                                <div class="prose prose-lg mx-auto" v-html="detail.content"></div>
+
+                                <div v-if="detail.next">
+                                    <a :href="'/docs/index.html?doc=' + detail.next.path"
+                                        class="relative border mt-24 p-6 border-gray-300 block group bg-white">
+                                        <div>
+                                            <span v-if="detail.next.type == 'Article'"
+                                                class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700">
+                                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </span>
+                                            <span v-else-if="detail.next.type == 'Sample Strategy'"
+                                                class="rounded-lg inline-flex p-3 bg-green-50 text-green-700">
+                                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <div class="mt-8">
+                                            <p class="mt-2 text-sm text-gray-500">
+                                                {{ detail.next.preTitle }}
+                                            </p>
+                                            <h3 class="text-lg font-medium">
+                                                {{ detail.next.title }} <span class="text-sm text-gray-500">{{
+                                                    detail.next.author }}</span>
+                                            </h3>
+                                        </div>
+                                        <span
+                                            class="absolute top-6 right-6 text-gray-300">
+                                            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                            </svg>
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const Learn = {
+            data() {
+                return {
+                    view: 'learn',
+                    viewInitialized: false,
+                    learn: {
+                        isLoading: true,
+                        version: '0',
+                        documents: [],
+                        activeDocument: '',
+                    },
+                    detail: {
+                        isLoading: true,
+                        path: '',
+                        content: '',
+                        document: false,
+                        next: false
+                    }
+                }
+            },
+            mounted() {
+                let params = (new URL(document.location)).searchParams
+                let detailDocumentPath = params.get('doc')
+
+
+                if (detailDocumentPath !== null) {
+                    this.detail.path = detailDocumentPath
+                    this.loadDocumentDetail()
+                    this.view = 'detail'
+                }
+
+                this.loadDocumentList()
+
+                this.viewInitialized = true
+            },
+            methods: {
+                loadDocumentDetail() {
+                    this.detail.isLoading = true
+                    window.fetch(this.detail.path)
+                        .then(response => response.text())
+                        .then(data => {
+                            this.detail.content = window.markdownit({
+                                html: true,
+                                linkify: true,
+                                typographer: true,
+                            }).render(data)
+                            this.detail.isLoading = false
+                        })
+                },
+                loadDocumentList() {
+                    this.learn.isLoading = true
+                    let cachedDocuments = localStorage.getItem('kuegibot-documents' + this.learn.version)
+                    if (cachedDocuments != null) {
+                        this.learn.documents = JSON.parse(cachedDocuments)
+                        this.assignDetailDocumentAndNext()
+                    } else {
+                        window.fetch('/docs/docs.json')
+                            .then(response => response.json())
+                            .then(data => {
+                                this.learn.documents = data
+                                this.learn.isLoading = false
+                                localStorage.setItem('kuegibot-documents' + this.learn.version, JSON.stringify(data))
+                                this.assignDetailDocumentAndNext()
+                            })
+                    }
+                },
+                assignDetailDocumentAndNext() {
+                    if (this.view === 'detail') {
+                        let detailIndex = this.learn.documents.findIndex((doc) => {
+                            return doc.path == this.detail.path
+                        })
+
+                        if(detailIndex == -1) {
+                            this.detail.document = {
+                                "path": this.detail.path,
+                                "title": "Secret Document",
+                                "preTitle": "-",
+                                "author": "-",
+                                "type": "Secret"
+                            }
+                        } else {   
+                            this.detail.document = this.learn.documents[detailIndex]
+                            
+                            if (this.learn.documents.length != detailIndex + 1) {
+                                this.detail.next = this.learn.documents[detailIndex + 1]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Vue.createApp(Learn).mount('#kuegibot')
+    </script>
+</body>
+
+</html>
