@@ -59,7 +59,7 @@ def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
             msg += str(i) + " "
         logger.info(msg)
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
-        bot.add_strategy(KuegiStrategy(...)
+        bot.add_strategy(KuegiStrategy(
                          )
         BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
@@ -86,7 +86,7 @@ funding = load_funding('bybit',pair)
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance_f')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-bars_b = load_bars(30 * 18, 240,0,'bybit',pair)
+bars_b = load_bars(30 * 36, 240,0,'bybit',pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
@@ -135,22 +135,22 @@ p.print_callers('<functionName>')
 '''
 
 '''
-runOpti(bars, funding=funding,
-        min=   [5,1,13],
-        max=   [5,1,16],
-        steps= [1,1,1],
+runOpti(bars_oos, funding=funding,
+        min=   [-5,20],
+        max=   [5,27],
+        steps= [1,1],
         randomCount=-1,
         symbol=symbol)
 
 #'''
 
-'''
+#'''
 
 bot=MultiStrategyBot(logger=logger, directionFilter= 0)
-bot.add_strategy(KuegiStrategy(...
+bot.add_strategy(KuegiStrategy(
                  )
 
-bot.add_strategy(SfpStrategy(...
+bot.add_strategy(SfpStrategy(
                  )
 
 b= BackTest(bot, bars_full, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()

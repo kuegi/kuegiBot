@@ -63,7 +63,8 @@ known_history_files= {
     "phemex_BTCUSD": 6,
     "bitstamp_btceur": 99,
     "bitstamp_etheur": 35,
-    "bitstamp_xrpeur": 42
+    "bitstamp_xrpeur": 42,
+    "bitstamp_eurusd": 94
     }
 
 

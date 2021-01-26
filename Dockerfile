@@ -32,7 +32,7 @@ COPY --from=build-env /venv /venv
 # copy the content of the local src directory to the working directory
 COPY ./docker /
 COPY . /app
-COPY ./kuegi_bot/scripts/history_crawler.py /app/
+COPY ./history_crawler.py /app/
 COPY ./dashboard /var/www
 
 VOLUME /settings
