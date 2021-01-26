@@ -8,4 +8,4 @@ python3 -m http.server 8000
 
 ## Available routes
 
-- Learn: http://localhost:8001/docs/index.html
+- Learn: http://localhost:8000/docs/index.html
