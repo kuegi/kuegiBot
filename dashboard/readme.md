@@ -8,5 +8,5 @@ python3 -m http.server 8000
 
 ## Available routes
 
-- Dashboard: http://localhost:8001/index.html
-- Learn: http://localhost:8001/learn.html
+- Old Dashboard: http://localhost:8000/dashboard.html
+- New Dashboard: http://localhost:8000/index.html
