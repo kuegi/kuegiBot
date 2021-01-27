@@ -1,0 +1,214 @@
+<html>
+
+<head>
+    <title>Dashboard - Dashboard v2</title>
+    <script src="libs/vue.global.js"></script>
+    <link href="libs/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="kuegibot">
+        <div class="bg-gray-800 pb-32">
+            <header class="py-10 px-8 flex space-x-4">
+                <h1 class="text-3xl font-bold text-white">
+                    Dashboard
+                </h1>
+                <button @click="loadDashboardData" class="bg-yellow-300 hover:bg-yellow-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+                    <span>Refresh</span>
+                    <svg class="w-4 h-4 ml-2" :class="classForLoading" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </header>
+        </div>
+
+        <main class="-mt-32">
+            <div class="mx-auto pb-12 px-4">
+                <div class="bg-white rounded-lg shadow px-3 py-4">
+                    <div class="rounded-lg">
+                        <template v-if="viewInitialized">
+                            <div class="flex flex-col">
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-400">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">PositionId</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">status</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">signalTime</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">amount</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">wEntry</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">initSL</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">entryTime</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">entry</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">stop</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">worst</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider" scope="col">Risk</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template v-for="bot in dashboard.bots" :key="bot.id">                                           
+                                                <tr class="font-bold">
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ bot.id }}</td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600"></td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ formatTime(bot.last_tick_tstamp) }}</td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ bot.totalPos }}</td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ bot.equity }}</td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ bot.max_equity }}</td> 
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ bot.drawdown }} {{ bot.uwdays }} d</td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600"></td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600"></td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600">{{ formatResult(bot.totalWorstCase) }}</td>
+                                                    <td class="p-1 pt-3 border-b border-gray-600">R={{ bot.risk_reference }}</td>
+                                                </tr>
+                                                <template v-for="position in bot.positions" :key="position.id">
+                                                    <tr class="divide-x divide-gray-400" :class="classFromPosition(position)"> 
+                                                        <td class="p-1 border-b border-gray-400">{{ position.id }}</td>
+                                                        <td class="p-1 border-b text-center uppercase">{{ position.status }}</td>
+                                                        <td class="p-1 border-b">{{ formatTime(position.signal_tstamp) }}</td>
+                                                        <td class="p-1 border-b">{{ position.amount }}</td>
+                                                        <td class="p-1 border-b">{{ formatPrice(position.wanted_entry) }}</td>
+                                                        <td class="p-1 border-b">{{ formatPrice(position.initial_stop) }}</td>
+                                                        <td class="p-1 border-b">{{ formatTime(position.entry_tstamp) }}</td>
+                                                        <td class="p-1 border-b">{{ formatPrice(position.filled_entry) }}</td>
+                                                        <td class="p-1 border-b">{{ formatPrice(position.currentStop) }}</td>
+                                                        <td class="p-1 border-b" :class="classFromResult(position.worstCase)">{{ formatResult(position.worstCase) }}</td>
+                                                        <td class="p-1 border-b">{{ formatPrice(position.initialRisk) }}</td>
+                                                    </tr>
+                                                </template>
+                                            </template>
+                                        </tbody>    
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    <script>
+        const Dashboard = {
+            data() {
+                return {
+                    view: 'dashboard',
+                    viewInitialized: false,
+                    dashboard: {
+                        isLoading: true,
+                        bots: [ ],
+                    }
+                }
+            },
+            computed: {
+                classForLoading() {
+                    return {
+                        'animate-spin': this.dashboard.isLoading
+                    }
+                },
+            },
+            mounted() {
+                this.viewInitialized = true
+                this.loadDashboardData()
+            },
+            methods: {
+                loadDashboardData() {
+                    this.dashboard.isLoading = true
+                    window.fetch('dashboard.json?v=' + Date.now())
+                    .then(response => response.json())
+                    .then(data => {
+                        this.dashboard.bots = this.prepareBotsForDashboard(data)
+                        this.dashboard.isLoading = false
+                    })
+                },
+                prepareBotsForDashboard(data) {
+                    let bots = []
+
+                    Object.keys(data).forEach(id => {
+                        let bot = data[id]
+                        bot.id = id
+                        bot.drawdown = ((bot.max_equity - bot.equity) / bot.risk_reference).toFixed(1) + "R"
+                        bot.uwdays = ((Date.now()-bot.time_of_max_equity*1000)/(1000*60*60*24)).toFixed(0)
+                        bot.equity = bot.equity.toFixed(3)
+                        bot.max_equity = bot.max_equity.toFixed(3)
+                        let totalPos = 0
+                        let totalWorstCase = 0
+
+                        bot.positions.forEach((position) => {
+                            position.connectedOrders.forEach((order) => {
+                                if(order.id.includes('_SL_')) {
+                                    position.currentStop = order.stop_price
+                                    if(Math.abs(position.amount) > 10) {
+                                        position.worstCase = (1 / position.currentStop - 1 / position.filled_entry) / (1 / position.wanted_entry - 1 / position.initial_stop)
+                                    } else {
+                                        position.worstCase = (position.currentStop - position.filled_entry) / (position.wanted_entry - position.initial_stop)
+                                    }
+                                }
+
+                                if(Math.abs(position.amount) > 10) {
+                                    position.initialRisk = position.amount / position.initial_stop - position.amount / position.wanted_entry
+                                } else {
+                                    position.initialRisk = position.amount * (position.wanted_entry - position.initial_stop)
+                                }
+                            })
+
+                            if(position.status == 'open') {
+                                totalPos += position.amount
+                                totalWorstCase += position.initialRisk * position.worstCase
+                            }
+                        })
+
+                        bot.totalWorstCase = (totalWorstCase/bot.risk_reference)
+                        bot.totalPos = totalPos.toFixed(Math.abs(totalPos) > 100 ? 0 : 5)
+                        bots.push(bot)
+                    })
+
+                    return bots
+                },
+                classFromPosition(aPosition) {
+                    return {
+                        'bg-green-500': aPosition.status === 'open' && aPosition.amount > 0, // openLong
+                        'bg-red-500': aPosition.status === 'open' && aPosition.amount <= 0, // openShort
+                        'bg-green-200': aPosition.status === 'pending' && aPosition.amount > 0, // pendingLong
+                        'bg-red-200': aPosition.status === 'pending' && aPosition.amount <= 0, // pendingShort
+                    }
+                },
+                classFromResult(worstCase) {
+                    return {
+                        'bg-green-500': worstCase > 0, // winning
+                        'bg-red-500': worstCase < 0, // losing
+                        'bg-gray-300': typeof worstCase !== 'number', // losing
+                    }
+                },
+                formatPrice(aPrice) {
+                    if(typeof aPrice !== 'number') {
+                        return ''
+                    }
+                    return aPrice.toFixed(Math.abs(aPrice) < 10 ? 5 : 1)
+                },
+                formatTime(aTime) {
+                    if (typeof aTime === 'number' && aTime > 100000) {
+                        let date = new Date()
+                        date.setTime(aTime * 1000)
+                        return date.toLocaleString()
+                    } 
+                    return ''
+                },
+                formatResult(aResult) {
+                    if(typeof aResult === 'number') {
+                        let result = ''
+                        if (aResult > 0) {
+                            result = '+'
+                        }
+                        return result + aResult.toFixed(1) + 'R'
+                    } else
+                        return '-'
+                }
+            }
+        }
+
+        Vue.createApp(Dashboard).mount('#kuegibot')
+    </script>
+</body>
+
+</html>

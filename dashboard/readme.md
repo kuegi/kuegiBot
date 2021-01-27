@@ -1,7 +1,12 @@
-# how to use
-the dashboard uses handlebars as template engine
+# How to access
 
-to compile the template install handlebars and then call
+To test locally - navigate into the dashboard folder and execute the following command:
+
 ```
-handlebars templates -f openPositions.tpl.js
+python3 -m http.server 8000
 ```
+
+## Available routes
+
+- Old Dashboard: http://localhost:8000/dashboard.html
+- New Dashboard: http://localhost:8000/index.html

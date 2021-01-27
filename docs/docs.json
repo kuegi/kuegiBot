@@ -1,0 +1,72 @@
+[
+    {
+        "path": "/docs/aboutCodingABot/startingAsATrader.md",
+        "title": "Starting as a Trader",
+        "preTitle": "Storytime",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/howIBecameProfitable.md",
+        "title": "How I Became Profitable",
+        "preTitle": "Don't plan a plan if you can't follow throu",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/myOwnTradingFramework.md",
+        "title": "My Own Trading Framework in python",
+        "preTitle": "The structure behind",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/riskmanagement.md",
+        "title": "Risk Management",
+        "preTitle": "How to survive the learning curve",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/HowToBuildABot.md",
+        "title": "Building my Bot",
+        "preTitle": "How to build an automated trading system",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/performanceNumbers.md",
+        "title": "Performance Numbers",
+        "preTitle": "Size matters",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/darkSideOfTrading.md",
+        "title": "Dark Side of Trading",
+        "preTitle": "The good, the bad and the ugly",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/NonLinearity.md",
+        "title": "nothing is a straight line",
+        "preTitle": "Non Linearity",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/1yearRecap.md",
+        "title": "1 year of bot trading",
+        "preTitle": "a recap",
+        "author": "Kügi",
+        "type": "Article"
+    },
+    {
+        "path": "/docs/aboutCodingABot/sampleStrategies/MACross.md",
+        "title": "SMA Cross",
+        "preTitle": "",
+        "author": "Kügi",
+        "type": "Sample Strategy"
+    }
+]
