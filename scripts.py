@@ -69,7 +69,7 @@ with open("history/bybit/BTCUSD_funding.json","w") as f:
 #'''
 
 '''
-with open("btceur.csv", 'w', newline='') as file:
+with open("exports/btceur.csv", 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(["time", "open", "high", "low", "close"])
     for bar in reversed(bars):
@@ -117,7 +117,7 @@ coin= "xrp"
 
 bars= read_ref_bars(coin)
 
-with open("bybitHistory"+coin+".csv", 'w', newline='') as file:
+with open("exports/bybitHistory"+coin+".csv", 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(["type","time", "amount", "balance","eurValueOfCoin"])
     for entry in reversed(walletData):
@@ -143,9 +143,9 @@ for i in range(end - 20, end + 1):
         bars += json.load(f)
 
 # Date,Operation,Amount,Cryptocurrency,FIAT value,FIAT currency,Transaction ID,Withdrawal address,Reference
-with open("cakeHistory.csv", 'r', newline='') as file:
+with open("exports/cakeHistory.csv", 'r', newline='') as file:
     reader = csv.reader(file)
-    with open("cakeHistoryWithEur.csv", 'w', newline='') as output:
+    with open("exports/cakeHistoryWithEur.csv", 'w', newline='') as output:
         writer = csv.writer(output)
         for row in reader:
             date = row[0]

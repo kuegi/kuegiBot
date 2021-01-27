@@ -59,7 +59,7 @@ def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
             msg += str(i) + " "
         logger.info(msg)
         bot = MultiStrategyBot(logger=logger, directionFilter=0)
-        bot.add_strategy(KuegiStrategy(
+        bot.add_strategy(KuegiStrategy()
                          )
         BackTest(bot, bars= bars,funding=funding, symbol=symbol).run()
 
@@ -147,10 +147,10 @@ runOpti(bars_oos, funding=funding,
 #'''
 
 bot=MultiStrategyBot(logger=logger, directionFilter= 0)
-bot.add_strategy(KuegiStrategy(
+bot.add_strategy(KuegiStrategy()
                  )
 
-bot.add_strategy(SfpStrategy(
+bot.add_strategy(SfpStrategy()
                  )
 
 b= BackTest(bot, bars_full, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
