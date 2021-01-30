@@ -23,6 +23,7 @@ batchsize = 50000
 urls = {
     "bitmex": "https://www.bitmex.com/api/v1/trade/bucketed?binSize=1m&partial=false&symbol=##symbol##&count=1000&reverse=false",
     "bybit": "https://api.bybit.com/v2/public/kline/list?symbol=##symbol##&interval=1",
+    "bybit-linear": "https://api.bybit.com/public/linear/kline?symbol=##symbol##&interval=1",
     "binance_future": "https://fapi.binance.com/fapi/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "binanceSpot": "https://api.binance.com/api/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "phemex":"https://api.phemex.com/phemex-user/public/md/kline?resolution=60&symbol=##symbol##",
@@ -32,7 +33,7 @@ urls = {
 URL = urls[exchange].replace("##symbol##",symbol)
 
 result = []
-start = 1 if exchange == 'bybit' else 0
+start = 1 if exchange in ['bybit', 'bybit-linear'] else 0
 if exchange == 'phemex':
     start= 1574726400 # start of phemex
 elif exchange == 'bitstamp':
@@ -64,7 +65,7 @@ if lastknown >= 0:
             result = json.load(file)
             if exchange == 'bitmex':
                 start = lastknown * batchsize + len(result)
-            elif exchange in ['bybit']:
+            elif exchange in ['bybit','bybit-linear']:
                 start = int(result[-1]['open_time']) + 1
             elif exchange in ['phemex']:
                 start = int(result[-1][0]) + 1
@@ -82,7 +83,7 @@ lastSync= 0
 while True:
     # sending get request and saving the response as response object
     url= URL+"&start="+str(start)
-    if exchange == 'bybit':
+    if exchange in ['bybit','bybit-linear']:
         url = URL + "&from=" + str(start)
     elif exchange in ['binance_future','binanceSpot']:
         url= URL + "&startTime="+str(start)
@@ -94,7 +95,7 @@ while True:
     # extracting data in json format
     jsonData= r.json()
     data=jsonData
-    if exchange == 'bybit':
+    if  exchange in ['bybit','bybit-linear']:
         data = jsonData["result"]
     elif exchange == 'phemex':
         if jsonData['msg'] == 'OK':
@@ -122,7 +123,7 @@ while True:
         lastSync += len(data)
         if exchange == 'bitmex':
             start= start +len(data)
-        elif exchange == 'bybit':
+        elif exchange in ['bybit','bybit-linear']:
             start = int(data[-1]['open_time'])+1
         elif exchange == 'phemex':
             if len(data) == 0:

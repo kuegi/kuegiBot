@@ -6,6 +6,7 @@ from typing import List
 
 from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
@@ -58,6 +59,8 @@ known_history_files= {
     "bybit_BTCUSD": 22,
     "bybit_ETHUSD":20,
     "bybit_XRPUSD":14,
+    "bybit-linear_BTCUSDT":8,
+    "bybit-linear_LINKUSDT":2,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
     "phemex_BTCUSD": 6,
@@ -100,6 +103,10 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
             if b['open'] is None:
                 continue
             subbars.append(ByBitInterface.barDictToBar(b))
+        elif exchange == 'bybit-linear':
+            if b['open'] is None:
+                continue
+            subbars.append(ByBitLinearInterface.barDictToBar(b))
         elif exchange == 'bitmex':
             if b['open'] is None:
                 continue

@@ -79,14 +79,20 @@ def checkDayFilterByDay(bars,symbol= None):
         b= BackTest(bot, bars,symbol).run()
 
 pair= "BTCUSD"
+#pair= "BTCUSDT"
 #pair= "ETHUSD"
 
-funding = load_funding('bybit',pair)
+exchange= 'bybit'
+
+if exchange == 'bybit' and "USDT" in pair:
+    exchange= 'bybit-linear'
+
+funding = load_funding(exchange,pair)
 
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance_f')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-bars_b = load_bars(30 * 36, 240,0,'bybit',pair)
+bars_b = load_bars(30 * 36, 240,0,exchange,pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
