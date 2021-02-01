@@ -47,8 +47,12 @@ def increment(min,max,steps,current)->bool:
 
 def runOpti(bars,funding,min,max,steps,symbol= None, randomCount= -1):
     v= min[:]
+    total= 1
     while len(steps) < len(min):
         steps.append(1)
+    for i in range(len(min)):
+        total *= 1+(max[i]-min[i])/steps[i]
+    logger.info("running %d combinations" % total)
     while True:
         msg= ""
         if randomCount > 0:
@@ -79,10 +83,13 @@ def checkDayFilterByDay(bars,symbol= None):
         b= BackTest(bot, bars,symbol).run()
 
 pair= "BTCUSD"
-#pair= "BTCUSDT"
+pair= "BTCUSDT"
 #pair= "ETHUSD"
 
 exchange= 'bybit'
+
+tf= 240
+monthsBack= 18
 
 if exchange == 'bybit' and "USDT" in pair:
     exchange= 'bybit-linear'
@@ -92,7 +99,7 @@ funding = load_funding(exchange,pair)
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance_f')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-bars_b = load_bars(30 * 36, 240,0,exchange,pair)
+bars_b = load_bars(30 * monthsBack, tf,0,exchange,pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
@@ -110,6 +117,10 @@ elif pair == "XRPUSD":
     symbol=Symbol(symbol="XRPUSD", isInverse=True, tickSize=0.0001, lotSize=0.01, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=4)
 elif pair == "ETHUSD":
     symbol=Symbol(symbol="ETHUSD", isInverse=True, tickSize=0.01, lotSize=0.1, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+elif pair == "BTCUSDT":
+    symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.5, lotSize=0.0001, makerFee=-0.025,takerFee=0.075, quantityPrecision=5,pricePrecision=4)
+
+
 #
 #for binance_f
 #symbol=Symbol(symbol="BTCUSDT", isInverse=False, tickSize=0.001, lotSize=0.00001, makerFee=0.02, takerFee=0.04, quantityPrecision=5)

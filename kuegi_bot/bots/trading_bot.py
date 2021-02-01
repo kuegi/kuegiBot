@@ -263,7 +263,7 @@ class TradingBot:
             self.check_open_orders_in_position(pos)
 
         if len(remaining_orders) == 0 and len(remaining_pos_ids) == 0 and abs(
-                open_pos - account.open_position.quantity) < 0.1:
+                open_pos - account.open_position.quantity) < self.symbol.lotSize/10:
             self.unaccountedPositionCoolOff = 0
             return
 
