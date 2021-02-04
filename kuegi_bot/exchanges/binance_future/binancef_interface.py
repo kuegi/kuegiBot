@@ -264,7 +264,7 @@ class BinanceFuturesInterface(ExchangeInterface):
     def get_orders(self) -> List[Order]:
         return list(self.orders.values())
 
-    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
+    def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed) -> List[Bar]:
         tf = CandlestickInterval.MIN1 if timeframe_minutes <= 60 else CandlestickInterval.HOUR1
 
         bars = self.client.get_candlestick_data(symbol=self.symbol, interval=tf, limit=1000)

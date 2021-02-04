@@ -200,7 +200,7 @@ class PhemexInterface(ExchangeWithWS):
                       )
         self.client.amend_order(symbol=self.symbol, orderID=order.exchange_id, params=params)
 
-    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
+    def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed) -> List[Bar]:
         tf = 1 if timeframe_minutes <= 60 else 60
         start = int(datetime.now().timestamp() - tf * 60 * 1000)
         klines = self.client.query_kline(self.symbol,

@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 
 from typing import List
@@ -139,13 +140,13 @@ class ByBitInterface(ExchangeWithWS):
 
         return buy, sell
 
-    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
+    def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed=600) -> List[Bar]:
         tf = 1 if timeframe_minutes <= 60 else 60
         start = int(datetime.now().timestamp() - tf * 60 * 199)
         apibars = self._execute(self.bybit.Kline.Kline_get(
             **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
         # get more history to fill enough (currently 200 H4 bars.
-        for idx in range(3):
+        for idx in range(1+ math.ceil((min_bars_needed*timeframe_minutes)/(tf*200))):
             start = int(apibars[0]['open_time']) - tf * 60 * 200
             bars1 = self._execute(self.bybit.Kline.Kline_get(
                 **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))

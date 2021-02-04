@@ -243,7 +243,7 @@ class ExchangeWithWS(ExchangeInterface):
     def get_ticker(self, symbol=None) -> TickerData:
         raise NotImplementedError
 
-    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
+    def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed) -> List[Bar]:
         raise NotImplementedError
 
     def internal_cancel_order(self, order: Order):
