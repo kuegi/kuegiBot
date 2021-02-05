@@ -55,6 +55,9 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.subscribe_candle(subbarsIntervall, self.symbol)
         self.subscribe_instrument_info(self.symbol)
 
+    def is_open(self):
+        return not self.ws.exited and not self.publicWS.exited
+
     def on_message(self, message):
         """Handler for parsing WS messages."""
         message = json.loads(message)

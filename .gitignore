@@ -8,7 +8,6 @@ history/
 results/
 logs/
 openPositions/
-settings/
 dashboard.json
 positionHistory/
 *.tpl.js
