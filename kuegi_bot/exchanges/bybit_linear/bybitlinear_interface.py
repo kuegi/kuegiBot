@@ -34,6 +34,8 @@ class ByBitLinearInterface(ExchangeWithWS):
             else ["wss://stream.bybit.com/realtime_private", "wss://stream.bytick.com/realtime_private"]
         hosts_public = ["wss://stream-testnet.bybit.com/realtime_public"] if settings.IS_TEST \
             else ["wss://stream.bybit.com/realtime_public", "wss://stream.bytick.com/realtime_public"]
+        self.longPos= AccountPosition(settings.SYMBOL, 0, 0, 0)
+        self.shortPos= AccountPosition(settings.SYMBOL, 0, 0, 0)
         super().__init__(settings, logger,
                          ws=BybitLinearWebsocket(wspublicURLs=hosts_public, wsprivateURLs= hosts_private,
                                            api_key=settings.API_KEY,
@@ -43,9 +45,6 @@ class ByBitLinearInterface(ExchangeWithWS):
                                            symbol=settings.SYMBOL,
                                            minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback)
-
-        self.longPos= AccountPosition(self.symbol, 0, 0, 0)
-        self.shortPos= AccountPosition(self.symbol, 0, 0, 0)
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.LinearOrder.LinearOrder_query(symbol=self.symbol))

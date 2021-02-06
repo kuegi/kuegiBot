@@ -47,6 +47,7 @@ class BybitLinearWebsocket(KuegiWebsocket):
         if retry_times == 0 and (self.publicWS.ws.sock is None or not self.publicWS.ws.sock.connected):
             self.logger.error("Couldn't connect to public WebSocket! Exiting.")
             self.exit()
+        self.subscribe_wallet()
         self.subscribe_order()
         self.subscribe_stop_order()
         self.subscribe_execution()
