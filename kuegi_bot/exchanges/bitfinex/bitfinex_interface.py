@@ -37,7 +37,7 @@ class BitfinexInterface(ExchangeWithWS):
     def get_ticker(self, symbol=None):
         pass
 
-    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
+    def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed) -> List[Bar]:
         if timeframe_minutes == 1:
             if len(self.m1_bars) > 0:
                 self.recalcBar(self.m1_bars[-1])

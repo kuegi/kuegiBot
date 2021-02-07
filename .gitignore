@@ -8,9 +8,9 @@ history/
 results/
 logs/
 openPositions/
-settings/
 dashboard.json
 positionHistory/
 *.tpl.js
 volubaFE/*.json
 volubaFE/data/
+exports/

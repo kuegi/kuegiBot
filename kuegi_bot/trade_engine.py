@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.utils import log, errors
 from kuegi_bot.utils.telegram import TelegramBot
@@ -39,6 +40,9 @@ class LiveTrading(OrderInterface):
         elif settings.EXCHANGE == 'bybit':
             self.exchange = ByBitInterface(settings=settings, logger=self.logger,
                                            on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution)
+        elif settings.EXCHANGE == 'bybit-linear':
+            self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
+                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution)
         elif settings.EXCHANGE == 'binance_future':
             self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':
@@ -51,7 +55,8 @@ class LiveTrading(OrderInterface):
         self.alive = True
 
         if self.exchange.is_open():
-            self.logger.info(" Starting Live Trading Engine for %s " % self.exchange.symbol)
+            self.logger.info(" Starting Live Trading Engine for %s on %d minute bars " %
+                             (self.exchange.symbol,self.settings.MINUTES_PER_BAR))
             self.symbolInfo: Symbol = self.exchange.get_instrument()
             self.bot: TradingBot = trading_bot
             self.bot.prepare(self.logger, self)
@@ -77,7 +82,6 @@ class LiveTrading(OrderInterface):
         else:
             delay = 0
         self.last_tick = max(self.last_tick, time.time() + delay)
-        self.logger.info("got tick " + str(fromAccountAction))
 
     def print_status(self):
         """Print the current status."""
@@ -149,8 +153,8 @@ class LiveTrading(OrderInterface):
 
     def update_bars(self):
         """get data from exchange"""
-        if len(self.bars) < 10:
-            self.bars = self.exchange.get_bars(self.settings.MINUTES_PER_BAR, 0)
+        if len(self.bars) < self.bot.min_bars_needed():
+            self.bars = self.exchange.get_bars(self.settings.MINUTES_PER_BAR, 0,self.bot.min_bars_needed())
         else:
             new_bars = self.exchange.recent_bars(self.settings.MINUTES_PER_BAR, 0)
             for b in reversed(new_bars):
@@ -181,8 +185,8 @@ class LiveTrading(OrderInterface):
                         self.bars[0] = newBar
                 else:  # b.tstamp > self.bars[0].tstamp
                     self.bars.insert(0, b)
-        del self.bars[400:]
-        for bar in self.bars[3:]:
+        del self.bars[self.bot.min_bars_needed()*2:]
+        for bar in self.bars[5:]:
             # remove minute data from older bars
             bar.subbars= []
 

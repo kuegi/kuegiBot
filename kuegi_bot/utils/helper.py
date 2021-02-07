@@ -6,6 +6,7 @@ from typing import List
 
 from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
@@ -55,13 +56,18 @@ def history_file_name(index, exchange,symbol='') :
 
 known_history_files= {
     "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 22,
-    "bybit_ETHUSD":19,
+    "bybit_BTCUSD": 23,
+    "bybit_ETHUSD":20,
     "bybit_XRPUSD":14,
+    "bybit-linear_BTCUSDT":9,
+    "bybit-linear_LINKUSDT":2,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
-    "phemex_BTCUSD":6,
-    "bitstamp_btceur": 97
+    "phemex_BTCUSD": 6,
+    "bitstamp_btceur": 99,
+    "bitstamp_etheur": 35,
+    "bitstamp_xrpeur": 42,
+    "bitstamp_eurusd": 94
     }
 
 
@@ -81,7 +87,7 @@ def load_funding(exchange='bybit',symbol='BTCUSD'):
 def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit',symbol='BTCUSD'):
     #empty symbol is legacy and means btcusd
     end = known_history_files[exchange+"_"+symbol]
-    start = max(0,end - int(days_in_history * 1440 / 50000))
+    start = max(0,end - int(days_in_history * 1440 / 50000)-1)
     m1_bars_temp = []
     logger.info("loading " + str(end - start+1) + " history files from "+exchange)
     for i in range(start, end + 1):
@@ -97,6 +103,10 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
             if b['open'] is None:
                 continue
             subbars.append(ByBitInterface.barDictToBar(b))
+        elif exchange == 'bybit-linear':
+            if b['open'] is None:
+                continue
+            subbars.append(ByBitLinearInterface.barDictToBar(b))
         elif exchange == 'bitmex':
             if b['open'] is None:
                 continue

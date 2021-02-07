@@ -324,7 +324,7 @@ class ExchangeInterface(OrderInterface):
     def get_orders(self) -> List[Order]:
         return []
 
-    def get_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:
+    def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed=600) -> List[Bar]:
         return []
 
     def recent_bars(self, timeframe_minutes, start_offset_minutes) -> List[Bar]:

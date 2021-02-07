@@ -3,6 +3,7 @@ from kuegi_bot.exchanges.bitfinex.bitfinex_interface import BitfinexInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
 from kuegi_bot.exchanges.coinbase.coinbase_interface import CoinbaseInterface
 from kuegi_bot.exchanges.huobi.huobi_interface import HuobiInterface
 from kuegi_bot.exchanges.kraken.kraken_interface import KrakenInterface
@@ -134,10 +135,28 @@ if settings.EXCHANGE == 'bybit':
     interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
     b= interface.bybit
     w= interface.ws
+elif settings.EXCHANGE == 'bybit-linear':
+        interface = ByBitLinearInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+        b = interface.bybit
+        w = interface.ws
 else:
     interface= BitmexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 
 bars= interface.get_bars(240,0)
+
+
+def get_wallet_records():
+    result = []
+    gotone = True
+    page = 1
+    while gotone:
+        data = b.Wallet.Wallet_getRecords(start_date="2020-01-01", end_date="2021-01-01", limit="50",
+                                          page=str(page)).response().result['result']['data']
+        gotone = len(data) > 0
+        result = result + data
+        page = page + 1
+    return result
+
 
 #b.Wallet.Wallet_getRecords().response().result['result']['data']
 

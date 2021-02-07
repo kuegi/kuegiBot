@@ -2,29 +2,41 @@ import csv
 import json
 from datetime import datetime
 
+from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
+from kuegi_bot.utils import log
+from kuegi_bot.utils.helper import known_history_files, load_settings_from_args
 from kuegi_bot.utils.trading_classes import parse_utc_timestamp
 
 #'''
-bars= []
-for i in range(85,97):
-    with open("history/bitstamp/btceur_M1_"+str(i)+".json") as f:
-        bars += json.load(f)
 
+def read_ref_bars(coin):
+    bars= []
+    end = known_history_files["bitstamp_" +coin.lower()+"eur"]
+    for i in range(end-20,end+1):
+        with open("history/bitstamp/"+coin.lower()+"eur_M1_"+str(i)+".json") as f:
+            bars += json.load(f)
+    return bars
 
-def eurAt(wantedtstamp):
+def eurAt(bars, wantedtstamp):
     if wantedtstamp is None:
         return None
     start= int(bars[0]['timestamp'])
     end= int(bars[-1]['timestamp'])
     idx= int(len(bars)*(wantedtstamp-start)/(end-start))
-    for bar in bars[max(0,idx-2):min(len(bars)-1,idx+2)]:
-        tstamp= int(bar['timestamp'])
-        if tstamp <= wantedtstamp <= tstamp + 60:
-            return float(bar['close'])
-    return None
+
+    tstamp = int(bars[idx]['timestamp'])
+    result= float(bars[idx]['open'])
+    delta= 1 if tstamp < wantedtstamp else -1
+    while (tstamp - wantedtstamp)*delta < 0 and len(bars) > idx >= 0:
+        tstamp = int(bars[idx]['timestamp'])
+        result= float(bars[idx]['open'])
+        idx += delta
+    if abs(tstamp-wantedtstamp) > 60:
+        print("got big difference in eurAt. deltasec: %d" %(tstamp-wantedtstamp))
+    return result
 
 
-def eurAtArray(format,wantedArray):
+def eurAtArray(bars,format,wantedArray):
     result= []
     for wanted in wantedArray:
         dt= None
@@ -33,11 +45,13 @@ def eurAtArray(format,wantedArray):
         except Exception as e:
             print(e)
             pass
-        result.append(eurAt(dt.timestamp() if dt is not None else None))
+        result.append(eurAt(bars,dt.timestamp() if dt is not None else None))
     return result
 
+'''
+bars= read_ref_bars("btc")
 
-res= eurAtArray( "%d.%m.%Y %H:%M", [
+res= eurAtArray(bars, "%d.%m.%Y %H:%M", [
 ])
 
 #'''
@@ -55,7 +69,7 @@ with open("history/bybit/BTCUSD_funding.json","w") as f:
 #'''
 
 '''
-with open("btceur.csv", 'w', newline='') as file:
+with open("exports/btceur.csv", 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(["time", "open", "high", "low", "close"])
     for bar in reversed(bars):
@@ -65,25 +79,81 @@ with open("btceur.csv", 'w', newline='') as file:
                          bar['low'],
                          bar['close']])
 
-# account history from bybit (execute in exchange_test)
+'''
 
-result = []
+'''
+# getting account history, helpful for taxreports
+settings= load_settings_from_args()
+
+logger = log.setup_custom_logger("cryptobot",
+                                 log_level=settings.LOG_LEVEL,
+                                 logToConsole=True,
+                                 logToFile= False)
+
+
+def onTick(fromAccountAction):
+    logger.info("got Tick "+str(fromAccountAction))
+
+
+
+interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
+b= interface.bybit
+
+walletData = []
 gotone = True
 page = 1
 while gotone:
-    data = b.Wallet.Wallet_getRecords(start_date="2019-01-01", end_date="2020-01-01", limit="50",
+    data = b.Wallet.Wallet_getRecords(start_date="2020-01-01", end_date="2021-01-01", limit="50",
                                       page=str(page)).response().result['result']['data']
     gotone = len(data) > 0
-    result = result + data
+    walletData = walletData + data
     page = page + 1
 
-with open("bybitHistory.csv", 'w', newline='') as file:
+
+import csv
+
+
+coin= "xrp"
+
+bars= read_ref_bars(coin)
+
+with open("exports/bybitHistory"+coin+".csv", 'w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(["time", "amount", "balance"])
-    for entry in reversed(result):
-        if entry['type'] != "Deposit":
-            writer.writerow([entry['exec_time'],
+    writer.writerow(["type","time", "amount", "balance","eurValueOfCoin"])
+    for entry in reversed(walletData):
+        if entry['coin'] == coin.upper():
+            writer.writerow([entry['type'],
+                             entry['exec_time'],
                              entry['amount'],
-                             entry['wallet_balance']])
+                             entry['wallet_balance'],
+                             eurAt(bars,datetime.strptime(entry['exec_time'],"%Y-%m-%dT%H:%M:%S.%fZ").timestamp())])
+
+
+print("done writing wallet history to file bybitHistory"+coin+".csv")
+
+
+#'''
+
+#'''
+
+bars = []
+end = known_history_files["bitstamp_eurusd"]
+for i in range(end - 20, end + 1):
+    with open("history/bitstamp/eurusd_M1_" + str(i) + ".json") as f:
+        bars += json.load(f)
+
+# Date,Operation,Amount,Cryptocurrency,FIAT value,FIAT currency,Transaction ID,Withdrawal address,Reference
+with open("exports/cakeHistory.csv", 'r', newline='') as file:
+    reader = csv.reader(file)
+    with open("exports/cakeHistoryWithEur.csv", 'w', newline='') as output:
+        writer = csv.writer(output)
+        for row in reader:
+            date = row[0]
+            if date != "Date":
+                row.append(eurAt(bars, datetime.strptime(date, "%Y-%m-%dT%H:%M:%S%z").timestamp()))
+            else:
+                row.append("eurusd")
+            writer.writerow(row)
+
 
 #'''

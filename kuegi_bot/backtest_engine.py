@@ -167,38 +167,48 @@ class BackTest(OrderInterface):
             order.id, self.account.usd_equity, self.account.open_position.quantity, order.executed_amount,
             order.executed_price))
 
+    def orderKeyForSort(self,order):
+        if order.stop_price is None and order.limit_price is None:
+            return 0
+        if order.stop_price is not None:
+            return abs(self.current_bars[0].close - order.stop_price)
+        else: # limit -> bigger numbers to be sorted after the stops
+            return abs(self.current_bars[0].close - order.limit_price)+self.current_bars[0].close
+
     def handle_open_orders(self, intrabarToCheck: Bar) -> bool:
         something_changed = False
-        to_execute = []
-        for order in self.account.open_orders:
-            if order.limit_price is None and order.stop_price is None:
-                to_execute.append(order)
-                something_changed = True
-                continue
+        another_round= True
+        while another_round:
+            another_round= False
+            should_execute= False
+            for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
+                if order.limit_price is None and order.stop_price is None:
+                    should_execute= True
+                elif order.stop_price and not order.stop_triggered:
+                    if (order.amount > 0 and order.stop_price < intrabarToCheck.high) or (
+                            order.amount < 0 and order.stop_price > intrabarToCheck.low):
+                        order.stop_triggered = True
+                        something_changed = True
+                        if order.limit_price is None:
+                            # execute stop market
+                            should_execute= True
+                        elif ((order.amount > 0 and order.limit_price > intrabarToCheck.close) or (
+                                order.amount < 0 and order.limit_price < intrabarToCheck.close)):
+                            # close below/above limit: got definitly executed
+                            should_execute= True
+                else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
+                    # check for limit execution
+                    if (order.amount > 0 and order.limit_price > intrabarToCheck.low) or (
+                            order.amount < 0 and order.limit_price < intrabarToCheck.high):
+                        should_execute= True
 
-            if order.stop_price and not order.stop_triggered:
-                if (order.amount > 0 and order.stop_price < intrabarToCheck.high) or (
-                        order.amount < 0 and order.stop_price > intrabarToCheck.low):
-                    order.stop_triggered = True
-                    something_changed = True
-                    if order.limit_price is None:
-                        # execute stop market
-                        to_execute.append(order)
-                    elif ((order.amount > 0 and order.limit_price > intrabarToCheck.close) or (
-                            order.amount < 0 and order.limit_price < intrabarToCheck.close)):
-                        # close below/above limit: got definitly executed
-                        to_execute.append(order)
+                if should_execute:
+                    self.handle_order_execution(order, intrabarToCheck)
+                    self.bot.on_tick(self.current_bars, self.account)
+                    another_round= True
+                    something_changed= True
+                    break
 
-            else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
-                # check for limit execution
-                if (order.amount > 0 and order.limit_price > intrabarToCheck.low) or (
-                        order.amount < 0 and order.limit_price < intrabarToCheck.high):
-                    to_execute.append(order)
-
-        prevPos = self.account.open_position.quantity
-        for order in to_execute:
-            something_changed = True
-            self.handle_order_execution(order, intrabarToCheck)
 
         # update equity = balance + current value of open position
         avgEntry= self.account.open_position.avgEntryPrice
@@ -283,7 +293,7 @@ class BackTest(OrderInterface):
                 else:
                     break # no need to go further
 
-        if self.account.open_position.quantity != 0:
+        if abs(self.account.open_position.quantity) > self.symbol.lotSize/10:
             self.send_order(Order(orderId="endOfTest", amount=-self.account.open_position.quantity))
             self.handle_open_orders(self.bars[0].subbars[-1])
 
