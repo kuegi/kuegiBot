@@ -73,7 +73,7 @@ class SimpleBE(ExitModule):
 
     def init(self, logger,symbol):
         super().init(logger,symbol)
-        self.logger.info("init BE %.1f %.1f %i" % (self.factor, self.buffer, self.atrPeriod))
+        self.logger.info("init BE %.2f %.2f %i" % (self.factor, self.buffer, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         if position is not None and self.factor > 0:
