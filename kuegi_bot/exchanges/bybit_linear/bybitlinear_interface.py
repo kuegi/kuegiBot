@@ -46,6 +46,10 @@ class ByBitLinearInterface(ExchangeWithWS):
                                            minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback)
 
+    def is_open(self):
+        # ws is always a BybitLinearWebsocket which has a publicWS
+        return not self.ws.exited and not self.ws.publicWS.exited
+
     def initOrders(self):
         apiOrders = self._execute(self.bybit.LinearOrder.LinearOrder_query(symbol=self.symbol))
         apiOrders += self._execute(self.bybit.LinearConditional.LinearConditional_query(symbol=self.symbol))
