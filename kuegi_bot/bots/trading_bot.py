@@ -621,9 +621,7 @@ class TradingBot:
             "avgResult": 0,
             "tradesInRange": 0,
             "maxWinner": 0,
-            "maxLoser": 0,
-            "percDD": 0,
-            "maxPercDD": 0
+            "maxLoser": 0
         }
 
         yaxis = {
@@ -636,9 +634,7 @@ class TradingBot:
             "percWin": 'y7',
             "avgResult": 'y4',
             "maxWinner": 'y4',
-            "maxLoser": 'y4',
-            "percDD": 'y7',
-            "maxPercDD": 'y7',
+            "maxLoser": 'y4'
         }
 
         months_in_range = 1
@@ -700,9 +696,6 @@ class TradingBot:
                 stats['maxDD'] = dd
             stats['dd'] = dd
             stats['equity'] = pos.exit_equity
-            stats['percDD'] = 100 - 100 * pos.exit_equity / stats['hh']
-            if stats['percDD'] > stats['maxPercDD']:
-                stats['maxPercDD'] = stats['percDD']
 
             pos.stats = stats.copy()
             pos.stats['equity'] = pos.exit_equity - startEquity
