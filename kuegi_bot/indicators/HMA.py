@@ -9,10 +9,11 @@ logger = log.setup_custom_logger()
 
 
 class Data:
-    def __init__(self, inner, hma, inner1, inner2):
+    def __init__(self,  hma, hmasum, inner, inner1, inner2):
         self.inner = inner
         self.inner1= inner1
         self.inner2= inner2
+        self.hmasum= hmasum
         self.hma = hma
 
 
@@ -25,6 +26,8 @@ class HMA(Indicator):
         super().__init__(
             'HMA(' + str(period) + ')')
         self.period = period
+        self.halfperiod= int(self.period/2)
+        self.hmalength = int(math.sqrt(self.period))
 
     def on_tick(self, bars: List[Bar]):
         first_changed = 0
@@ -39,45 +42,41 @@ class HMA(Indicator):
 
     def process_bar(self, bars: List[Bar]):
         if len(bars) < self.period:
-            self.write_data(bars[0], Data(bars[0].close, bars[0].close,None,None))
+            self.write_data(bars[0], Data(hma=bars[0].close, hmasum=None,
+                                          inner=bars[0].close, inner1=None,inner2=None))
             return
 
         prevData= self.get_data(bars[1])
-        sum = 0
-        sumhalf = 0
-        halfLimit= int(self.period/2)
+        inner1 = 0
+        inner2 = 0
         if prevData is not None and prevData.inner1 is not None:
-            sum= prevData.inner1*self.period
-            sumhalf= prevData.inner2*halfLimit
-            sum += bars[0].close - bars[self.period].close
-            sumhalf += bars[0].close - bars[halfLimit].close
+            inner1= prevData.inner1
+            inner2= prevData.inner2
+            inner1 += bars[0].close - bars[self.period].close
+            inner2 += bars[0].close - bars[self.halfperiod].close
         else:
             for idx, sub in enumerate(bars[:self.period]):
-                sum += sub.close
-                if idx < halfLimit:
-                    sumhalf += sub.close
+                inner1 += sub.close
+                if idx < self.halfperiod:
+                    inner2 += sub.close
 
-        sum /= self.period
-        sumhalf /= halfLimit
-
-        inner = 2 * sumhalf - sum
-        hmalength = int(math.sqrt(self.period))
-        firstInner = self.get_data(bars[hmalength])
-        if firstInner is not None and firstInner.inner is not None:
-            hmasum = prevData.hma*hmalength
+        inner = 2 * inner2/self.halfperiod - inner1/self.period
+        hmasum= 0
+        firstInner = self.get_data(bars[self.hmalength])
+        if firstInner is not None and firstInner.hmasum is not None:
+            hmasum = prevData.hmasum
             hmasum += inner - firstInner.inner
-            cnt = hmalength
+            cnt = self.hmalength
         else:
             hmasum = inner
             cnt = 1
-            for sub in bars[1:hmalength]:
+            for sub in bars[1:self.hmalength]:
                 if self.get_data(sub) is not None:
                     hmasum += self.get_data(sub).inner
                     cnt += 1
-        if cnt > 0:
-            hmasum /= cnt
 
-        self.write_data(bars[0], Data(inner, hmasum,sum,sumhalf))
+        self.write_data(bars[0], Data(hma=hmasum / cnt, hmasum=hmasum,
+                                      inner=inner, inner1=inner1, inner2=inner2))
 
     def get_line_names(self):
         return ["hma" + str(self.period)]
