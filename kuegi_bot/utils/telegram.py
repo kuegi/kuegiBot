@@ -2,8 +2,6 @@ import requests
 import threading
 
 class TelegramBot:
-	executionChannel: object
-
 	def __init__(self,logger,settings):
 		self.token= settings.token
 		self.logChatId= settings.logChatId
