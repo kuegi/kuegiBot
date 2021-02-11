@@ -566,7 +566,7 @@ class TradingBot:
         if bars[0].last_tick_tstamp is not None and bars[0].last_tick_tstamp > 0:
             self.last_tick_time = datetime.fromtimestamp(bars[0].last_tick_tstamp)
         else:
-            self.last_tick_time = datetime.now()
+            self.last_tick_time = bars[0].tstamp
 
         self.update_new_bar(bars)
         if account.equity > self.max_equity:
