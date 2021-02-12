@@ -182,9 +182,12 @@ class Position:
         self.id: str = id
         self.signal_tstamp = tstamp
         self.status: PositionStatus = PositionStatus.PENDING
+        self.changed= False
         self.wanted_entry = entry
         self.initial_stop = stop
         self.amount = amount
+        self.maxFilledAmount= 0
+        self.currentOpenAmount= 0
         self.filled_entry: float = None
         self.filled_exit: float = None
         self.entry_tstamp = 0

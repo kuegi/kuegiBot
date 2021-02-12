@@ -20,7 +20,7 @@ def strOrNone(input):
 
 class ByBitInterface(ExchangeWithWS):
 
-    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None):
+    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None, on_execution_callback=None):
         self.on_api_error = on_api_error
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
@@ -35,7 +35,8 @@ class ByBitInterface(ExchangeWithWS):
                                            callback=self.socket_callback,
                                            symbol=settings.SYMBOL,
                                            minutesPerBar=settings.MINUTES_PER_BAR),
-                         on_tick_callback=on_tick_callback)
+                         on_tick_callback=on_tick_callback,
+                         on_execution_callback= on_execution_callback)
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.Order.Order_query(symbol=self.symbol))
@@ -244,6 +245,10 @@ class ByBitInterface(ExchangeWithWS):
                             order.executed_amount = (execution['order_qty'] - execution['leaves_qty']) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
+                            self.on_execution_callback(orderId=order.id,
+                                                       execution_price= float(execution['price']),
+                                                       amount=execution['exec_qty'] * sideMulti)
+
                             self.logger.info("got order execution: %s %.1f @ %.1f " % (
                                 execution['order_link_id'], execution['exec_qty'] * sideMulti,
                                 float(execution['price'])))

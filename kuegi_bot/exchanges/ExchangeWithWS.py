@@ -159,8 +159,9 @@ class KuegiWebsocket(object):
 
 class ExchangeWithWS(ExchangeInterface):
 
-    def __init__(self, settings, logger, ws: KuegiWebsocket, on_tick_callback=None):
+    def __init__(self, settings, logger, ws: KuegiWebsocket, on_tick_callback=None, on_execution_callback=None):
         super().__init__(settings, logger, on_tick_callback)
+        self.on_execution_callback= on_execution_callback
         self.symbol = settings.SYMBOL
         self.baseCurrency = settings.BASE
         self.ws = ws

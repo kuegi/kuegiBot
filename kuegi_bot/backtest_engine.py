@@ -160,6 +160,8 @@ class BackTest(OrderInterface):
         order.active = False
         order.execution_tstamp = intrabar.tstamp
         order.final_reason = 'executed'
+
+        self.bot.on_execution(orderId=order.id,amount= amount,executed_price=price,tstamp=intrabar.tstamp)
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
         self.logger.debug(
