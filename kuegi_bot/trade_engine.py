@@ -45,7 +45,7 @@ class LiveTrading(OrderInterface):
         elif settings.EXCHANGE == 'bybit-linear':
             self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
                                            on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution,
-                                           on_execution_callback= self.bot.on_execution)
+                                           on_execution_callback= trading_bot.on_execution)
         elif settings.EXCHANGE == 'binance_future':
             self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':

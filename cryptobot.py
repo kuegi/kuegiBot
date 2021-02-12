@@ -91,7 +91,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
             else:
                 strat = None
-                logger.warn("unkown strategy: " + stratId)
+                logger.warning("unkown strategy: " + stratId)
             if strat is not None:
                 strat.with_telegram(telegram)
                 strat.withRM(risk_factor=stratSettings.KB_RISK_FACTOR*risk_reference,
