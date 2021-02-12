@@ -18,6 +18,7 @@ from kuegi_bot.utils import log
 from kuegi_bot.utils.telegram import TelegramBot
 from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.helper import load_settings_from_args
+from kuegi_bot.bots.strategies.MACross import MACross
 
 
 def start_bot(botSettings,telegram:TelegramBot=None):
@@ -40,7 +41,12 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 logger.error("if you don't want to risk money, you shouldn't even run this bot!")
                 continue
 
-            if stratId == "kuegi":
+            if stratId == "macross":
+                strat = MACross(fastMA = stratSettings.MAC_FAST_MA,
+                                slowMA =stratSettings.MAC_SLOW_MA,
+                                swingBefore = stratSettings.MAC_SWING_BEFORE,
+                                swingAfter = stratSettings.MAC_SWING_AFTER)
+            elif stratId == "kuegi":
                 strat = KuegiStrategy(min_channel_size_factor=stratSettings.KB_MIN_CHANNEL_SIZE_FACTOR,
                                       max_channel_size_factor=stratSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
                                       entry_tightening=stratSettings.KB_ENTRY_TIGHTENING,
@@ -70,7 +76,10 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     range_length=stratSettings.SFP_RANGE_LENGTH,
                                     min_rej_length=stratSettings.SFP_MIN_REJ_LENGTH,
                                     range_filter_fac=stratSettings.SFP_RANGE_FILTER_FAC,
-                                    close_on_opposite=stratSettings.SFP_CLOSE_ON_OPPOSITE) \
+                                    close_on_opposite=stratSettings.SFP_CLOSE_ON_OPPOSITE,
+                                    tp_use_atr = stratSettings.SFP_USE_ATR,
+                                    ignore_on_tight_stop = stratSettings.SFP_IGNORE_TIGHT_STOP,
+                                    entries = stratSettings.SFP_ENTRIES) \
                     .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
                                  threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
                                  buffer_factor=stratSettings.KB_BUFFER_FACTOR,
