@@ -188,11 +188,13 @@ class Position:
         self.amount = amount
         self.maxFilledAmount= 0
         self.currentOpenAmount= 0
+        self.last_filled_entry: float= None
         self.filled_entry: float = None
         self.filled_exit: float = None
         self.entry_tstamp = 0
         self.exit_tstamp = 0
         self.exit_equity = 0
+        self.customData= {}
         self.connectedOrders :List[Order] = []
         self.stats = {}
 

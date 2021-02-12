@@ -191,6 +191,7 @@ class TradingBot:
                                         / (position.currentOpenAmount + amount)
             else:
                 position.filled_entry = executed_price
+            position.last_filled_entry= executed_price
             position.entry_tstamp = tstamp
             position.maxFilledAmount += amount
         if orderType in [OrderType.TP, OrderType.SL]:
@@ -484,7 +485,7 @@ class TradingBot:
             with open(base + self._get_pos_file(self.openPositionRolling), 'w') as file:
                 file.write(string)
             self.openPositionRolling += 1
-            if self.openPositionRolling > 10:
+            if self.openPositionRolling > 3:
                 self.openPositionRolling = 1
         except Exception as e:
             self.logger.error("Error saving positions " + str(e))
