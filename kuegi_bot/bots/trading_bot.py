@@ -196,8 +196,8 @@ class TradingBot:
             position.maxFilledAmount += amount
         if orderType in [OrderType.TP, OrderType.SL]:
             self.logger.info("position %s got closed" % position.id)
-            # completly closed and was filled completly before
-            if position.currentOpenAmount + amount == 0 and position.maxFilledAmount == position.amount:
+            # completly closed
+            if position.currentOpenAmount + amount == 0:
                 position.status = PositionStatus.CLOSED
             if position.filled_exit is not None:
                 position.filled_exit = (position.filled_exit * (
