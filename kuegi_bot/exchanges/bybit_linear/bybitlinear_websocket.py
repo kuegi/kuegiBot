@@ -8,12 +8,39 @@ from kuegi_bot.exchanges.ExchangeWithWS import KuegiWebsocket
 
 class BybitLinearPublicPart(KuegiWebsocket):
 
-    def __init__(self, wsURLs, api_key, api_secret, logger, callback, on_message):
+    def __init__(self, wsURLs, api_key, api_secret, logger, callback, on_message,
+                 symbol, minutesPerBar):
         self.messageCallback= on_message
+        self.minutesPerBar= minutesPerBar
+        self.symbol= symbol
+        self.initialSubscribeDone= False
         super().__init__(wsURLs, api_key, api_secret, logger, callback)
 
     def on_message(self, message):
         self.messageCallback(message)
+
+    def subscribeRealtimeData(self):
+        subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
+        self.subscribe_candle(subbarsIntervall, self.symbol)
+        self.subscribe_instrument_info(self.symbol)
+
+        self.initialSubscribeDone= True
+
+    def subscribe_candle(self, interval: str, symbol: str):
+        args = 'candle.' + interval + '.' + symbol
+        param = dict(
+            op='subscribe',
+            args=[args]
+        )
+        self.ws.send(json.dumps(param))
+
+    def subscribe_instrument_info(self, symbol):
+        param = {
+            'op': 'subscribe',
+            'args': ['instrument_info.100ms.' + symbol]
+        }
+        self.ws.send(json.dumps(param))
+
 
 
 class BybitLinearWebsocket(KuegiWebsocket):
@@ -26,7 +53,8 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.symbol= symbol
         self.minutesPerBar= minutesPerBar
         super().__init__(wsprivateURLs, api_key, api_secret, logger, callback)
-        self.publicWS= BybitLinearPublicPart(wspublicURLs,api_key,api_secret,logger,callback,self.on_message)
+        self.publicWS= BybitLinearPublicPart(wspublicURLs,api_key,api_secret,logger,callback,self.on_message,
+                                             symbol=symbol,minutesPerBar=minutesPerBar)
 
     def generate_signature(self, expires):
         """Generate a request signature."""
@@ -52,9 +80,14 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.subscribe_stop_order()
         self.subscribe_execution()
         self.subscribe_position()
-        subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
-        self.subscribe_candle(subbarsIntervall, self.symbol)
-        self.subscribe_instrument_info(self.symbol)
+        if not self.publicWS.initialSubscribeDone:
+            subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
+            args = 'candle.' + subbarsIntervall + '.' + self.symbol
+            if args not in self.data:
+                self.data[args] = []
+            if 'instrument_info.100ms.' + self.symbol not in self.data:
+                self.data['instrument_info.100ms.' + self.symbol] = []
+            self.publicWS.subscribeRealtimeData()
 
     def exit(self):
         super().exit()
@@ -80,16 +113,6 @@ class BybitLinearWebsocket(KuegiWebsocket):
             if self.callback is not None:
                 self.callback(message['topic'])
 
-    def subscribe_candle(self, interval: str, symbol: str):
-        args = 'candle.' + interval + '.' + symbol
-        param = dict(
-            op='subscribe',
-            args=[args]
-        )
-        self.publicWS.ws.send(json.dumps(param))
-        if args not in self.data:
-            self.data[args] = []
-
     def subscribe_trade(self):
         self.publicWS.ws.send('{"op":"subscribe","args":["trade"]}')
         if "trade.BTCUSD" not in self.data:
@@ -114,15 +137,6 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.ws.send(json.dumps(param))
         if 'orderBookL2_25.' + symbol not in self.data:
             self.data['orderBookL2_25.' + symbol] = []
-
-    def subscribe_instrument_info(self, symbol):
-        param = {
-            'op': 'subscribe',
-            'args': ['instrument_info.100ms.' + symbol]
-        }
-        self.publicWS.ws.send(json.dumps(param))
-        if 'instrument_info.100ms.' + symbol not in self.data:
-            self.data['instrument_info.100ms.' + symbol] = []
 
     def subscribe_position(self):
         self.ws.send('{"op":"subscribe","args":["position"]}')
