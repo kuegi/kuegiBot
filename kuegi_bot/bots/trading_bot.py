@@ -266,7 +266,7 @@ class TradingBot:
         for pos in self.open_positions.values():
             pos.connectedOrders = []  # will be filled now
             if pos.status == PositionStatus.OPEN:
-                open_pos += pos.amount
+                open_pos += pos.currentOpenAmount
 
         if not self.got_data_for_position_sync(bars):
             self.logger.warn("got no initial data, can't sync positions")
@@ -316,7 +316,7 @@ class TradingBot:
         remainingPosition = account.open_position.quantity
         for pos in self.open_positions.values():
             if pos.status == PositionStatus.OPEN:
-                remainingPosition -= pos.amount
+                remainingPosition -= pos.currentOpenAmount
 
         waiting_tps = []
 
@@ -409,7 +409,7 @@ class TradingBot:
                         "found position with no stop in market. %s with %.1f contracts. but no initial stop on position had to close" % (
                             posId, pos.amount))
                     self.order_interface.send_order(
-                        Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-newPos.amount))
+                        Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-pos.amount))
             else:
                 self.logger.warn(
                     "pending position with noconnection order not pending or open? closed: %s" % (posId))

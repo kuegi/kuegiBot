@@ -276,7 +276,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                             prev.execution_tstamp = datetime.utcnow().timestamp()
                         self.orders[order.exchange_id] = prev
 
-                        self.logger.info("received order update: %s" % (str(order)))
+                        self.logger.info("order update: %s" % (str(order)))
                 elif topic == 'execution':
                     # {'symbol': 'BTCUSD', 'side': 'Buy', 'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951',
                     # 'exec_id': '22add7a8-bb15-585f-b068-3a8648f6baff', 'order_link_id': '', 'price': '7307.5',
@@ -290,8 +290,9 @@ class ByBitLinearInterface(ExchangeWithWS):
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
                             self.on_execution_callback(orderId=order.id,
-                                                       execution_price= float(execution['price']),
-                                                       amount=execution['exec_qty'] * sideMulti)
+                                                       executed_price= float(execution['price']),
+                                                       amount=execution['exec_qty'] * sideMulti,
+                                                       tstamp= parse_utc_timestamp(execution['trade_time']))
                             self.logger.info("got order execution: %s %.3f @ %.2f " % (
                                 execution['order_link_id'], execution['exec_qty'] * sideMulti,
                                 float(execution['price'])))

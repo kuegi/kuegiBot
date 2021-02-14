@@ -246,8 +246,9 @@ class ByBitInterface(ExchangeWithWS):
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
                             self.on_execution_callback(orderId=order.id,
-                                                       execution_price= float(execution['price']),
-                                                       amount=execution['exec_qty'] * sideMulti)
+                                                       executed_price= float(execution['price']),
+                                                       amount=execution['exec_qty'] * sideMulti,
+                                                       tstamp= parse_utc_timestamp(execution['trade_time']))
 
                             self.logger.info("got order execution: %s %.1f @ %.1f " % (
                                 execution['order_link_id'], execution['exec_qty'] * sideMulti,
