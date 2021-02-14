@@ -158,12 +158,12 @@ class ByBitLinearInterface(ExchangeWithWS):
                                                                       p_r_qty=strOrNone(
                                                                           self.symbol_info.normalizeSize(
                                                                               abs(order.amount))),
-                                                                     p_r_trigger_price=strOrNone(
+                                                                     p_r_trigger_price=
                                                                          self.symbol_info.normalizePrice(
-                                                                             order.stop_price, order.amount > 0)),
-                                                                     p_r_price=strOrNone(
+                                                                             order.stop_price, order.amount > 0),
+                                                                     p_r_price=
                                                                          self.symbol_info.normalizePrice(
-                                                                             order.limit_price, order.amount < 0))))
+                                                                             order.limit_price, order.amount < 0)))
         else:
             self._execute(self.bybit.LinearOrder.LinearOrder_replace(order_id=order.exchange_id,
                                                          symbol=self.symbol,

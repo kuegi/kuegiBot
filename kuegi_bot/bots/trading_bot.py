@@ -219,6 +219,7 @@ class TradingBot:
                 elif position.status == PositionStatus.CLOSED:
                     self.logger.info("position %s got closed" % position.id)
                     closed_pos.append(position)
+                position.changed= False
 
         for position in closed_pos:
             self.position_closed(position, account)

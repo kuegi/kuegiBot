@@ -136,7 +136,13 @@ class Order:
         self.exchange_id: str = None
 
     def __str__(self):
-        return str(self.__dict__)
+        string= f"{self.id} ({'active'if self.active else 'inactive'}, " \
+                f"{self.exchange_id[-8:]if self.exchange_id is not None else None})" \
+               f" {self.amount}@{self.limit_price}/{self.stop_price} at {datetime.fromtimestamp(self.tstamp)}"
+        if self.executed_price is not None:
+            string += f" ex: {self.executed_amount}@{self.executed_price} at " \
+                      f"{datetime.fromtimestamp(self.execution_tstamp) if self.execution_tstamp is not None else None}"
+        return string
 
     def print_info(self):
         precision= 1
