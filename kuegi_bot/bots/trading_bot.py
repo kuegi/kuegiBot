@@ -187,22 +187,22 @@ class TradingBot:
         if orderType == OrderType.ENTRY:
             position.status = PositionStatus.OPEN
             if position.filled_entry is not None:
-                position.filled_entry = (position.filled_entry * position.currentOpenAmount + executed_price * amount) \
-                                        / (position.currentOpenAmount + amount)
+                position.filled_entry = (position.filled_entry * position.maxFilledAmount + executed_price * amount) \
+                                        / (position.maxFilledAmount + amount)
             else:
                 position.filled_entry = executed_price
             position.last_filled_entry= executed_price
             position.entry_tstamp = tstamp
             position.maxFilledAmount += amount
         if orderType in [OrderType.TP, OrderType.SL]:
-            self.logger.info("position %s got closed" % position.id)
             # completly closed
-            if position.currentOpenAmount + amount == 0:
+            self.logger.info("position %s got reduced" % position.id)
+            if abs(position.currentOpenAmount + amount) < self.symbol.lotSize/2:
                 position.status = PositionStatus.CLOSED
             if position.filled_exit is not None:
                 position.filled_exit = (position.filled_exit * (
-                            position.maxFilledAmount - position.currentOpenAmount) + executed_price * amount) \
-                                       / (position.maxFilledAmount - position.currentOpenAmount + amount)
+                            position.maxFilledAmount - position.currentOpenAmount) + executed_price * (-amount)) \
+                                       / (position.maxFilledAmount - position.currentOpenAmount - amount)
             else:
                 position.filled_exit = executed_price
             position.exit_tstamp = tstamp
@@ -214,7 +214,8 @@ class TradingBot:
         for position in self.open_positions.values():
             if position.changed:
                 if position.status == PositionStatus.OPEN:
-                    self.logger.info("position %s got opened" % position.id)
+                    self.logger.info("open position %s got changed" % position.id)
+                    #FIXME rename to "open position changed"
                     self.handle_opened_position(position=position, account=account, bars=bars)
                 elif position.status == PositionStatus.CLOSED:
                     self.logger.info("position %s got closed" % position.id)
@@ -247,8 +248,8 @@ class TradingBot:
                             position))
                     self.on_execution(order.id, order.executed_amount, order.executed_price, order.execution_tstamp)
                 else:
-                    self.logger.warn(
-                        "don't know what to do with execution of " + order.id + " for position " + str(
+                    self.logger.info(
+                        "don't know what to do with execution of " + order.id + ". probably a multiple entry for position " + str(
                             position))
             else:
                 self.logger.warn("no position found on execution of " + order.id)

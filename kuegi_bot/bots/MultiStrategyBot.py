@@ -1,5 +1,6 @@
 import math
 from functools import reduce
+from random import randint
 
 import plotly.graph_objects as go
 from kuegi_bot.bots.trading_bot import TradingBot
@@ -24,14 +25,9 @@ class Strategy:
 
     def get_signal_id(self,bars:List[Bar],sigId= None):
         delta= bars[0].tstamp-bars[1].tstamp
-        # make sure the timepart is unique within the next 20 years
-        modulo= 100000
-        if 60*12 <= delta < 120*60:
-            modulo= 1000000
-        elif delta < 12*60:
-            modulo= 10000000
 
-        timepart= self.symbol.symbol+str(int((bars[0].tstamp / delta) % modulo))
+        timepart= self.symbol.symbol+f"{int((bars[0].tstamp / delta) % 0xFFF):0>3x}"
+        timepart += "."+f"{randint(0, 0xFFF):0>3x}"
         if sigId is None:
             sigId= self.myId()
         return sigId+"+"+timepart

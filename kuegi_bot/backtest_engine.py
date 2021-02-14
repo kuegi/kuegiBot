@@ -177,13 +177,23 @@ class BackTest(OrderInterface):
         else: # limit -> bigger numbers to be sorted after the stops
             return abs(self.current_bars[0].close - order.limit_price)+self.current_bars[0].close
 
-    def handle_open_orders(self, intrabarToCheck: Bar) -> bool:
-        something_changed = False
+    def check_executions(self, intrabarToCheck: Bar, onlyOnClose):
         another_round= True
+        didSomething= False
+        allowedOrderIds= None
+        if not onlyOnClose:
+            allowedOrderIds= set(map(lambda o:o.id, self.account.open_orders))
+        loopbreak= 0
         while another_round:
+            if loopbreak > 100:
+                print("got loop in backtest execution")
+                break
+            loopbreak += 1
             another_round= False
             should_execute= False
             for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
+                if allowedOrderIds is not None and order.id not in allowedOrderIds:
+                    continue
                 if order.limit_price is None and order.stop_price is None:
                     should_execute= True
                 elif order.stop_price and not order.stop_triggered:
@@ -200,17 +210,32 @@ class BackTest(OrderInterface):
                             should_execute= True
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
-                    if (order.amount > 0 and order.limit_price > intrabarToCheck.low) or (
-                            order.amount < 0 and order.limit_price < intrabarToCheck.high):
+                    ref = intrabarToCheck.low if order.amount > 0 else intrabarToCheck.high
+                    if onlyOnClose:
+                        ref= intrabarToCheck.close
+                    if (order.amount > 0 and order.limit_price > ref) or (
+                            order.amount < 0 and order.limit_price < ref):
                         should_execute= True
 
                 if should_execute:
                     self.handle_order_execution(order, intrabarToCheck)
                     self.bot.on_tick(self.current_bars, self.account)
                     another_round= True
-                    something_changed= True
+                    didSomething= True
                     break
+        return didSomething
 
+    def handle_subbar(self, intrabarToCheck: Bar):
+        # first the ones that are there at the beginning
+        orders= list(self.account.open_orders)
+        didSomething1= self.check_executions(intrabarToCheck,False)
+        self.current_bars[0].add_subbar(intrabarToCheck)  # so bot knows about the current intrabar
+
+        didSomething2= self.check_executions(intrabarToCheck,True)
+        # then the new ones with updated bar
+
+        if not didSomething1 and not didSomething2: #no execution happened -> execute on tick now
+            self.bot.on_tick(self.current_bars, self.account)
 
         # update equity = balance + current value of open position
         avgEntry= self.account.open_position.avgEntryPrice
@@ -223,7 +248,6 @@ class BackTest(OrderInterface):
         self.account.usd_equity = self.account.equity * intrabarToCheck.close
 
         self.update_stats()
-        return something_changed
 
     def update_stats(self):
 
@@ -280,12 +304,7 @@ class BackTest(OrderInterface):
             # self.bot.on_tick(self.current_bars, self.account)
             for subbar in reversed(next_bar.subbars):
                 # check open orders & update account
-                self.handle_open_orders(subbar)
-                open= len(self.account.open_orders)
-                forming_bar.add_subbar(subbar)
-                self.bot.on_tick(self.current_bars, self.account)
-                if open != len(self.account.open_orders):
-                    self.handle_open_orders(subbar) # got new ones
+                self.handle_subbar(subbar)
                 self.current_bars[1].did_change = False
 
             next_bar.bot_data = forming_bar.bot_data
@@ -297,7 +316,7 @@ class BackTest(OrderInterface):
 
         if abs(self.account.open_position.quantity) > self.symbol.lotSize/10:
             self.send_order(Order(orderId="endOfTest", amount=-self.account.open_position.quantity))
-            self.handle_open_orders(self.bars[0].subbars[-1])
+            self.handle_subbar(self.bars[0].subbars[-1])
 
         if len(self.bot.position_history) > 0:
             daysInPos = 0

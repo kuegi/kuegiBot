@@ -392,10 +392,10 @@ class ByBitLinearInterface(ExchangeWithWS):
                       amount=float(o["qty"]) * sideMulti)
         if "order_status" in o.keys():
             order.stop_triggered = o["order_status"] == "New" and stop is not None
-            order.active = o['order_status'] == 'New' or o['order_status'] == 'Untriggered'
+            order.active = o['order_status'] in ['New', 'Untriggered' , "PartiallyFilled"]
         elif "stop_order_status" in o.keys():
             order.stop_triggered = o["stop_order_status"] == 'Triggered' or o['stop_order_status'] == 'Active'
-            order.active = o['stop_order_status'] == 'Triggered' or o['stop_order_status'] == 'Untriggered'
+            order.active = o['stop_order_status'] in ['Triggered' , 'Untriggered' ]
         execution = o['cum_exec_qty'] if 'cum_exec_qty' in o.keys() else 0
         order.executed_amount = float(execution) * sideMulti
         order.tstamp = parse_utc_timestamp(o['updated_time'] if 'updated_time' in o.keys() else o['update_time'])
