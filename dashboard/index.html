@@ -110,6 +110,9 @@
             mounted() {
                 this.viewInitialized = true
                 this.loadDashboardData()
+                setInterval(() => {
+                    this.loadDashboardData()
+                }, 2500)
             },
             methods: {
                 loadDashboardData() {
