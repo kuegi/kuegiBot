@@ -110,6 +110,21 @@
             mounted() {
                 this.viewInitialized = true
                 this.loadDashboardData()
+                
+                // autorefresh every 5 seconds
+                setInterval(() => {
+                    this.loadDashboardData()
+                }, 5000)
+
+                // reload by pressing the "r" key
+                document.onkeypress = (evt) => {
+                    evt = evt || window.event;
+                    let charCode = evt.keyCode || evt.which;
+                    let charStr = String.fromCharCode(charCode);
+                    if(charStr === 'r') {
+                        this.loadDashboardData()
+                    }
+                }
             },
             methods: {
                 loadDashboardData() {
