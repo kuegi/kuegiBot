@@ -8,8 +8,9 @@ import plotly.graph_objects as go
 from typing import List
 from datetime import datetime
 
-from kuegi_bot.bots.trading_bot import TradingBot
-from kuegi_bot.utils.trading_classes import OrderInterface, Bar, Account, Order, Symbol, AccountPosition, PositionStatus
+from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
+from kuegi_bot.utils.trading_classes import OrderInterface, Bar, Account, Order, Symbol, AccountPosition, \
+    PositionStatus, OrderType
 from kuegi_bot.utils import log
 
 class SilentLogger(object):
@@ -93,6 +94,14 @@ class BackTest(OrderInterface):
         if order.amount == 0:
             self.logger.error("trying to send order without amount")
             return
+        [posId, order_type]= TradingBot.position_id_and_type_from_order_id(order.id)
+        if order_type == OrderType.ENTRY:
+            [posId, direction]= TradingBot.split_pos_Id(posId)
+            if direction == PositionDirection.LONG and order.amount < 0:
+                self.logger.error("sending long entry with negative amount")
+            if direction == PositionDirection.SHORT and order.amount > 0:
+                self.logger.error("sending short entry with positive amount")
+
         self.logger.debug("added order %s" % (order.print_info()))
 
         order.tstamp = self.current_bars[0].tstamp
@@ -226,11 +235,9 @@ class BackTest(OrderInterface):
         return didSomething
 
     def handle_subbar(self, intrabarToCheck: Bar):
-        # first the ones that are there at the beginning
-        orders= list(self.account.open_orders)
-        didSomething1= self.check_executions(intrabarToCheck,False)
         self.current_bars[0].add_subbar(intrabarToCheck)  # so bot knows about the current intrabar
-
+        # first the ones that are there at the beginning
+        didSomething1= self.check_executions(intrabarToCheck,False)
         didSomething2= self.check_executions(intrabarToCheck,True)
         # then the new ones with updated bar
 
@@ -301,7 +308,7 @@ class BackTest(OrderInterface):
             self.current_bars[1].did_change = True
 
             self.do_funding()
-            # self.bot.on_tick(self.current_bars, self.account)
+            self.bot.on_tick(self.current_bars, self.account) # tick on new bar open cause many strats act on that
             for subbar in reversed(next_bar.subbars):
                 # check open orders & update account
                 self.handle_subbar(subbar)
