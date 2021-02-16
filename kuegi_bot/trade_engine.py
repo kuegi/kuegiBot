@@ -40,11 +40,11 @@ class LiveTrading(OrderInterface):
             self.exchange = BitmexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'bybit':
             self.exchange = ByBitInterface(settings=settings, logger=self.logger,
-                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution,
+                                           on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
                                            on_execution_callback= self.bot.on_execution)
         elif settings.EXCHANGE == 'bybit-linear':
             self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
-                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution,
+                                           on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
                                            on_execution_callback= trading_bot.on_execution)
         elif settings.EXCHANGE == 'binance_future':
             self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
@@ -85,6 +85,9 @@ class LiveTrading(OrderInterface):
         else:
             delay = 0
         self.last_tick = max(self.last_tick, time.time() + delay)
+
+    def on_api_error(self,msg):
+        self.telegram_bot.send_execution(f"ERROR in {self.id}: {msg}")
 
     def print_status(self):
         """Print the current status."""
