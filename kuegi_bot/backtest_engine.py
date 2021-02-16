@@ -181,10 +181,19 @@ class BackTest(OrderInterface):
     def orderKeyForSort(self,order):
         if order.stop_price is None and order.limit_price is None:
             return 0
+        # sort buys after sells (higher number) when bar is falling
+        longFac= 1 if self.bars[0].close > self.bars[0].open else 2
+        shortFac= 1 if self.bars[0].close < self.bars[0].open else 2
         if order.stop_price is not None:
-            return abs(self.current_bars[0].close - order.stop_price)
+            if order.amount > 0:
+                return order.stop_price
+            else:
+                return -order.stop_price
         else: # limit -> bigger numbers to be sorted after the stops
-            return abs(self.current_bars[0].close - order.limit_price)+self.current_bars[0].close
+            if order.amount > 0:
+                return (self.bars[0].close+ self.bars[0].close - order.limit_price) + self.bars[0].close *longFac
+            else:
+                return order.limit_price + self.bars[0].close*shortFac
 
     def check_executions(self, intrabarToCheck: Bar, onlyOnClose):
         another_round= True
