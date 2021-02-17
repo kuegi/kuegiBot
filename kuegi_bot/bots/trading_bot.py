@@ -68,6 +68,7 @@ class TradingBot:
         self.unique_id = unique_id
         # init positions from existing orders
         self.read_open_positions(bars)
+        self.sync_connected_orders(account)
         self.sync_positions_with_open_orders(bars, account)
 
     ############### ids of pos, signal and order
@@ -209,14 +210,32 @@ class TradingBot:
 
         position.currentOpenAmount += amount
 
+    def sync_connected_orders(self, account: Account):
+        # update connected orders in position
+        for pos in self.open_positions.values():
+            pos.connectedOrders = []  # will be filled now
+
+        for order in account.open_orders:
+            if not order.active:
+                continue  # got cancelled during run
+            [posId, orderType] = self.position_id_and_type_from_order_id(order.id)
+            if orderType is None:
+                continue  # none of ours
+            if posId in self.open_positions.keys():
+                pos = self.open_positions[posId]
+                pos.connectedOrders.append(order)
+
     def sync_executions(self, bars: List[Bar], account: Account):
+        self.sync_connected_orders(account)
         closed_pos = []
+        changed= False
         for position in self.open_positions.values():
             if position.changed:
                 if position.status == PositionStatus.OPEN:
                     self.logger.info("open position %s got changed" % position.id)
                     #FIXME rename to "open position changed"
                     self.handle_opened_position(position=position, account=account, bars=bars)
+                    changed= True
                 elif position.status == PositionStatus.CLOSED:
                     self.logger.info("position %s got closed" % position.id)
                     closed_pos.append(position)
@@ -224,6 +243,9 @@ class TradingBot:
 
         for position in closed_pos:
             self.position_closed(position, account)
+
+        if changed:
+            self.sync_connected_orders(account)
 
         # old way (fallback if executions wheren't there)
         for order in account.order_history[self.known_order_history:]:
@@ -266,7 +288,6 @@ class TradingBot:
     def sync_positions_with_open_orders(self, bars: List[Bar], account: Account):
         open_pos = 0
         for pos in self.open_positions.values():
-            pos.connectedOrders = []  # will be filled now
             if pos.status == PositionStatus.OPEN:
                 open_pos += pos.currentOpenAmount
 
@@ -291,7 +312,6 @@ class TradingBot:
                 continue  # none of ours
             if posId in self.open_positions.keys():
                 pos = self.open_positions[posId]
-                pos.connectedOrders.append(order)
                 remaining_orders.remove(order)
                 if posId in remaining_pos_ids:
                     if (orderType == OrderType.SL and pos.status == PositionStatus.OPEN) \

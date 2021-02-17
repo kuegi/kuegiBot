@@ -81,7 +81,7 @@ class LiveTrading(OrderInterface):
 
     def on_tick(self, fromAccountAction: bool = True):
         if fromAccountAction:
-            delay = 2
+            delay = 1
         else:
             delay = 0
         self.last_tick = max(self.last_tick, time.time() + delay)

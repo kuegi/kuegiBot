@@ -46,6 +46,9 @@ class KuegiStrategy(ChannelStrategy):
             posId = TradingBot.position_id_from_order_id(order.id)
             if orderType == OrderType.SL and posId == position.id:
                 gotStop= True
+                if position.currentOpenAmount != -order.amount:
+                    order.amount = -position.currentOpenAmount
+                    self.order_interface.update_order(order)
                 break
         if not gotStop:
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
@@ -53,10 +56,6 @@ class KuegiStrategy(ChannelStrategy):
                       stop=position.initial_stop,
                       amount=-position.amount)
             self.order_interface.send_order(order)
-            # added temporarily, cause sync with open orders is in the next loop and otherwise the orders vs
-            # position check fails
-            if order not in account.open_orders:  # outside world might have already added it
-                account.open_orders.append(order)
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
