@@ -65,7 +65,7 @@
                                                         <td class="p-1 border-b border-gray-400">{{ position.id }}</td>
                                                         <td class="p-1 border-b text-center uppercase">{{ position.status }}</td>
                                                         <td class="p-1 border-b">{{ formatTime(position.signal_tstamp) }}</td>
-                                                        <td class="p-1 border-b">{{ position.currentOpenAmount }}/{{ position.amount }}</td>
+                                                        <td class="p-1 border-b">{{ formatPrice(position.currentOpenAmount) }}/{{ formatPrice(position.amount) }}</td>
                                                         <td class="p-1 border-b">{{ formatPrice(position.wanted_entry) }}</td>
                                                         <td class="p-1 border-b">{{ formatPrice(position.initial_stop) }}</td>
                                                         <td class="p-1 border-b">{{ formatTime(position.entry_tstamp) }}</td>
