@@ -410,7 +410,7 @@ class TradingBot:
                     # assume position was opened without us realizing (during downtime)
                     self.logger.warn(
                         "pending position with no entry order but open position looks like it was opened: %s" % (posId))
-                    self.handle_opened_position(position=pos, order=None, bars=bars, account=account)
+                    self.handle_opened_position(position=pos, bars=bars, account=account)
                     remainingPosition -= pos.amount
                 else:
                     self.logger.warn(

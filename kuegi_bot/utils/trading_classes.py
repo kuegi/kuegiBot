@@ -231,6 +231,12 @@ class Position:
                 state = status
                 break
         pos.status= state
+
+        # backward compatibility
+        if pos.status == PositionStatus.OPEN and (pos.currentOpenAmount == 0 or pos.maxFilledAmount == 0):
+            # happens when old open positions file gets read in
+            pos.maxFilledAmount= pos.amount
+            pos.currentOpenAmount= pos.amount
         return pos
 
     def daysInPos(self):
