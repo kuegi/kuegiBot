@@ -1,7 +1,7 @@
 <html>
 
 <head>
-    <title>Dashboard - Dashboard v2</title>
+    <title>Cryptobot Dashboard</title>
     <script src="libs/vue.global.js"></script>
     <link href="libs/tailwind.min.css" rel="stylesheet">
 </head>
@@ -65,7 +65,7 @@
                                                         <td class="p-1 border-b border-gray-400">{{ position.id }}</td>
                                                         <td class="p-1 border-b text-center uppercase">{{ position.status }}</td>
                                                         <td class="p-1 border-b">{{ formatTime(position.signal_tstamp) }}</td>
-                                                        <td class="p-1 border-b">{{ position.amount }}</td>
+                                                        <td class="p-1 border-b">{{ position.currentOpenAmount }}/{{ position.amount }}</td>
                                                         <td class="p-1 border-b">{{ formatPrice(position.wanted_entry) }}</td>
                                                         <td class="p-1 border-b">{{ formatPrice(position.initial_stop) }}</td>
                                                         <td class="p-1 border-b">{{ formatTime(position.entry_tstamp) }}</td>
@@ -153,14 +153,14 @@
                             position.connectedOrders.forEach((order) => {
                                 if(order.id.includes('_SL_')) {
                                     position.currentStop = order.stop_price
-                                    if(Math.abs(position.amount) > 10) {
+                                    if(Math.abs(position.amount) > 100) {
                                         position.worstCase = (1 / position.currentStop - 1 / position.filled_entry) / (1 / position.wanted_entry - 1 / position.initial_stop)
                                     } else {
                                         position.worstCase = (position.currentStop - position.filled_entry) / (position.wanted_entry - position.initial_stop)
                                     }
                                 }
 
-                                if(Math.abs(position.amount) > 10) {
+                                if(Math.abs(position.amount) > 100) {
                                     position.initialRisk = position.amount / position.initial_stop - position.amount / position.wanted_entry
                                 } else {
                                     position.initialRisk = position.amount * (position.wanted_entry - position.initial_stop)
@@ -168,13 +168,13 @@
                             })
 
                             if(position.status == 'open') {
-                                totalPos += position.amount
+                                totalPos += position.currentOpenAmount
                                 totalWorstCase += position.initialRisk * position.worstCase
                             }
                         })
 
                         bot.totalWorstCase = (totalWorstCase/bot.risk_reference)
-                        bot.totalPos = totalPos.toFixed(Math.abs(totalPos) > 100 ? 0 : 5)
+                        bot.totalPos = totalPos.toFixed(Math.abs(totalPos) > 100 ? 0 : 4)
                         bots.push(bot)
                     })
 
