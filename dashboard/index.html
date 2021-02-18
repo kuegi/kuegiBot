@@ -144,8 +144,8 @@
                         bot.id = id
                         bot.drawdown = ((bot.max_equity - bot.equity) / bot.risk_reference).toFixed(1) + "R"
                         bot.uwdays = ((Date.now()-bot.time_of_max_equity*1000)/(1000*60*60*24)).toFixed(0)
-                        bot.equity = bot.equity.toFixed(3)
-                        bot.max_equity = bot.max_equity.toFixed(3)
+                        bot.equity = this.formatPrice(bot.equity)
+                        bot.max_equity = this.formatPrice(bot.max_equity)
                         let totalPos = 0
                         let totalWorstCase = 0
 
@@ -174,7 +174,7 @@
                         })
 
                         bot.totalWorstCase = (totalWorstCase/bot.risk_reference)
-                        bot.totalPos = totalPos.toFixed(Math.abs(totalPos) > 100 ? 0 : 4)
+                        bot.totalPos = this.formatPrice(totalPos)
                         bots.push(bot)
                     })
 
@@ -199,7 +199,11 @@
                     if(typeof aPrice !== 'number') {
                         return ''
                     }
-                    return aPrice.toFixed(Math.abs(aPrice) < 10 ? 5 : 1)
+                    if(Math.abs(aPrice) < 1) return aPrice.toFixed(4)
+                    if(Math.abs(aPrice) < 10) return aPrice.toFixed(3)
+                    if(Math.abs(aPrice) < 100) return aPrice.toFixed(2)
+                    if(Math.abs(aPrice) < 1000) return aPrice.toFixed(1)
+                    return aPrice.toFixed(0)
                 },
                 formatTime(aTime) {
                     if (typeof aTime === 'number' && aTime > 100000) {
