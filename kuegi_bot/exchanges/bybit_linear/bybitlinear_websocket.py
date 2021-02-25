@@ -8,13 +8,14 @@ from kuegi_bot.exchanges.ExchangeWithWS import KuegiWebsocket
 
 class BybitLinearPublicPart(KuegiWebsocket):
 
-    def __init__(self, wsURLs, api_key, api_secret, logger, callback, on_message,
+    def __init__(self, wsURLs, logger, callback, on_message,
                  symbol, minutesPerBar):
         self.messageCallback= on_message
         self.minutesPerBar= minutesPerBar
         self.symbol= symbol
         self.initialSubscribeDone= False
-        super().__init__(wsURLs, api_key, api_secret, logger, callback)
+        # public -> no apiKey needed
+        super().__init__(wsURLs, api_key=None, api_secret=None, logger=logger, callback= callback)
 
     def on_message(self, message):
         self.messageCallback(message)
@@ -53,7 +54,7 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.symbol= symbol
         self.minutesPerBar= minutesPerBar
         super().__init__(wsprivateURLs, api_key, api_secret, logger, callback)
-        self.publicWS= BybitLinearPublicPart(wspublicURLs,api_key,api_secret,logger,callback,self.on_message,
+        self.publicWS= BybitLinearPublicPart(wspublicURLs,logger,callback,self.on_message,
                                              symbol=symbol,minutesPerBar=minutesPerBar)
 
     def generate_signature(self, expires):
