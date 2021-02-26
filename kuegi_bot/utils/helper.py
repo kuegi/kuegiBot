@@ -96,7 +96,7 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
         with open(history_file_name(i,exchange,symbol)) as f:
             m1_bars_temp += json.load(f)
     logger.info("done loading files, now preparing them")
-    start = max(0,len(m1_bars_temp)-(days_in_history * 1440))
+    start = int(max(0,len(m1_bars_temp)-(days_in_history * 1440)))
     m1_bars = m1_bars_temp[start:]
 
     subbars: List[Bar] = []
