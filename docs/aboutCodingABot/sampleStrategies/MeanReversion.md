@@ -1,5 +1,4 @@
 Time for a sample strat. This time: Mean reversion. As always when you code a strategy we have 3 questions:
-
 - when to enter
 - when to exit
 - what size
@@ -19,11 +18,14 @@ This strat works best on a "random" series. So i would go for LTF (M2 in our cas
 
 Now comes the coding. To have it seperated, lets make an indicator that gives us the mean and the std-deviation. Then use this in the strat. Seems like this again will be a pretty simple one.
 
-So far so good. First test looks kinda disapointing thou. seems like i can't find a set of parameters that makes this thing work. Maybe the assumptions are wrong? Seems like the price doesn't follow a normal distribution. who knew?
+So far so good. First test: entry at stdDev, TP at 0.5 stdDev, SL at 2 stdDev looks kinda disapointing thou. lets look at the chart. maybe we can spot something that can be improved.
+ 
+ What jumps out is this pattern. blue line is the mean, orange, the stdDev. green lines are long positions, red lines are shorts. Now why is this big long happening? happy to hear your explanation for it.
 
-But we are not giving up that easily: looking at the chart we se some pretty strong moves, 
+Ok, so maybe the numbers are wrong? running a quick scan shows that basically nothing works. So are the assumptions wrong? are prices not normally distributed? Not necessarily. It only means that our way of trying to benefit from it didn't work yet.
 
+The problem is that the mean is shifting. So the price is certainly reverting back to the mean. Just that the mean is now different than before which means our position is not reaching the target (which is relative to the old mean).
 
+Generally thats the main problem with mean reversion systems: It most certainly reverts back to the mean, but the mean might have shifted by a lot in the meantime. How to deal with that? we could only enter in the direction of the trend (so a mean shift works in our favor)
 
-68% 1 σ
-95% 2 σ
+or we could get out of the trade at the next close (so don't even give the mean time to shift). Either way: to make a mean-reversion work, you need a good filter that prevents you from getting trapped by a shifting mean. If you got that, it can work really well.

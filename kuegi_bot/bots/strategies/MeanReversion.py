@@ -12,11 +12,13 @@ from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Pos
 
 class MeanReversion(StrategyWithExitModulesAndFilter):
 
-    def __init__(self, lookback: int = 8, entry_factor: float = 1, tp_factor: float = 0.5, sl_factor: float = 2):
+    def __init__(self, lookback: int = 8, entry_factor: float = 1, tp_factor: float = 0.5, sl_factor: float = 2,
+                 closeAfterBars: int= 0):
         super().__init__()
         self.entry_factor= entry_factor
         self.tp_factor= tp_factor
         self.sl_factor= sl_factor
+        self.close_after_bars= closeAfterBars
         self.mean = MeanStd(lookback)
 
     def myId(self):
@@ -40,6 +42,14 @@ class MeanReversion(StrategyWithExitModulesAndFilter):
 
     def owns_signal_id(self, signalId: str):
         return signalId.startswith(self.myId()+"+")
+
+    def manage_open_position(self, position, bars, account, pos_ids_to_cancel):
+        if self.close_after_bars >= 0 \
+                and position.status == PositionStatus.OPEN \
+                and position.entry_tstamp < bars[self.close_after_bars].tstamp:
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(positionId=position.id, type=OrderType.SL),
+                                       amount=-position.currentOpenAmount))
+
 
     def position_got_opened(self, position: Position, bars: List[Bar], account: Account, open_positions):
 
