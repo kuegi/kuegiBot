@@ -26,8 +26,7 @@ class Strategy:
     def get_signal_id(self,bars:List[Bar],sigId= None):
         delta= bars[0].tstamp-bars[1].tstamp
 
-        timepart= self.symbol.symbol+f"{int((bars[0].tstamp / delta) % 0xFFF):0>3x}"
-        timepart += "."+f"{randint(0, 0xFFF):0>3x}"
+        timepart= f"{self.symbol.symbol}.{int((bars[0].tstamp / delta) % 0xFFF):0>3x}.{randint(0, 0xFFF):0>3x}"
         if sigId is None:
             sigId= self.myId()
         return sigId+"+"+timepart
