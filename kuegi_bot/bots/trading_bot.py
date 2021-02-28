@@ -463,7 +463,28 @@ class TradingBot:
                 else:
                     self.logger.info(
                         "couldn't account for " + str(
-                            remainingPosition) + " open contracts. But close would increase exposure-> ignored")
+                            remainingPosition) + " open contracts. But close would increase exposure-> mark positions as closed")
+
+                    for pos in self.open_positions.values():
+                        if pos.status == PositionStatus.OPEN and abs(remainingPosition + pos.currentOpenAmount) < self.symbol.lotSize:
+                            self.logger.info(f"marked position {pos.id} with exact size as closed ")
+                            self.position_closed(pos,account)
+                            remainingPosition += pos.currentOpenAmount
+                            break
+
+                    if abs(remainingPosition) > self.symbol.lotSize:
+                        # close orders until size closed
+                        pos_to_close= []
+                        for pos in self.open_positions.values():
+                            if pos.status == PositionStatus.OPEN and pos.currentOpenAmount*remainingPosition < 0 and \
+                                    abs(remainingPosition) > abs(pos.currentOpenAmount):
+                                self.logger.info(f"marked position {pos.id} as closed ")
+                                remainingPosition += pos.currentOpenAmount
+                                pos_to_close.append(pos)
+                        for pos in pos_to_close:
+                            self.position_closed(pos, account)
+
+
             else:
                 self.logger.info(
                     "couldn't account for " + str(

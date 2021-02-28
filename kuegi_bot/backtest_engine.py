@@ -113,6 +113,7 @@ class BackTest(OrderInterface):
             if existing_order.id == order.id:
                 self.account.open_orders.remove(existing_order)
                 self.account.open_orders.append(order)
+                order.tstamp= self.current_bars[0].last_tick_tstamp
                 self.logger.debug("updated order %s" % (order.print_info()))
                 break
 
@@ -212,6 +213,9 @@ class BackTest(OrderInterface):
             for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
                 if allowedOrderIds is not None and order.id not in allowedOrderIds:
                     continue
+                execute_order_only_on_close= onlyOnClose
+                if order.tstamp > intrabarToCheck.tstamp:
+                    execute_order_only_on_close= True # was changed during execution on this bar, might have changed the price. only execute if close triggered it
                 if order.limit_price is None and order.stop_price is None:
                     should_execute= True
                 elif order.stop_price and not order.stop_triggered:
@@ -229,7 +233,7 @@ class BackTest(OrderInterface):
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
                     ref = intrabarToCheck.low if order.amount > 0 else intrabarToCheck.high
-                    if onlyOnClose:
+                    if execute_order_only_on_close:
                         ref= intrabarToCheck.close
                     if (order.amount > 0 and order.limit_price > ref) or (
                             order.amount < 0 and order.limit_price < ref):
@@ -320,6 +324,9 @@ class BackTest(OrderInterface):
             self.bot.on_tick(self.current_bars, self.account) # tick on new bar open cause many strats act on that
             for subbar in reversed(next_bar.subbars):
                 # check open orders & update account
+                #ensure correct last tick (must not be the same as tstamp)
+                if subbar.last_tick_tstamp < subbar.tstamp + 59:
+                    subbar.last_tick_tstamp= subbar.tstamp + 59
                 self.handle_subbar(subbar)
                 self.current_bars[1].did_change = False
 
@@ -406,7 +413,7 @@ class BackTest(OrderInterface):
             for position in self.bot.position_history:
                 writer.writerow([
                     datetime.fromtimestamp(position.signal_tstamp).isoformat(),
-                    position.amount,
+                    position.maxFilledAmount,
                     position.wanted_entry,
                     position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),
@@ -418,7 +425,7 @@ class BackTest(OrderInterface):
             for position in self.bot.open_positions.values():
                 writer.writerow([
                     datetime.fromtimestamp(position.signal_tstamp).isoformat(),
-                    position.amount,
+                    position.maxFilledAmount,
                     position.wanted_entry,
                     position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),

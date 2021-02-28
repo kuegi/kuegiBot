@@ -216,7 +216,8 @@ class LiveTrading(OrderInterface):
     def handle_tick(self):
         try:
             if self.bot.unaccountedPositionCoolOff > 0:
-                self.telegram_bot.send_execution("%s having problem with unaccounted pos!" % self.id)
+                if self.bot.unaccountedPositionCoolOff > 1:
+                    self.telegram_bot.send_execution("%s having problem with unaccounted pos!" % self.id)
                 self.exchange.resyncOrders()
             self.update_bars()
             self.update_account()
