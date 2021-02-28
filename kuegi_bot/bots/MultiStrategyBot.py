@@ -134,7 +134,10 @@ class MultiStrategyBot(TradingBot):
         [signalId, direction] = self.split_pos_Id(position.id)
         for strat in self.strategies:
             if strat.owns_signal_id(signalId):
-                strat.position_got_opened(position, bars, account, self.open_positions)
+                open_pos= self.open_positions_for_strat(strat)
+                strat.position_got_opened(position, bars, account, open_pos)
+                for pos in open_pos.values():
+                    self.open_positions[pos.id]= pos
                 break
 
     def get_stop_for_unmatched_amount(self, amount:float,bars:List[Bar]):
@@ -142,6 +145,14 @@ class MultiStrategyBot(TradingBot):
             return self.strategies[0].get_stop_for_unmatched_amount(amount,bars)
         return None
 
+    def open_positions_for_strat(self,strat):
+        open_pos = {}
+        for pos in self.open_positions.values():
+            [signalId, direction] = self.split_pos_Id(pos.id)
+            if strat.owns_signal_id(signalId):
+                open_pos[pos.id] = pos
+        return open_pos
+    
     def manage_open_orders(self, bars: List[Bar], account: Account):
         self.sync_executions(bars, account)
 
@@ -154,8 +165,11 @@ class MultiStrategyBot(TradingBot):
             [signalId, direction] = self.split_pos_Id(posId)
             for strat in self.strategies:
                 if strat.owns_signal_id(signalId):
+                    open_pos= self.open_positions_for_strat(strat)
                     strat.manage_open_order(order, self.open_positions[posId], bars, to_update, to_cancel,
-                                            self.open_positions)
+                                            open_pos)
+                    for pos in open_pos.values():
+                        self.open_positions[pos.id]= pos
                     break
 
         for order in to_cancel:
@@ -178,7 +192,10 @@ class MultiStrategyBot(TradingBot):
 
     def open_orders(self, bars: List[Bar], account: Account):
         for strat in self.strategies:
-            strat.open_orders(self.is_new_bar, self.directionFilter, bars, account, self.open_positions)
+            open_pos= self.open_positions_for_strat(strat)
+            strat.open_orders(self.is_new_bar, self.directionFilter, bars, account, open_pos)
+            for pos in open_pos.values():
+                self.open_positions[pos.id]= pos
 
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
