@@ -472,16 +472,23 @@ class TradingBot:
                             remainingPosition += pos.currentOpenAmount
                             break
 
-                    if abs(remainingPosition) > self.symbol.lotSize:
+                    if abs(remainingPosition) >= self.symbol.lotSize:
                         # close orders until size closed
+                        # TODO: sort by size, close until position flips side
                         pos_to_close= []
                         for pos in self.open_positions.values():
-                            if pos.status == PositionStatus.OPEN and pos.currentOpenAmount*remainingPosition < 0 and \
-                                    abs(remainingPosition) > abs(pos.currentOpenAmount):
-                                self.logger.info(f"marked position {pos.id} as closed ")
-                                remainingPosition += pos.currentOpenAmount
-                                pos_to_close.append(pos)
+                            if pos.status == PositionStatus.OPEN and pos.currentOpenAmount*remainingPosition < 0:
+                                #rough sorting to have the smallest first
+                                if len(pos_to_close) > 0 and abs(pos.currentOpenAmount) <= abs(pos_to_close[0]):
+                                    pos_to_close.insert(0,pos)
+                                else:
+                                    pos_to_close.append(pos)
+                        direction= 1 if remainingPosition > 0 else -1
                         for pos in pos_to_close:
+                            if direction * remainingPosition <= 0 or abs(remainingPosition) < self.symbol.lotSize:
+                                break
+                            self.logger.info(f"marked position {pos.id} as closed ")
+                            remainingPosition += pos.currentOpenAmount
                             self.position_closed(pos, account)
 
 
