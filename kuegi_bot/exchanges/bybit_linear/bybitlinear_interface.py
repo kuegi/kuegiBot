@@ -269,6 +269,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                             # ws removes stop price when executed
                             if order.stop_price is None:
                                 order.stop_price = prev.stop_price
+                                order.stop_triggered= True # there was a stop and its no longer there -> it was triggered and order turned to linear
                             if order.limit_price is None:
                                 order.limit_price = prev.limit_price
                         prev = order
