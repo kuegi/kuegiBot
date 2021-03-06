@@ -130,11 +130,11 @@ class BackTest(OrderInterface):
                 break
 
     # ----------
-    def handle_order_execution(self, order: Order, intrabar: Bar):
+    def handle_order_execution(self, order: Order, intrabar: Bar, forceTaker= False):
         amount = order.amount - order.executed_amount
         order.executed_amount = order.amount
         fee = self.taker_fee
-        if order.limit_price:
+        if order.limit_price and not forceTaker:
             price = order.limit_price
             fee = self.maker_fee
         elif order.stop_price:
@@ -213,6 +213,7 @@ class BackTest(OrderInterface):
             for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
                 if allowedOrderIds is not None and order.id not in allowedOrderIds:
                     continue
+                forceTaker= False
                 execute_order_only_on_close= onlyOnClose
                 if order.tstamp > intrabarToCheck.tstamp:
                     execute_order_only_on_close= True # was changed during execution on this bar, might have changed the price. only execute if close triggered it
@@ -230,17 +231,19 @@ class BackTest(OrderInterface):
                                 order.amount < 0 and order.limit_price < intrabarToCheck.close)):
                             # close below/above limit: got definitly executed
                             should_execute= True
+                            forceTaker= True # need to assume taker.
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
                     ref = intrabarToCheck.low if order.amount > 0 else intrabarToCheck.high
                     if execute_order_only_on_close:
                         ref= intrabarToCheck.close
+                        forceTaker= True # need to assume taker.
                     if (order.amount > 0 and order.limit_price > ref) or (
                             order.amount < 0 and order.limit_price < ref):
                         should_execute= True
 
                 if should_execute:
-                    self.handle_order_execution(order, intrabarToCheck)
+                    self.handle_order_execution(order, intrabarToCheck, forceTaker=forceTaker)
                     self.bot.on_tick(self.current_bars, self.account)
                     another_round= True
                     didSomething= True
