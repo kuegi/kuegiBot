@@ -45,6 +45,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                                            symbol=settings.SYMBOL,
                                            minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback, on_execution_callback=on_execution_callback)
+        self.handles_executions= True
 
     def is_open(self):
         # ws is always a BybitLinearWebsocket which has a publicWS

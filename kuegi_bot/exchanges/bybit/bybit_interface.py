@@ -37,6 +37,8 @@ class ByBitInterface(ExchangeWithWS):
                                            minutesPerBar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback,
                          on_execution_callback= on_execution_callback)
+        self.handles_executions= True
+
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.Order.Order_query(symbol=self.symbol))

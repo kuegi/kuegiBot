@@ -2,7 +2,7 @@ import time
 
 from kuegi_bot.bots.strategies.exit_modules import ExitModule
 from kuegi_bot.utils.trading_classes import Bar, Position, Symbol, OrderInterface, Account, OrderType, Order, \
-    PositionStatus
+    PositionStatus, ExchangeInterface
 
 import plotly.graph_objects as go
 
@@ -26,7 +26,7 @@ class TradingBot:
         self.myId = "GenericBot"
         self.logger = logger
         self.directionFilter = directionFilter
-        self.order_interface: OrderInterface = None
+        self.order_interface: ExchangeInterface = None
         self.symbol: Symbol = None
         self.unique_id: str = ""
         self.last_time = 0
@@ -195,9 +195,9 @@ class TradingBot:
             position.last_filled_entry= executed_price
             position.entry_tstamp = tstamp
             position.maxFilledAmount += amount
+            self.logger.info(f"position got increased/opened: {position}")
         if orderType in [OrderType.TP, OrderType.SL]:
             # completly closed
-            self.logger.info("position %s got reduced" % position.id)
             if abs(position.currentOpenAmount + amount) < self.symbol.lotSize/2:
                 position.status = PositionStatus.CLOSED
             if position.filled_exit is not None:
@@ -207,6 +207,7 @@ class TradingBot:
             else:
                 position.filled_exit = executed_price
             position.exit_tstamp = tstamp
+            self.logger.info(f"position got reduced: {position}")
 
         position.currentOpenAmount += amount
 
@@ -248,33 +249,35 @@ class TradingBot:
             self.sync_connected_orders(account)
 
         # old way (fallback if executions wheren't there)
-        for order in account.order_history[self.known_order_history:]:
-            if order.executed_amount == 0:
-                continue
-            posId = self.position_id_from_order_id(order.id)
-            if posId not in self.open_positions.keys():
-                self.logger.info("executed order not found in positions: " + order.id)
-                continue
-            position = self.open_positions[posId]
-            if position is not None:
-                orderType = self.order_type_from_order_id(order.id)
-                if orderType == OrderType.ENTRY and position.status in [PositionStatus.PENDING,
-                                                                        PositionStatus.TRIGGERED]:
-                    self.logger.warn(
-                        "order executed, but position not updated yet, are executions not implemented? " + order.id + " for position " + str(
-                            position))
-                    self.on_execution(order.id, order.executed_amount, order.executed_price, order.execution_tstamp)
-                elif orderType in [OrderType.SL, OrderType.TP] and position.status == PositionStatus.OPEN:
-                    self.logger.warn(
-                        "order executed, but position not updated yet, are executions not implemented? " + order.id + " for position " + str(
-                            position))
-                    self.on_execution(order.id, order.executed_amount, order.executed_price, order.execution_tstamp)
+        if not self.order_interface.handles_executions:
+            self.logger.warn("your exchange interface doesn't handle executions yet. please upgrade")
+            for order in account.order_history[self.known_order_history:]:
+                if order.executed_amount == 0:
+                    continue
+                posId = self.position_id_from_order_id(order.id)
+                if posId not in self.open_positions.keys():
+                    self.logger.info("executed order not found in positions: " + order.id)
+                    continue
+                position = self.open_positions[posId]
+                if position is not None:
+                    orderType = self.order_type_from_order_id(order.id)
+                    if orderType == OrderType.ENTRY and position.status in [PositionStatus.PENDING,
+                                                                            PositionStatus.TRIGGERED]:
+                        self.logger.warn(
+                            "order executed, but position not updated yet, are executions not implemented? " + order.id + " for position " + str(
+                                position))
+                        self.on_execution(order.id, order.executed_amount, order.executed_price, order.execution_tstamp)
+                    elif orderType in [OrderType.SL, OrderType.TP] and position.status == PositionStatus.OPEN:
+                        self.logger.warn(
+                            "order executed, but position not updated yet, are executions not implemented? " + order.id + " for position " + str(
+                                position))
+                        self.on_execution(order.id, order.executed_amount, order.executed_price, order.execution_tstamp)
+                    else:
+                        self.logger.info(
+                            "don't know what to do with execution of " + order.id + ". probably a multiple entry for position " + str(
+                                position))
                 else:
-                    self.logger.info(
-                        "don't know what to do with execution of " + order.id + ". probably a multiple entry for position " + str(
-                            position))
-            else:
-                self.logger.warn("no position found on execution of " + order.id)
+                    self.logger.warn("no position found on execution of " + order.id)
 
         self.known_order_history = len(account.order_history)
         self.sync_positions_with_open_orders(bars, account)
@@ -418,8 +421,11 @@ class TradingBot:
                     pos.status = PositionStatus.MISSED
                     self.position_closed(pos, account)
             elif pos.status == PositionStatus.OPEN:
-                if round(remainingPosition, self.symbol.quantityPrecision) == 0 and pos.initial_stop is not None:
-                    # for some reason everything matches but we are missing the stop in the market
+                if pos.changed:
+                    self.logger.info(f"pos has no exit, but is marked changed, so its probably just a race {pos}")
+                    continue
+                if pos.initial_stop is not None:
+                    # for some reason we are missing the stop in the market
                     self.logger.warn(
                         "found position with no stop in market. added stop for it: %s with %.1f contracts" % (
                             posId, pos.amount))
@@ -434,7 +440,7 @@ class TradingBot:
                         Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-pos.amount))
             else:
                 self.logger.warn(
-                    "pending position with noconnection order not pending or open? closed: %s" % (posId))
+                    "pending position with noconnected order not pending or open? closed: %s" % (posId))
                 self.position_closed(pos, account)
 
         remainingPosition = round(remainingPosition, self.symbol.quantityPrecision)
