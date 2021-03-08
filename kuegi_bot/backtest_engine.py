@@ -39,7 +39,7 @@ class BackTest(OrderInterface):
             for key in funding.keys():
                 self.firstFunding = min(self.firstFunding,key)
                 self.lastFunding= max(self.lastFunding,key)
-
+        self.handles_executions= True
         self.logger= bot.logger
         self.bot = bot
         self.bot.prepare(SilentLogger(),self)

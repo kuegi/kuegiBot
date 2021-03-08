@@ -165,6 +165,10 @@ class Order:
 
 
 class OrderInterface:
+
+    def __init__(self):
+        self.handles_executions = False
+
     def send_order(self, order: Order):
         pass
 
@@ -288,7 +292,6 @@ class ExchangeInterface(OrderInterface):
         self.symbol = None
         self.on_tick_callback= on_tick_callback
         self.on_execution_callback= on_execution_callback
-        self.handles_executions = False
 
         atexit.register(lambda: self.exit())
 

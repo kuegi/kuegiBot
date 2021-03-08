@@ -54,6 +54,7 @@ class LiveTrading(OrderInterface):
             self.logger.error("unkown exchange: " + settings.EXCHANGE)
             self.alive = False
             return
+        self.handles_executions= self.exchange.handles_executions
 
         self.alive = True
 
