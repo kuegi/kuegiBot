@@ -291,7 +291,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                             order.executed_amount = (execution['order_qty'] - execution['leaves_qty']) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
-                            self.on_execution_callback(orderId=order.id,
+                            self.on_execution_callback(order_id=order.id,
                                                        executed_price= float(execution['price']),
                                                        amount=execution['exec_qty'] * sideMulti,
                                                        tstamp= parse_utc_timestamp(execution['trade_time']))
