@@ -130,11 +130,11 @@ class BackTest(OrderInterface):
                 break
 
     # ----------
-    def handle_order_execution(self, order: Order, intrabar: Bar, forceTaker= False):
+    def handle_order_execution(self, order: Order, intrabar: Bar, force_taker= False):
         amount = order.amount - order.executed_amount
         order.executed_amount = order.amount
         fee = self.taker_fee
-        if order.limit_price and not forceTaker:
+        if order.limit_price and not force_taker:
             price = order.limit_price
             fee = self.maker_fee
         elif order.stop_price:
@@ -171,7 +171,7 @@ class BackTest(OrderInterface):
         order.execution_tstamp = intrabar.tstamp
         order.final_reason = 'executed'
 
-        self.bot.on_execution(orderId=order.id,amount= amount,executed_price=price,tstamp=intrabar.tstamp)
+        self.bot.on_execution(order_id=order.id, amount= amount, executed_price=price, tstamp=intrabar.tstamp)
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
         self.logger.debug(
@@ -213,7 +213,7 @@ class BackTest(OrderInterface):
             for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
                 if allowed_order_ids is not None and order.id not in allowed_order_ids:
                     continue
-                forceTaker= False
+                force_taker= False
                 execute_order_only_on_close= only_on_close
                 if order.tstamp > intrabar_to_check.tstamp:
                     execute_order_only_on_close= True # was changed during execution on this bar, might have changed the price. only execute if close triggered it
@@ -234,19 +234,19 @@ class BackTest(OrderInterface):
                                 order.amount < 0 and order.limit_price < intrabar_to_check.close)):
                             # close below/above limit: got definitly executed
                             should_execute= True
-                            forceTaker= True # need to assume taker.
+                            force_taker= True # need to assume taker.
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
                     ref = intrabar_to_check.low if order.amount > 0 else intrabar_to_check.high
                     if execute_order_only_on_close:
                         ref= intrabar_to_check.close
-                        forceTaker= True # need to assume taker.
+                        force_taker= True # need to assume taker.
                     if (order.amount > 0 and order.limit_price > ref) or (
                             order.amount < 0 and order.limit_price < ref):
                         should_execute= True
 
                 if should_execute:
-                    self.handle_order_execution(order, intrabar_to_check, forceTaker=forceTaker)
+                    self.handle_order_execution(order, intrabar_to_check, force_taker=force_taker)
                     self.bot.on_tick(self.current_bars, self.account)
                     another_round= True
                     did_something= True
@@ -431,7 +431,7 @@ class BackTest(OrderInterface):
             for position in self.bot.open_positions.values():
                 writer.writerow([
                     datetime.fromtimestamp(position.signal_tstamp).isoformat(),
-                    position.maxFilledAmount,
+                    position.max_filled_amount,
                     position.wanted_entry,
                     position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),

@@ -13,7 +13,7 @@ class BybitLinearPublicPart(KuegiWebsocket):
         self.messageCallback= on_message
         self.minutesPerBar= minutesPerBar
         self.symbol= symbol
-        self.initialSubscribeDone= False
+        self.initial_subscribe_done= False
         # public -> no apiKey needed
         super().__init__(wsURLs, api_key=None, api_secret=None, logger=logger, callback= callback)
 
@@ -21,11 +21,11 @@ class BybitLinearPublicPart(KuegiWebsocket):
         self.messageCallback(message)
 
     def subscribe_realtime_data(self):
-        subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
-        self.subscribe_candle(subbarsIntervall, self.symbol)
+        subbars_intervall = '1' if self.minutesPerBar <= 60 else '60'
+        self.subscribe_candle(subbars_intervall, self.symbol)
         self.subscribe_instrument_info(self.symbol)
 
-        self.initialSubscribeDone= True
+        self.initial_subscribe_done= True
 
     def subscribe_candle(self, interval: str, symbol: str):
         args = 'candle.' + interval + '.' + symbol
@@ -49,13 +49,13 @@ class BybitLinearWebsocket(KuegiWebsocket):
     MAX_DATA_CAPACITY = 200
     PRIVATE_TOPIC = ['position', 'execution', 'order']
 
-    def __init__(self, wsprivateURLs, wspublicURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
+    def __init__(self, wsprivateURLs, wspublicURLs, api_key, api_secret, logger, callback, symbol, minutes_per_bar):
         self.data = {}
         self.symbol= symbol
-        self.minutesPerBar= minutesPerBar
+        self.minutes_per_bar= minutes_per_bar
         super().__init__(wsprivateURLs, api_key, api_secret, logger, callback)
         self.public_ws= BybitLinearPublicPart(wspublicURLs, logger, callback, self.on_message,
-                                              symbol=symbol, minutesPerBar=minutesPerBar)
+                                              symbol=symbol, minutesPerBar=minutes_per_bar)
 
     def generate_signature(self, expires):
         """Generate a request signature."""
@@ -81,8 +81,8 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.subscribe_stop_order()
         self.subscribe_execution()
         self.subscribe_position()
-        if not self.public_ws.initialSubscribeDone:
-            subbars_intervall = '1' if self.minutesPerBar <= 60 else '60'
+        if not self.public_ws.initial_subscribe_done:
+            subbars_intervall = '1' if self.minutes_per_bar <= 60 else '60'
             args = 'candle.' + subbars_intervall + '.' + self.symbol
             if args not in self.data:
                 self.data[args] = []

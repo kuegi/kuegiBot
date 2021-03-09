@@ -38,12 +38,12 @@ class ByBitLinearInterface(ExchangeWithWS):
         self.shortPos= AccountPosition(settings.SYMBOL, 0, 0, 0)
         super().__init__(settings, logger,
                          ws=BybitLinearWebsocket(wspublicURLs=hosts_public, wsprivateURLs= hosts_private,
-                                           api_key=settings.API_KEY,
-                                           api_secret=settings.API_SECRET,
-                                           logger=logger,
-                                           callback=self.socket_callback,
-                                           symbol=settings.SYMBOL,
-                                           minutesPerBar=settings.MINUTES_PER_BAR),
+                                                 api_key=settings.API_KEY,
+                                                 api_secret=settings.API_SECRET,
+                                                 logger=logger,
+                                                 callback=self.socket_callback,
+                                                 symbol=settings.SYMBOL,
+                                                 minutes_per_bar=settings.MINUTES_PER_BAR),
                          on_tick_callback=on_tick_callback, on_execution_callback=on_execution_callback)
         self.handles_executions= True
 

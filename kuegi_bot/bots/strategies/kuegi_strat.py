@@ -48,12 +48,12 @@ class KuegiStrategy(ChannelStrategy):
             posId = TradingBot.position_id_from_order_id(order.id)
             if orderType == OrderType.SL and posId == position.id:
                 gotStop= True
-                if position.current_open_amount != -order.amount:
+                if abs(order.amount + position.current_open_amount) > self.symbol.lotSize / 2:
                     order.amount = -position.current_open_amount
                     self.order_interface.update_order(order)
             elif self.tp_fac > 0 and orderType == OrderType.TP and posId == position.id:
                 gotTp = True
-                amount = self.symbol.normalizeSize(-position.currentOpenAmount + order.executed_amount)
+                amount = self.symbol.normalizeSize(-position.current_open_amount + order.executed_amount)
                 if abs(order.amount - amount) > self.symbol.lotSize / 2:
                     order.amount = amount
                     self.order_interface.update_order(order)
