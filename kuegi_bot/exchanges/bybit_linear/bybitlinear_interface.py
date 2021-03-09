@@ -49,7 +49,7 @@ class ByBitLinearInterface(ExchangeWithWS):
 
     def is_open(self):
         # ws is always a BybitLinearWebsocket which has a publicWS
-        return not self.ws.exited and not self.ws.publicWS.exited
+        return not self.ws.exited and not self.ws.public_ws.exited
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.LinearOrder.LinearOrder_query(symbol=self.symbol))
