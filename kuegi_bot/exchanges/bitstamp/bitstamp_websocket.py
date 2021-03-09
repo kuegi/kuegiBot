@@ -19,7 +19,7 @@ class BitstampWebsocket(KuegiWebsocket):
         if key not in self.data:
             self.data[key] = []
 
-    def subscribeRealtimeData(self):
+    def subscribe_realtime_data(self):
         self.subscribeTrades()
 
     def on_message(self, message):

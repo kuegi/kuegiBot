@@ -22,7 +22,7 @@ class BitstampInterface(ExchangeWithWS):
                          on_tick_callback=on_tick_callback)
 
     def init(self):
-        self.ws.subscribeRealtimeData()
+        self.ws.subscribe_realtime_data()
         self.logger.info("subscribed to data")
 
     def get_instrument(self, symbol=None):

@@ -20,7 +20,7 @@ class BybitLinearPublicPart(KuegiWebsocket):
     def on_message(self, message):
         self.messageCallback(message)
 
-    def subscribeRealtimeData(self):
+    def subscribe_realtime_data(self):
         subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
         self.subscribe_candle(subbarsIntervall, self.symbol)
         self.subscribe_instrument_info(self.symbol)
@@ -54,8 +54,8 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.symbol= symbol
         self.minutesPerBar= minutesPerBar
         super().__init__(wsprivateURLs, api_key, api_secret, logger, callback)
-        self.publicWS= BybitLinearPublicPart(wspublicURLs,logger,callback,self.on_message,
-                                             symbol=symbol,minutesPerBar=minutesPerBar)
+        self.public_ws= BybitLinearPublicPart(wspublicURLs, logger, callback, self.on_message,
+                                              symbol=symbol, minutesPerBar=minutesPerBar)
 
     def generate_signature(self, expires):
         """Generate a request signature."""
@@ -68,12 +68,12 @@ class BybitLinearWebsocket(KuegiWebsocket):
         auth = {"op": "auth", "args": [self.api_key, expires, signature]}
         self.ws.send(json.dumps(auth))
 
-    def subscribeRealtimeData(self):
+    def subscribe_realtime_data(self):
         retry_times = 5
-        while (self.publicWS.ws.sock is None or not self.publicWS.ws.sock.connected) and retry_times > 0:
+        while (self.public_ws.ws.sock is None or not self.public_ws.ws.sock.connected) and retry_times > 0:
             time.sleep(1)
             retry_times -= 1
-        if retry_times == 0 and (self.publicWS.ws.sock is None or not self.publicWS.ws.sock.connected):
+        if retry_times == 0 and (self.public_ws.ws.sock is None or not self.public_ws.ws.sock.connected):
             self.logger.error("Couldn't connect to public WebSocket! Exiting.")
             self.exit()
         self.subscribe_wallet()
@@ -81,18 +81,18 @@ class BybitLinearWebsocket(KuegiWebsocket):
         self.subscribe_stop_order()
         self.subscribe_execution()
         self.subscribe_position()
-        if not self.publicWS.initialSubscribeDone:
-            subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
-            args = 'candle.' + subbarsIntervall + '.' + self.symbol
+        if not self.public_ws.initialSubscribeDone:
+            subbars_intervall = '1' if self.minutesPerBar <= 60 else '60'
+            args = 'candle.' + subbars_intervall + '.' + self.symbol
             if args not in self.data:
                 self.data[args] = []
             if 'instrument_info.100ms.' + self.symbol not in self.data:
                 self.data['instrument_info.100ms.' + self.symbol] = []
-            self.publicWS.subscribeRealtimeData()
+            self.public_ws.subscribe_realtime_data()
 
     def exit(self):
         super().exit()
-        self.publicWS.exit()
+        self.public_ws.exit()
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
@@ -115,7 +115,7 @@ class BybitLinearWebsocket(KuegiWebsocket):
                 self.callback(message['topic'])
 
     def subscribe_trade(self):
-        self.publicWS.ws.send('{"op":"subscribe","args":["trade"]}')
+        self.public_ws.ws.send('{"op":"subscribe","args":["trade"]}')
         if "trade.BTCUSD" not in self.data:
             self.data["trade.BTCUSD"] = []
             self.data["trade.ETHUSD"] = []

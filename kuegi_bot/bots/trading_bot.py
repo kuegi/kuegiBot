@@ -38,7 +38,7 @@ class TradingBot:
         self.max_equity = 0
         self.time_of_max_equity = 0
         self.position_history: List[Position] = []
-        self.openPositionRolling = 1
+        self.open_position_rolling = 1
         self.unaccountedPositionCoolOff = 0
         self.reset()
 
@@ -168,13 +168,13 @@ class TradingBot:
                     del self.open_positions[positionId]
                 break
 
-    def position_got_opened(self, position: Position, bars: List[Bar], account: Account):
+    def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account):
         # empty hook for actual bot to maybe clear linked positions etc.
         pass
 
     def handle_opened_position(self, position: Position, account: Account, bars: List[Bar]):
         position.status = PositionStatus.OPEN
-        self.position_got_opened(position, bars, account)
+        self.position_got_opened_or_changed(position, bars, account)
 
     def on_execution(self, orderId, amount, executed_price, tstamp):
         posId = self.position_id_from_order_id(orderId)
@@ -188,28 +188,28 @@ class TradingBot:
         if orderType == OrderType.ENTRY:
             position.status = PositionStatus.OPEN
             if position.filled_entry is not None:
-                position.filled_entry = (position.filled_entry * position.maxFilledAmount + executed_price * amount) \
-                                        / (position.maxFilledAmount + amount)
+                position.filled_entry = (position.filled_entry * position.max_filled_amount + executed_price * amount) \
+                                        / (position.max_filled_amount + amount)
             else:
                 position.filled_entry = executed_price
             position.last_filled_entry= executed_price
             position.entry_tstamp = tstamp
-            position.maxFilledAmount += amount
+            position.max_filled_amount += amount
             self.logger.info(f"position got increased/opened: {position}")
         if orderType in [OrderType.TP, OrderType.SL]:
             # completly closed
-            if abs(position.currentOpenAmount + amount) < self.symbol.lotSize/2:
+            if abs(position.current_open_amount + amount) < self.symbol.lotSize/2:
                 position.status = PositionStatus.CLOSED
             if position.filled_exit is not None:
                 position.filled_exit = (position.filled_exit * (
-                            position.maxFilledAmount - position.currentOpenAmount) + executed_price * (-amount)) \
-                                       / (position.maxFilledAmount - position.currentOpenAmount - amount)
+                        position.max_filled_amount - position.current_open_amount) + executed_price * (-amount)) \
+                                       / (position.max_filled_amount - position.current_open_amount - amount)
             else:
                 position.filled_exit = executed_price
             position.exit_tstamp = tstamp
             self.logger.info(f"position got reduced: {position}")
 
-        position.currentOpenAmount += amount
+        position.current_open_amount += amount
 
     def sync_connected_orders(self, account: Account):
         # update connected orders in position
@@ -538,11 +538,11 @@ class TradingBot:
                 file.write(string)
             # backup if no error happened: this is need to have a backup of the status
             # for manual intervention when something breaks massivly
-            with open(base + self._get_pos_file(self.openPositionRolling), 'w') as file:
+            with open(base + self._get_pos_file(self.open_position_rolling), 'w') as file:
                 file.write(string)
-            self.openPositionRolling += 1
-            if self.openPositionRolling > 3:
-                self.openPositionRolling = 1
+            self.open_position_rolling += 1
+            if self.open_position_rolling > 3:
+                self.open_position_rolling = 1
         except Exception as e:
             self.logger.error("Error saving positions " + str(e))
             raise e

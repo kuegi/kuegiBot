@@ -53,7 +53,7 @@ class Strategy:
     def prep_bars(self, is_new_bar: bool, bars: list):
         pass
 
-    def position_got_opened(self, position: Position, bars: List[Bar], account: Account, open_positions):
+    def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
         pass
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
@@ -130,13 +130,13 @@ class MultiStrategyBot(TradingBot):
     def got_data_for_position_sync(self, bars: List[Bar]):
         return reduce((lambda x, y: x and y.got_data_for_position_sync(bars)), self.strategies, True)
 
-    def position_got_opened(self, position: Position, bars: List[Bar], account: Account):
+    def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account):
         [signalId, direction] = self.split_pos_Id(position.id)
         for strat in self.strategies:
             if strat.owns_signal_id(signalId):
                 self.call_with_open_positions_for_strat(strat, lambda open_pos :
-                                                                    strat.position_got_opened(position, bars,
-                                                                                              account, open_pos))
+                                                                    strat.position_got_opened_or_changed(position, bars,
+                                                                                                         account, open_pos))
                 break
 
     def get_stop_for_unmatched_amount(self, amount:float,bars:List[Bar]):

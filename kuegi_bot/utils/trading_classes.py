@@ -196,15 +196,15 @@ class Position:
         self.wanted_entry = entry
         self.initial_stop = stop
         self.amount = amount
-        self.maxFilledAmount= 0
-        self.currentOpenAmount= 0
+        self.max_filled_amount= 0
+        self.current_open_amount= 0
         self.last_filled_entry: float= None
         self.filled_entry: float = None
         self.filled_exit: float = None
         self.entry_tstamp = 0
         self.exit_tstamp = 0
         self.exit_equity = 0
-        self.customData= {}
+        self.custom_data= {}
         self.connectedOrders :List[Order] = []
         self.stats = {}
 
@@ -229,6 +229,12 @@ class Position:
         for prop in pos.__dict__.keys():
             if prop in pos_json.keys():
                 setattr(pos, prop, pos_json[prop])
+        #backward comp
+        if "currentOpenAmount" in pos_json.keys():
+            pos.current_open_amount= pos_json['currentOpenAmount']
+        if "customData" in pos_json.keys():
+            pos.custom_data= pos_json['customData']
+            
         state= PositionStatus.MISSED
         for status in PositionStatus:
             if pos.status == status.value:
@@ -237,10 +243,10 @@ class Position:
         pos.status= state
 
         # backward compatibility
-        if pos.status == PositionStatus.OPEN and (pos.currentOpenAmount == 0 or pos.maxFilledAmount == 0):
+        if pos.status == PositionStatus.OPEN and (pos.current_open_amount == 0 or pos.max_filled_amount == 0):
             # happens when old open positions file gets read in
-            pos.maxFilledAmount= pos.amount
-            pos.currentOpenAmount= pos.amount
+            pos.max_filled_amount= pos.amount
+            pos.current_open_amount= pos.amount
         return pos
 
     def daysInPos(self):

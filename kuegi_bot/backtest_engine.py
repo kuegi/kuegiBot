@@ -196,12 +196,12 @@ class BackTest(OrderInterface):
             else:
                 return order.limit_price + self.bars[0].close*shortFac
 
-    def check_executions(self, intrabarToCheck: Bar, onlyOnClose):
+    def check_executions(self, intrabar_to_check: Bar, only_on_close):
         another_round= True
-        didSomething= False
-        allowedOrderIds= None
-        if not onlyOnClose:
-            allowedOrderIds= set(map(lambda o:o.id, self.account.open_orders))
+        did_something= False
+        allowed_order_ids= None
+        if not only_on_close:
+            allowed_order_ids= set(map(lambda o:o.id, self.account.open_orders))
         loopbreak= 0
         while another_round:
             if loopbreak > 100:
@@ -211,53 +211,56 @@ class BackTest(OrderInterface):
             another_round= False
             should_execute= False
             for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
-                if allowedOrderIds is not None and order.id not in allowedOrderIds:
+                if allowed_order_ids is not None and order.id not in allowed_order_ids:
                     continue
                 forceTaker= False
-                execute_order_only_on_close= onlyOnClose
-                if order.tstamp > intrabarToCheck.tstamp:
+                execute_order_only_on_close= only_on_close
+                if order.tstamp > intrabar_to_check.tstamp:
                     execute_order_only_on_close= True # was changed during execution on this bar, might have changed the price. only execute if close triggered it
                 if order.limit_price is None and order.stop_price is None:
                     should_execute= True
                 elif order.stop_price and not order.stop_triggered:
-                    if (order.amount > 0 and order.stop_price < intrabarToCheck.high) or (
-                            order.amount < 0 and order.stop_price > intrabarToCheck.low):
+                    if (order.amount > 0 and order.stop_price < intrabar_to_check.high) or (
+                            order.amount < 0 and order.stop_price > intrabar_to_check.low):
                         order.stop_triggered = True
                         something_changed = True
                         if order.limit_price is None:
                             # execute stop market
                             should_execute= True
-                        elif ((order.amount > 0 and order.limit_price > intrabarToCheck.close) or (
-                                order.amount < 0 and order.limit_price < intrabarToCheck.close)):
+                            if only_on_close: # order just came in and executed right away: execution on the worst price cause can't assume anything better
+                                order.stop_price= intrabar_to_check.low if order.amount < 0 else intrabar_to_check.high
+
+                        elif ((order.amount > 0 and order.limit_price > intrabar_to_check.close) or (
+                                order.amount < 0 and order.limit_price < intrabar_to_check.close)):
                             # close below/above limit: got definitly executed
                             should_execute= True
                             forceTaker= True # need to assume taker.
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
-                    ref = intrabarToCheck.low if order.amount > 0 else intrabarToCheck.high
+                    ref = intrabar_to_check.low if order.amount > 0 else intrabar_to_check.high
                     if execute_order_only_on_close:
-                        ref= intrabarToCheck.close
+                        ref= intrabar_to_check.close
                         forceTaker= True # need to assume taker.
                     if (order.amount > 0 and order.limit_price > ref) or (
                             order.amount < 0 and order.limit_price < ref):
                         should_execute= True
 
                 if should_execute:
-                    self.handle_order_execution(order, intrabarToCheck, forceTaker=forceTaker)
+                    self.handle_order_execution(order, intrabar_to_check, forceTaker=forceTaker)
                     self.bot.on_tick(self.current_bars, self.account)
                     another_round= True
-                    didSomething= True
+                    did_something= True
                     break
-        return didSomething
+        return did_something
 
     def handle_subbar(self, intrabarToCheck: Bar):
         self.current_bars[0].add_subbar(intrabarToCheck)  # so bot knows about the current intrabar
         # first the ones that are there at the beginning
-        didSomething1= self.check_executions(intrabarToCheck,False)
-        didSomething2= self.check_executions(intrabarToCheck,True)
+        something_changed_on_existing_orders= self.check_executions(intrabarToCheck,False)
+        something_changed_on_second_pass= self.check_executions(intrabarToCheck,True)
         # then the new ones with updated bar
 
-        if not didSomething1 and not didSomething2: #no execution happened -> execute on tick now
+        if not something_changed_on_existing_orders and not something_changed_on_second_pass: #no execution happened -> execute on tick now
             self.bot.on_tick(self.current_bars, self.account)
 
         # update equity = balance + current value of open position
@@ -416,7 +419,7 @@ class BackTest(OrderInterface):
             for position in self.bot.position_history:
                 writer.writerow([
                     datetime.fromtimestamp(position.signal_tstamp).isoformat(),
-                    position.maxFilledAmount,
+                    position.max_filled_amount,
                     position.wanted_entry,
                     position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),

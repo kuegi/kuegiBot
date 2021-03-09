@@ -35,7 +35,7 @@ class KuegiStrategy(ChannelStrategy):
                           self.cancel_on_filter))
         super().init(bars, account, symbol)
 
-    def position_got_opened(self, position: Position, bars: List[Bar], account: Account, open_positions):
+    def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
         other_id = TradingBot.get_other_direction_id(position.id)
         if other_id in open_positions.keys():
             open_positions[other_id].markForCancel = bars[0].tstamp
@@ -48,8 +48,8 @@ class KuegiStrategy(ChannelStrategy):
             posId = TradingBot.position_id_from_order_id(order.id)
             if orderType == OrderType.SL and posId == position.id:
                 gotStop= True
-                if position.currentOpenAmount != -order.amount:
-                    order.amount = -position.currentOpenAmount
+                if position.current_open_amount != -order.amount:
+                    order.amount = -position.current_open_amount
                     self.order_interface.update_order(order)
             elif self.tp_fac > 0 and orderType == OrderType.TP and posId == position.id:
                 gotTp = True
