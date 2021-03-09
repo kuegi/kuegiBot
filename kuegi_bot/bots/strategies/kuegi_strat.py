@@ -12,7 +12,7 @@ class KuegiStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3,
                  limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False):
+                 cancel_on_filter:bool = False, tp_fac: float = 0):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -22,6 +22,7 @@ class KuegiStrategy(ChannelStrategy):
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
         self.delayed_cancel = delayed_cancel
         self.cancel_on_filter = cancel_on_filter
+        self.tp_fac = tp_fac
 
     def myId(self):
         return "kuegi"
@@ -41,6 +42,7 @@ class KuegiStrategy(ChannelStrategy):
 
         # add stop
         gotStop= False # safety check needed to not add multiple SL in case of an error
+        gotTp = False
         for order in account.open_orders:
             orderType = TradingBot.order_type_from_order_id(order.id)
             posId = TradingBot.position_id_from_order_id(order.id)
@@ -49,12 +51,26 @@ class KuegiStrategy(ChannelStrategy):
                 if position.currentOpenAmount != -order.amount:
                     order.amount = -position.currentOpenAmount
                     self.order_interface.update_order(order)
-                break
+            elif self.tp_fac > 0 and orderType == OrderType.TP and posId == position.id:
+                gotTp = True
+                amount = self.symbol.normalizeSize(-position.currentOpenAmount + order.executed_amount)
+                if abs(order.amount - amount) > self.symbol.lotSize / 2:
+                    order.amount = amount
+                    self.order_interface.update_order(order)
+
         if not gotStop:
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
                                                            type=OrderType.SL),
                       stop=position.initial_stop,
                       amount=-position.amount)
+            self.order_interface.send_order(order)
+        if self.tp_fac > 0 and not gotTp:
+            ref = position.filled_entry - position.initial_stop
+            tp = position.filled_entry + ref * self.tp_fac
+            order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
+                                                               type=OrderType.TP),
+                          limit=tp,
+                          amount=-position.amount)
             self.order_interface.send_order(order)
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
