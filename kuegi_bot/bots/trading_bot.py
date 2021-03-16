@@ -488,7 +488,7 @@ class TradingBot:
                         for pos in self.open_positions.values():
                             if pos.status == PositionStatus.OPEN and pos.current_open_amount*remainingPosition < 0:
                                 #rough sorting to have the smallest first
-                                if len(pos_to_close) > 0 and abs(pos.current_open_amount) <= abs(pos_to_close[0]):
+                                if len(pos_to_close) > 0 and abs(pos.current_open_amount) <= abs(pos_to_close[0].current_open_amount):
                                     pos_to_close.insert(0,pos)
                                 else:
                                     pos_to_close.append(pos)
