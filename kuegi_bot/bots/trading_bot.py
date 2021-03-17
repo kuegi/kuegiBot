@@ -32,7 +32,7 @@ class TradingBot:
         self.last_time = 0
         self.last_tick_time: datetime = None
         self.is_new_bar = True
-        self.open_positions : Dict[str,Position] = {}
+        self.open_positions: Dict[str, Position] = {}
         self.known_order_history = 0
         self.risk_reference = 1
         self.max_equity = 0
@@ -249,7 +249,7 @@ class TradingBot:
 
         # old way (fallback if executions wheren't there)
         if not self.order_interface.handles_executions:
-            self.logger.warn("your exchange interface doesn't handle executions yet. please upgrade")
+            self.logger.error("your exchange interface doesn't handle executions yet. please upgrade")
             for order in account.order_history[self.known_order_history:]:
                 if order.executed_amount == 0:
                     continue

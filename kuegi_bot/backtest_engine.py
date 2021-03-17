@@ -96,7 +96,7 @@ class BackTest(OrderInterface):
             return
         [posId, order_type]= TradingBot.position_id_and_type_from_order_id(order.id)
         if order_type == OrderType.ENTRY:
-            [posId, direction]= TradingBot.split_pos_Id(posId)
+            [unused, direction]= TradingBot.split_pos_Id(posId)
             if direction == PositionDirection.LONG and order.amount < 0:
                 self.logger.error("sending long entry with negative amount")
             if direction == PositionDirection.SHORT and order.amount > 0:
@@ -183,8 +183,8 @@ class BackTest(OrderInterface):
         if order.stop_price is None and order.limit_price is None:
             return 0
         # sort buys after sells (higher number) when bar is falling
-        longFac= 1 if self.bars[0].close > self.bars[0].open else 2
-        shortFac= 1 if self.bars[0].close < self.bars[0].open else 2
+        long_fac= 1 if self.bars[0].close > self.bars[0].open else 2
+        short_fac= 1 if self.bars[0].close < self.bars[0].open else 2
         if order.stop_price is not None:
             if order.amount > 0:
                 return order.stop_price
@@ -192,9 +192,9 @@ class BackTest(OrderInterface):
                 return -order.stop_price
         else: # limit -> bigger numbers to be sorted after the stops
             if order.amount > 0:
-                return (self.bars[0].close+ self.bars[0].close - order.limit_price) + self.bars[0].close *longFac
+                return (self.bars[0].close+ self.bars[0].close - order.limit_price) + self.bars[0].close *long_fac
             else:
-                return order.limit_price + self.bars[0].close*shortFac
+                return order.limit_price + self.bars[0].close*short_fac
 
     def check_executions(self, intrabar_to_check: Bar, only_on_close):
         another_round= True

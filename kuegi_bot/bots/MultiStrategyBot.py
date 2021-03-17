@@ -62,7 +62,7 @@ class Strategy:
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         pass
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions :dict):
+    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions: dict):
         pass
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
