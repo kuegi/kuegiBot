@@ -10,12 +10,12 @@ class BybitLinearPublicPart(KuegiWebsocket):
 
     def __init__(self, wsURLs, logger, callback, on_message,
                  symbol, minutesPerBar):
-        self.messageCallback= on_message
-        self.minutesPerBar= minutesPerBar
-        self.symbol= symbol
-        self.initial_subscribe_done= False
+        self.messageCallback = on_message
+        self.minutesPerBar = minutesPerBar
+        self.symbol = symbol
+        self.initial_subscribe_done = False
         # public -> no apiKey needed
-        super().__init__(wsURLs, api_key=None, api_secret=None, logger=logger, callback= callback)
+        super().__init__(wsURLs, api_key=None, api_secret=None, logger=logger, callback=callback)
 
     def on_message(self, message):
         self.messageCallback(message)
@@ -25,7 +25,7 @@ class BybitLinearPublicPart(KuegiWebsocket):
         self.subscribe_candle(subbars_intervall, self.symbol)
         self.subscribe_instrument_info(self.symbol)
 
-        self.initial_subscribe_done= True
+        self.initial_subscribe_done = True
 
     def subscribe_candle(self, interval: str, symbol: str):
         args = 'candle.' + interval + '.' + symbol
@@ -43,7 +43,6 @@ class BybitLinearPublicPart(KuegiWebsocket):
         self.ws.send(json.dumps(param))
 
 
-
 class BybitLinearWebsocket(KuegiWebsocket):
     # User can ues MAX_DATA_CAPACITY to control memory usage.
     MAX_DATA_CAPACITY = 200
@@ -51,11 +50,11 @@ class BybitLinearWebsocket(KuegiWebsocket):
 
     def __init__(self, wsprivateURLs, wspublicURLs, api_key, api_secret, logger, callback, symbol, minutes_per_bar):
         self.data = {}
-        self.symbol= symbol
-        self.minutes_per_bar= minutes_per_bar
+        self.symbol = symbol
+        self.minutes_per_bar = minutes_per_bar
         super().__init__(wsprivateURLs, api_key, api_secret, logger, callback)
-        self.public_ws= BybitLinearPublicPart(wspublicURLs, logger, callback, self.on_message,
-                                              symbol=symbol, minutesPerBar=minutes_per_bar)
+        self.public_ws = BybitLinearPublicPart(wspublicURLs, logger, callback, self.on_message,
+                                               symbol=symbol, minutesPerBar=minutes_per_bar)
 
     def generate_signature(self, expires):
         """Generate a request signature."""

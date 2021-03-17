@@ -192,13 +192,13 @@ class TradingBot:
                                         / (position.max_filled_amount + amount)
             else:
                 position.filled_entry = executed_price
-            position.last_filled_entry= executed_price
+            position.last_filled_entry = executed_price
             position.entry_tstamp = tstamp
             position.max_filled_amount += amount
             self.logger.info(f"position got increased/opened: {position.id} to {position.current_open_amount}")
         if order_type in [OrderType.TP, OrderType.SL]:
             # completly closed
-            if abs(position.current_open_amount + amount) < self.symbol.lotSize/2:
+            if abs(position.current_open_amount + amount) < self.symbol.lotSize / 2:
                 position.status = PositionStatus.CLOSED
             if position.filled_exit is not None:
                 position.filled_exit = (position.filled_exit * (
@@ -229,17 +229,17 @@ class TradingBot:
     def sync_executions(self, bars: List[Bar], account: Account):
         self.sync_connected_orders(account)
         closed_pos = []
-        changed= False
+        changed = False
         for position in self.open_positions.values():
             if position.changed:
                 if position.status == PositionStatus.OPEN:
                     self.logger.info("open position %s got changed" % position.id)
                     self.handle_opened_or_changed_position(position=position, account=account, bars=bars)
-                    changed= True
+                    changed = True
                 elif position.status == PositionStatus.CLOSED:
                     self.logger.info("position %s got closed" % position.id)
                     closed_pos.append(position)
-                position.changed= False
+                position.changed = False
 
         for position in closed_pos:
             self.position_closed(position, account)
@@ -412,7 +412,7 @@ class TradingBot:
                     # assume position was opened without us realizing (during downtime)
                     self.logger.warn(
                         "pending position with no entry order but open position looks like it was opened: %s" % (posId))
-                    pos.last_filled_entry= pos.wanted_entry
+                    pos.last_filled_entry = pos.wanted_entry
                     pos.entry_tstamp = time.time()
                     pos.max_filled_amount += pos.amount
                     pos.current_open_amount = pos.amount
@@ -475,24 +475,26 @@ class TradingBot:
                             remainingPosition) + " open contracts. But close would increase exposure-> mark positions as closed")
 
                     for pos in self.open_positions.values():
-                        if pos.status == PositionStatus.OPEN and abs(remainingPosition + pos.current_open_amount) < self.symbol.lotSize:
+                        if pos.status == PositionStatus.OPEN and abs(
+                                remainingPosition + pos.current_open_amount) < self.symbol.lotSize:
                             self.logger.info(f"marked position {pos.id} with exact size as closed ")
-                            self.position_closed(pos,account)
+                            self.position_closed(pos, account)
                             remainingPosition += pos.current_open_amount
                             break
 
                     if abs(remainingPosition) >= self.symbol.lotSize:
                         # close orders until size closed
                         # TODO: sort by size, close until position flips side
-                        pos_to_close= []
+                        pos_to_close = []
                         for pos in self.open_positions.values():
-                            if pos.status == PositionStatus.OPEN and pos.current_open_amount*remainingPosition < 0:
-                                #rough sorting to have the smallest first
-                                if len(pos_to_close) > 0 and abs(pos.current_open_amount) <= abs(pos_to_close[0].current_open_amount):
-                                    pos_to_close.insert(0,pos)
+                            if pos.status == PositionStatus.OPEN and pos.current_open_amount * remainingPosition < 0:
+                                # rough sorting to have the smallest first
+                                if len(pos_to_close) > 0 and abs(pos.current_open_amount) <= abs(
+                                        pos_to_close[0].current_open_amount):
+                                    pos_to_close.insert(0, pos)
                                 else:
                                     pos_to_close.append(pos)
-                        direction= 1 if remainingPosition > 0 else -1
+                        direction = 1 if remainingPosition > 0 else -1
                         for pos in pos_to_close:
                             if direction * remainingPosition <= 0 or abs(remainingPosition) < self.symbol.lotSize:
                                 break
@@ -750,7 +752,7 @@ class TradingBot:
         lastHHTstamp = firstPos.signal_tstamp
         if firstPos.filled_exit is not None:
             startEquity = firstPos.exit_equity - firstPos.amount * (
-                        1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
+                    1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
         else:
             startEquity = 100
 
