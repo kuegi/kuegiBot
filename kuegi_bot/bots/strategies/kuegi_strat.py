@@ -12,7 +12,7 @@ class KuegiStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3,
                  limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False):
+                 cancel_on_filter: bool = False, tp_fac: float = 0):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -22,6 +22,7 @@ class KuegiStrategy(ChannelStrategy):
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
         self.delayed_cancel = delayed_cancel
         self.cancel_on_filter = cancel_on_filter
+        self.tp_fac = tp_fac
 
     def myId(self):
         return "kuegi"
@@ -34,29 +35,43 @@ class KuegiStrategy(ChannelStrategy):
                           self.cancel_on_filter))
         super().init(bars, account, symbol)
 
-    def position_got_opened(self, position: Position, bars: List[Bar], account: Account, open_positions):
+    def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
         other_id = TradingBot.get_other_direction_id(position.id)
         if other_id in open_positions.keys():
             open_positions[other_id].markForCancel = bars[0].tstamp
 
         # add stop
-        gotStop= False # safety check needed to not add multiple SL in case of an error
+        gotStop = False  # safety check needed to not add multiple SL in case of an error
+        gotTp = False
         for order in account.open_orders:
             orderType = TradingBot.order_type_from_order_id(order.id)
             posId = TradingBot.position_id_from_order_id(order.id)
             if orderType == OrderType.SL and posId == position.id:
-                gotStop= True
-                break
+                gotStop = True
+                if abs(order.amount + position.current_open_amount) > self.symbol.lotSize / 2:
+                    order.amount = -position.current_open_amount
+                    self.order_interface.update_order(order)
+            elif self.tp_fac > 0 and orderType == OrderType.TP and posId == position.id:
+                gotTp = True
+                amount = self.symbol.normalizeSize(-position.current_open_amount + order.executed_amount)
+                if abs(order.amount - amount) > self.symbol.lotSize / 2:
+                    order.amount = amount
+                    self.order_interface.update_order(order)
+
         if not gotStop:
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
-                                                           type=OrderType.SL),
-                      stop=position.initial_stop,
-                      amount=-position.amount)
+                                                               type=OrderType.SL),
+                          stop=position.initial_stop,
+                          amount=-position.amount)
             self.order_interface.send_order(order)
-            # added temporarily, cause sync with open orders is in the next loop and otherwise the orders vs
-            # position check fails
-            if order not in account.open_orders:  # outside world might have already added it
-                account.open_orders.append(order)
+        if self.tp_fac > 0 and not gotTp:
+            ref = position.filled_entry - position.initial_stop
+            tp = position.filled_entry + ref * self.tp_fac
+            order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
+                                                               type=OrderType.TP),
+                          limit=tp,
+                          amount=-position.amount)
+            self.order_interface.send_order(order)
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
@@ -86,7 +101,7 @@ class KuegiStrategy(ChannelStrategy):
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
-        if orderType == OrderType.ENTRY and\
+        if orderType == OrderType.ENTRY and \
                 (data.longSwing is None or data.shortSwing is None or
                  (self.cancel_on_filter and not self.entries_allowed(bars))):
             if position.status == PositionStatus.PENDING:  # don't delete if triggered
@@ -106,10 +121,9 @@ class KuegiStrategy(ChannelStrategy):
         if (not is_new_bar) or len(bars) < 5:
             return  # only open orders on beginning of bar
 
-        entriesAllowed= self.entries_allowed(bars)
+        entriesAllowed = self.entries_allowed(bars)
         if not entriesAllowed:
             self.logger.info("new entries not allowed by filter")
-
 
         last_data: Data = self.channel.get_data(bars[2])
         data: Data = self.channel.get_data(bars[1])
@@ -165,13 +179,15 @@ class KuegiStrategy(ChannelStrategy):
                             stop = stopShort
                             entryFac = (1 - expectedEntrySplipagePerc)
                             exitFac = (1 + expectedExitSlipagePerc)
-                        entryBuffer= entry*self.limit_entry_offset_perc*0.01 if self.limit_entry_offset_perc is not None else None
+                        entryBuffer = entry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
                         for order in account.open_orders:
                             if TradingBot.position_id_from_order_id(order.id) == position.id:
-                                newEntry = position.wanted_entry * (1 - self.entry_tightening) + entry * self.entry_tightening
-                                newEntry= self.symbol.normalizePrice(newEntry,roundUp=order.amount > 0)
-                                newStop = position.initial_stop * (1 - self.entry_tightening) + stop * self.entry_tightening
-                                newStop= self.symbol.normalizePrice(newStop,roundUp=order.amount < 0)
+                                newEntry = position.wanted_entry * (
+                                            1 - self.entry_tightening) + entry * self.entry_tightening
+                                newEntry = self.symbol.normalizePrice(newEntry, roundUp=order.amount > 0)
+                                newStop = position.initial_stop * (
+                                            1 - self.entry_tightening) + stop * self.entry_tightening
+                                newStop = self.symbol.normalizePrice(newStop, roundUp=order.amount < 0)
                                 amount = self.calc_pos_size(risk=risk, exitPrice=newStop * exitFac,
                                                             entry=newEntry * entryFac, atr=data.atr)
                                 if amount * order.amount < 0:
@@ -180,7 +196,7 @@ class KuegiStrategy(ChannelStrategy):
                                 changed = changed or order.stop_price != newEntry
                                 order.stop_price = newEntry
                                 if self.limit_entry_offset_perc is not None:
-                                    newLimit = newEntry - entryBuffer*math.copysign(1, amount)
+                                    newLimit = newEntry - entryBuffer * math.copysign(1, amount)
                                     changed = changed or order.limit_price != newLimit
                                     order.limit_price = newLimit
                                 changed = changed or order.amount != amount

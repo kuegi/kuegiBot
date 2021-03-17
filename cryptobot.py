@@ -54,7 +54,8 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                       limit_entry_offset_perc=stratSettings.KB_LIMIT_OFFSET,
                                       delayed_entry=stratSettings.KB_DELAYED_ENTRY,
                                       delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
-                                      cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER) \
+                                      cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
+                                      tp_fac=stratSettings.KB_TP_FAC) \
                     .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
                                  threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
                                  buffer_factor=stratSettings.KB_BUFFER_FACTOR,
@@ -91,7 +92,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
             else:
                 strat = None
-                logger.warn("unkown strategy: " + stratId)
+                logger.warning("unkown strategy: " + stratId)
             if strat is not None:
                 strat.with_telegram(telegram)
                 strat.withRM(risk_factor=stratSettings.KB_RISK_FACTOR*risk_reference,

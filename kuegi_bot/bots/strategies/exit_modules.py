@@ -136,6 +136,27 @@ class MaxSLDiff(ExitModule):
                 to_update.append(order)
 
 
+class TimedExit(ExitModule):
+    ''' trails the stop to a max dist in ATR from the extreme point
+    '''
+
+    def __init__(self, minutes_till_exit:int= 240):
+        super().__init__()
+        self.minutes_till_exit = minutes_till_exit
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info(f"init timedExit {self.minutes_till_exit}" )
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        current_tstamp= bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
+        if position is not None and position.entry_tstamp is not None\
+                and current_tstamp - position.entry_tstamp > self.minutes_till_exit*60:
+            order.stop_price= None # make it market
+            order.limit_price= None
+            to_update.append(order)
+
+
 class ParaData:
     def __init__(self):
         self.acc = 0

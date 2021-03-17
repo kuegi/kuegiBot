@@ -28,7 +28,7 @@ class BybitWebsocket(KuegiWebsocket):
         auth = {"op": "auth", "args": [self.api_key, expires, signature]}
         self.ws.send(json.dumps(auth))
 
-    def subscribeRealtimeData(self):
+    def subscribe_realtime_data(self):
         self.subscribe_order()
         self.subscribe_stop_order()
         self.subscribe_execution()

@@ -20,7 +20,7 @@ def strOrNone(input):
 
 class ByBitInterface(ExchangeWithWS):
 
-    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None):
+    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None, on_execution_callback=None):
         self.on_api_error = on_api_error
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
@@ -35,7 +35,10 @@ class ByBitInterface(ExchangeWithWS):
                                            callback=self.socket_callback,
                                            symbol=settings.SYMBOL,
                                            minutesPerBar=settings.MINUTES_PER_BAR),
-                         on_tick_callback=on_tick_callback)
+                         on_tick_callback=on_tick_callback,
+                         on_execution_callback= on_execution_callback)
+        self.handles_executions= True
+
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.Order.Order_query(symbol=self.symbol))
@@ -224,6 +227,7 @@ class ByBitInterface(ExchangeWithWS):
                             # ws removes stop price when executed
                             if order.stop_price is None:
                                 order.stop_price = prev.stop_price
+                                order.stop_triggered= True # there was a stop and its no longer there -> it was triggered and order turned to linear
                             if order.limit_price is None:
                                 order.limit_price = prev.limit_price
                         prev = order
@@ -244,6 +248,11 @@ class ByBitInterface(ExchangeWithWS):
                             order.executed_amount = (execution['order_qty'] - execution['leaves_qty']) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
+                            self.on_execution_callback(order_id=order.id,
+                                                       executed_price= float(execution['price']),
+                                                       amount=execution['exec_qty'] * sideMulti,
+                                                       tstamp= parse_utc_timestamp(execution['trade_time']))
+
                             self.logger.info("got order execution: %s %.1f @ %.1f " % (
                                 execution['order_link_id'], execution['exec_qty'] * sideMulti,
                                 float(execution['price'])))
@@ -344,10 +353,10 @@ class ByBitInterface(ExchangeWithWS):
                       amount=float(o["qty"]) * sideMulti)
         if "order_status" in o.keys():
             order.stop_triggered = o["order_status"] == "New" and stop is not None
-            order.active = o['order_status'] == 'New' or o['order_status'] == 'Untriggered'
+            order.active = o['order_status'] in ['New', 'Untriggered' , "PartiallyFilled"]
         elif "stop_order_status" in o.keys():
             order.stop_triggered = o["stop_order_status"] == 'Triggered' or o['stop_order_status'] == 'Active'
-            order.active = o['stop_order_status'] == 'Triggered' or o['stop_order_status'] == 'Untriggered'
+            order.active = o['stop_order_status'] in ['Triggered' , 'Untriggered' ]
         execution = o['cum_exec_qty'] if 'cum_exec_qty' in o.keys() else 0
         order.executed_amount = float(execution) * sideMulti
         order.tstamp = parse_utc_timestamp(o['timestamp'] if 'timestamp' in o.keys() else o['created_at'])
