@@ -27,7 +27,7 @@ class PhemexWebsocket(KuegiWebsocket):
             self.auth_id = channel['id']
         self.ws.send(json.dumps(channel))
 
-    def subscribeRealtimeData(self):
+    def subscribe_realtime_data(self):
         self.subscribe_account_updates()
         subbarsIntervall = 1 if self.minutesPerBar <= 60 else 60
         self.subscribe_candlestick_event(self.symbol, subbarsIntervall)

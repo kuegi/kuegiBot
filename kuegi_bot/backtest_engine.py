@@ -8,9 +8,11 @@ import plotly.graph_objects as go
 from typing import List
 from datetime import datetime
 
-from kuegi_bot.bots.trading_bot import TradingBot
-from kuegi_bot.utils.trading_classes import OrderInterface, Bar, Account, Order, Symbol, AccountPosition, PositionStatus
+from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
+from kuegi_bot.utils.trading_classes import OrderInterface, Bar, Account, Order, Symbol, AccountPosition, \
+    PositionStatus, OrderType
 from kuegi_bot.utils import log
+
 
 class SilentLogger(object):
 
@@ -29,26 +31,27 @@ class SilentLogger(object):
 
 class BackTest(OrderInterface):
 
-    def __init__(self, bot: TradingBot, bars: list, funding:dict= None,symbol:Symbol=None,market_slipage_percent= 0.15):
+    def __init__(self, bot: TradingBot, bars: list, funding: dict = None, symbol: Symbol = None,
+                 market_slipage_percent=0.15):
         self.bars: List[Bar] = bars
-        self.funding= funding
-        self.firstFunding= 9999999999
-        self.lastFunding= 0
+        self.funding = funding
+        self.firstFunding = 9999999999
+        self.lastFunding = 0
         if funding is not None:
             for key in funding.keys():
-                self.firstFunding = min(self.firstFunding,key)
-                self.lastFunding= max(self.lastFunding,key)
-
-        self.logger= bot.logger
+                self.firstFunding = min(self.firstFunding, key)
+                self.lastFunding = max(self.lastFunding, key)
+        self.handles_executions = True
+        self.logger = bot.logger
         self.bot = bot
-        self.bot.prepare(SilentLogger(),self)
+        self.bot.prepare(SilentLogger(), self)
 
         self.market_slipage_percent = market_slipage_percent
         self.maker_fee = -0.00025
         self.taker_fee = 0.00075
 
         if symbol is not None:
-            self.symbol= symbol
+            self.symbol = symbol
         else:
             self.symbol: Symbol = Symbol(symbol="XBTUSD", isInverse=True, tickSize=0.5, lotSize=1, makerFee=-0.00025,
                                          takerFee=0.00075)
@@ -60,7 +63,7 @@ class BackTest(OrderInterface):
         self.maxDD = 0
         self.max_underwater = 0
         self.underwater = 0
-        self.maxExposure= 0
+        self.maxExposure = 0
         self.lastHHPosition = 0
 
         self.current_bars: List[Bar] = []
@@ -78,7 +81,7 @@ class BackTest(OrderInterface):
         self.max_underwater = 0
         self.lastHHPosition = 0
         self.underwater = 0
-        self.maxExposure= 0
+        self.maxExposure = 0
         self.bot.reset()
 
         self.current_bars = []
@@ -93,6 +96,14 @@ class BackTest(OrderInterface):
         if order.amount == 0:
             self.logger.error("trying to send order without amount")
             return
+        [posId, order_type] = TradingBot.position_id_and_type_from_order_id(order.id)
+        if order_type == OrderType.ENTRY:
+            [unused, direction] = TradingBot.split_pos_Id(posId)
+            if direction == PositionDirection.LONG and order.amount < 0:
+                self.logger.error("sending long entry with negative amount")
+            if direction == PositionDirection.SHORT and order.amount > 0:
+                self.logger.error("sending short entry with positive amount")
+
         self.logger.debug("added order %s" % (order.print_info()))
 
         order.tstamp = self.current_bars[0].tstamp
@@ -104,6 +115,7 @@ class BackTest(OrderInterface):
             if existing_order.id == order.id:
                 self.account.open_orders.remove(existing_order)
                 self.account.open_orders.append(order)
+                order.tstamp = self.current_bars[0].last_tick_tstamp
                 self.logger.debug("updated order %s" % (order.print_info()))
                 break
 
@@ -120,11 +132,11 @@ class BackTest(OrderInterface):
                 break
 
     # ----------
-    def handle_order_execution(self, order: Order, intrabar: Bar):
+    def handle_order_execution(self, order: Order, intrabar: Bar, force_taker=False):
         amount = order.amount - order.executed_amount
         order.executed_amount = order.amount
         fee = self.taker_fee
-        if order.limit_price:
+        if order.limit_price and not force_taker:
             price = order.limit_price
             fee = self.maker_fee
         elif order.stop_price:
@@ -135,19 +147,21 @@ class BackTest(OrderInterface):
         price = min(intrabar.high,
                     max(intrabar.low, price))  # only prices within the bar. might mean less slipage
         order.executed_price = price
-        oldAmount= self.account.open_position.quantity
+        oldAmount = self.account.open_position.quantity
         if oldAmount != 0:
-            oldavgentry= self.account.open_position.avgEntryPrice
-            if oldAmount * amount > 0 :
-                self.account.open_position.avgEntryPrice = (oldavgentry*oldAmount + price*amount)/(oldAmount+amount)
-            if oldAmount*amount < 0:
+            oldavgentry = self.account.open_position.avgEntryPrice
+            if oldAmount * amount > 0:
+                self.account.open_position.avgEntryPrice = (oldavgentry * oldAmount + price * amount) / (
+                            oldAmount + amount)
+            if oldAmount * amount < 0:
                 if abs(oldAmount) < abs(amount):
-                    profit= oldAmount * ((price-oldavgentry) if not self.symbol.isInverse else (-1 / price + 1/oldavgentry))
+                    profit = oldAmount * (
+                        (price - oldavgentry) if not self.symbol.isInverse else (-1 / price + 1 / oldavgentry))
                     self.account.open_position.walletBalance += profit
-                    #close current, open new
-                    self.account.open_position.avgEntryPrice= price
+                    # close current, open new
+                    self.account.open_position.avgEntryPrice = price
                 else:
-                    #closes the position by "-amount" cause amount is the side and direction of the close
+                    # closes the position by "-amount" cause amount is the side and direction of the close
                     profit = -amount * (
                         (price - oldavgentry) if not self.symbol.isInverse else (-1 / price + 1 / oldavgentry))
                     self.account.open_position.walletBalance += profit
@@ -160,80 +174,125 @@ class BackTest(OrderInterface):
         order.active = False
         order.execution_tstamp = intrabar.tstamp
         order.final_reason = 'executed'
+
+        self.bot.on_execution(order_id=order.id, amount=amount, executed_price=price, tstamp=intrabar.tstamp)
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
         self.logger.debug(
             "executed order %s | %.0f %.2f | %.2f@ %.1f" % (
-            order.id, self.account.usd_equity, self.account.open_position.quantity, order.executed_amount,
-            order.executed_price))
+                order.id, self.account.usd_equity, self.account.open_position.quantity, order.executed_amount,
+                order.executed_price))
 
-    def orderKeyForSort(self,order):
+    def orderKeyForSort(self, order):
         if order.stop_price is None and order.limit_price is None:
             return 0
+        # sort buys after sells (higher number) when bar is falling
+        long_fac = 1 if self.bars[0].close > self.bars[0].open else 2
+        short_fac = 1 if self.bars[0].close < self.bars[0].open else 2
         if order.stop_price is not None:
-            return abs(self.current_bars[0].close - order.stop_price)
-        else: # limit -> bigger numbers to be sorted after the stops
-            return abs(self.current_bars[0].close - order.limit_price)+self.current_bars[0].close
+            if order.amount > 0:
+                return order.stop_price
+            else:
+                return -order.stop_price
+        else:  # limit -> bigger numbers to be sorted after the stops
+            if order.amount > 0:
+                return (self.bars[0].close + self.bars[0].close - order.limit_price) + self.bars[0].close * long_fac
+            else:
+                return order.limit_price + self.bars[0].close * short_fac
 
-    def handle_open_orders(self, intrabarToCheck: Bar) -> bool:
-        something_changed = False
-        another_round= True
+    def check_executions(self, intrabar_to_check: Bar, only_on_close):
+        another_round = True
+        did_something = False
+        allowed_order_ids = None
+        if not only_on_close:
+            allowed_order_ids = set(map(lambda o: o.id, self.account.open_orders))
+        loopbreak = 0
         while another_round:
-            another_round= False
-            should_execute= False
+            if loopbreak > 100:
+                print("got loop in backtest execution")
+                break
+            loopbreak += 1
+            another_round = False
+            should_execute = False
             for order in sorted(self.account.open_orders, key=self.orderKeyForSort):
+                if allowed_order_ids is not None and order.id not in allowed_order_ids:
+                    continue
+                force_taker = False
+                execute_order_only_on_close = only_on_close
+                if order.tstamp > intrabar_to_check.tstamp:
+                    execute_order_only_on_close = True  # was changed during execution on this bar, might have changed the price. only execute if close triggered it
                 if order.limit_price is None and order.stop_price is None:
-                    should_execute= True
+                    should_execute = True
                 elif order.stop_price and not order.stop_triggered:
-                    if (order.amount > 0 and order.stop_price < intrabarToCheck.high) or (
-                            order.amount < 0 and order.stop_price > intrabarToCheck.low):
+                    if (order.amount > 0 and order.stop_price < intrabar_to_check.high) or (
+                            order.amount < 0 and order.stop_price > intrabar_to_check.low):
                         order.stop_triggered = True
                         something_changed = True
                         if order.limit_price is None:
                             # execute stop market
-                            should_execute= True
-                        elif ((order.amount > 0 and order.limit_price > intrabarToCheck.close) or (
-                                order.amount < 0 and order.limit_price < intrabarToCheck.close)):
+                            should_execute = True
+                            if only_on_close:  # order just came in and executed right away: execution on the worst price cause can't assume anything better
+                                order.stop_price = intrabar_to_check.low if order.amount < 0 else intrabar_to_check.high
+
+                        elif ((order.amount > 0 and order.limit_price > intrabar_to_check.close) or (
+                                order.amount < 0 and order.limit_price < intrabar_to_check.close)):
                             # close below/above limit: got definitly executed
-                            should_execute= True
+                            should_execute = True
+                            force_taker = True  # need to assume taker.
                 else:  # means order.limit_price and (order.stop_price is None or order.stop_triggered):
                     # check for limit execution
-                    if (order.amount > 0 and order.limit_price > intrabarToCheck.low) or (
-                            order.amount < 0 and order.limit_price < intrabarToCheck.high):
-                        should_execute= True
+                    ref = intrabar_to_check.low if order.amount > 0 else intrabar_to_check.high
+                    if execute_order_only_on_close:
+                        ref = intrabar_to_check.close
+                        force_taker = True  # need to assume taker.
+                    if (order.amount > 0 and order.limit_price > ref) or (
+                            order.amount < 0 and order.limit_price < ref):
+                        should_execute = True
 
                 if should_execute:
-                    self.handle_order_execution(order, intrabarToCheck)
+                    self.handle_order_execution(order, intrabar_to_check, force_taker=force_taker)
                     self.bot.on_tick(self.current_bars, self.account)
-                    another_round= True
-                    something_changed= True
+                    another_round = True
+                    did_something = True
                     break
+        return did_something
 
+    def handle_subbar(self, intrabarToCheck: Bar):
+        self.current_bars[0].add_subbar(intrabarToCheck)  # so bot knows about the current intrabar
+        # first the ones that are there at the beginning
+        something_changed_on_existing_orders = self.check_executions(intrabarToCheck, False)
+        something_changed_on_second_pass = self.check_executions(intrabarToCheck, True)
+        # then the new ones with updated bar
+
+        if not something_changed_on_existing_orders and not something_changed_on_second_pass:  # no execution happened -> execute on tick now
+            self.bot.on_tick(self.current_bars, self.account)
 
         # update equity = balance + current value of open position
-        avgEntry= self.account.open_position.avgEntryPrice
+        avgEntry = self.account.open_position.avgEntryPrice
         if avgEntry != 0:
             posValue = self.account.open_position.quantity * (
-                (intrabarToCheck.close-avgEntry) if not self.symbol.isInverse else (-1 / intrabarToCheck.close + 1/avgEntry))
+                (intrabarToCheck.close - avgEntry) if not self.symbol.isInverse else (
+                            -1 / intrabarToCheck.close + 1 / avgEntry))
         else:
-            posValue= 0
-        self.account.equity = self.account.open_position.walletBalance # + posValue # for backtest: ignore equity for better charts
+            posValue = 0
+        self.account.equity = self.account.open_position.walletBalance  # + posValue # for backtest: ignore equity for better charts
         self.account.usd_equity = self.account.equity * intrabarToCheck.close
 
         self.update_stats()
-        return something_changed
 
     def update_stats(self):
 
-        if math.fabs(self.account.open_position.quantity) < 1 or self.lastHHPosition * self.account.open_position.quantity < 0:
+        if math.fabs(
+                self.account.open_position.quantity) < 1 or self.lastHHPosition * self.account.open_position.quantity < 0:
             self.hh = max(self.hh, self.account.equity)  # only update HH on closed positions, no open equity
             self.lastHHPosition = self.account.open_position.quantity
         dd = self.hh - self.account.equity
         if dd > self.maxDD:
             self.maxDD = max(self.maxDD, dd)
 
-        exposure= abs(self.account.open_position.quantity)* (1/self.current_bars[0].close if self.symbol.isInverse else self.current_bars[0].close)
-        self.maxExposure= max(self.maxExposure,exposure)
+        exposure = abs(self.account.open_position.quantity) * (
+            1 / self.current_bars[0].close if self.symbol.isInverse else self.current_bars[0].close)
+        self.maxExposure = max(self.maxExposure, exposure)
         if self.account.equity < self.hh:
             self.underwater += 1
         else:
@@ -254,12 +313,11 @@ class BackTest(OrderInterface):
         if funding != 0 and self.account.open_position.quantity != 0:
             self.account.open_position.walletBalance -= funding * self.account.open_position.quantity / bar.open
 
-
     def run(self):
         self.reset()
         self.logger.info(
             "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.equity) + " equity")
-        for i in range(self.bot.min_bars_needed(),len(self.bars)):
+        for i in range(self.bot.min_bars_needed(), len(self.bars)):
             if i == len(self.bars) - 1 or i < self.bot.min_bars_needed():
                 continue  # ignore last bar and first x
 
@@ -275,15 +333,13 @@ class BackTest(OrderInterface):
             self.current_bars[1].did_change = True
 
             self.do_funding()
-            # self.bot.on_tick(self.current_bars, self.account)
+            self.bot.on_tick(self.current_bars, self.account)  # tick on new bar open cause many strats act on that
             for subbar in reversed(next_bar.subbars):
                 # check open orders & update account
-                self.handle_open_orders(subbar)
-                open= len(self.account.open_orders)
-                forming_bar.add_subbar(subbar)
-                self.bot.on_tick(self.current_bars, self.account)
-                if open != len(self.account.open_orders):
-                    self.handle_open_orders(subbar) # got new ones
+                # ensure correct last tick (must not be the same as tstamp)
+                if subbar.last_tick_tstamp < subbar.tstamp + 59:
+                    subbar.last_tick_tstamp = subbar.tstamp + 59
+                self.handle_subbar(subbar)
                 self.current_bars[1].did_change = False
 
             next_bar.bot_data = forming_bar.bot_data
@@ -291,58 +347,59 @@ class BackTest(OrderInterface):
                 if b.did_change:
                     b.did_change = False
                 else:
-                    break # no need to go further
+                    break  # no need to go further
 
-        if abs(self.account.open_position.quantity) > self.symbol.lotSize/10:
+        if abs(self.account.open_position.quantity) > self.symbol.lotSize / 10:
             self.send_order(Order(orderId="endOfTest", amount=-self.account.open_position.quantity))
-            self.handle_open_orders(self.bars[0].subbars[-1])
+            self.handle_subbar(self.bars[0].subbars[-1])
 
         if len(self.bot.position_history) > 0:
             daysInPos = 0
-            maxDays= 0
-            minDays= self.bot.position_history[0].daysInPos() if len(self.bot.position_history) > 0 else 0
+            maxDays = 0
+            minDays = self.bot.position_history[0].daysInPos() if len(self.bot.position_history) > 0 else 0
             for pos in self.bot.position_history:
                 if pos.status != PositionStatus.CLOSED:
                     continue
                 if pos.exit_tstamp is None:
                     pos.exit_tstamp = self.bars[0].tstamp
                 daysInPos += pos.daysInPos()
-                maxDays= max(maxDays,pos.daysInPos())
-                minDays= min(minDays,pos.daysInPos())
+                maxDays = max(maxDays, pos.daysInPos())
+                minDays = min(minDays, pos.daysInPos())
             daysInPos /= len(self.bot.position_history)
 
             profit = self.account.equity - self.initialEquity
             uw_updates_per_day = 1440  # every minute
-            total_days= (self.bars[0].tstamp - self.bars[-1].tstamp)/(60*60*24)
-            rel= profit / (self.maxDD if self.maxDD > 0 else 1)
-            rel_per_year = rel / (total_days/365)
+            total_days = (self.bars[0].tstamp - self.bars[-1].tstamp) / (60 * 60 * 24)
+            rel = profit / (self.maxDD if self.maxDD > 0 else 1)
+            rel_per_year = rel / (total_days / 365)
             self.logger.info("finished | closed pos: " + str(len(self.bot.position_history))
-                        + " | open pos: " + str(len(self.bot.open_positions))
-                        + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
-                        + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
-                        + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
-                        + " | maxExp: " + ("%.2f" % (self.maxExposure / self.initialEquity))
-                        + " | rel: " + ("%.2f" % (rel_per_year))
-                        + " | UW days: " + ("%.1f" % (self.max_underwater / uw_updates_per_day))
-                        + " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays,daysInPos,maxDays))
-                        )
+                             + " | open pos: " + str(len(self.bot.open_positions))
+                             + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
+                             + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
+                             + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
+                             + " | maxExp: " + ("%.2f" % (self.maxExposure / self.initialEquity))
+                             + " | rel: " + ("%.2f" % (rel_per_year))
+                             + " | UW days: " + ("%.1f" % (self.max_underwater / uw_updates_per_day))
+                             + " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays, daysInPos, maxDays))
+                             )
         else:
             self.logger.info("finished with no trades")
 
-        #self.write_results_to_files()
+        # self.write_results_to_files()
         return self
 
     def prepare_plot(self):
-        barcenter= (self.bars[0].tstamp - self.bars[1].tstamp)/2
+        barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
         self.logger.info("running timelines")
-        time = list(map(lambda b: datetime.fromtimestamp(b.tstamp+barcenter), self.bars))
+        time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
         open = list(map(lambda b: b.open, self.bars))
         high = list(map(lambda b: b.high, self.bars))
         low = list(map(lambda b: b.low, self.bars))
         close = list(map(lambda b: b.close, self.bars))
 
         self.logger.info("creating plot")
-        fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
+        fig = go.Figure(
+            data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
 
         self.logger.info("adding bot data")
         self.bot.add_to_plot(fig, self.bars, time)
@@ -369,7 +426,7 @@ class BackTest(OrderInterface):
             for position in self.bot.position_history:
                 writer.writerow([
                     datetime.fromtimestamp(position.signal_tstamp).isoformat(),
-                    position.amount,
+                    position.max_filled_amount,
                     position.wanted_entry,
                     position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),
@@ -381,7 +438,7 @@ class BackTest(OrderInterface):
             for position in self.bot.open_positions.values():
                 writer.writerow([
                     datetime.fromtimestamp(position.signal_tstamp).isoformat(),
-                    position.amount,
+                    position.max_filled_amount,
                     position.wanted_entry,
                     position.initial_stop,
                     datetime.fromtimestamp(position.entry_tstamp).isoformat(),

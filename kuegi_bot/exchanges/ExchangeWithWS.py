@@ -74,21 +74,21 @@ class KuegiWebsocket(object):
     def do_auth(self):
         pass
 
-    def subscribeDataAfterAuth(self):
+    def subscribe_data_after_auth(self):
         self.logger.info("subscribing to live updates.")
         retry_times = 5
         while not self.auth and retry_times:
             sleep(1)
             retry_times -= 1
         if self.auth:
-            self.subscribeRealtimeData()
+            self.subscribe_realtime_data()
             self.logger.info("ready to go")
         else:
             self.logger.error("couldn't auth the socket, exiting")
             self.exit()
             raise Exception('Error！Couldn not auth the WebSocket!.')
 
-    def subscribeRealtimeData(self):
+    def subscribe_realtime_data(self):
         pass
 
     def on_message(self, message):
@@ -117,9 +117,9 @@ class KuegiWebsocket(object):
                 self.last_restart= now
                 self.__connect()
                 if self.api_key and self.api_secret:
-                    self.subscribeDataAfterAuth()
+                    self.subscribe_data_after_auth()
                 else:
-                    self.subscribeRealtimeData()
+                    self.subscribe_realtime_data()
                 self.restarting= False
             else:
                 self.exited= True
@@ -159,8 +159,8 @@ class KuegiWebsocket(object):
 
 class ExchangeWithWS(ExchangeInterface):
 
-    def __init__(self, settings, logger, ws: KuegiWebsocket, on_tick_callback=None):
-        super().__init__(settings, logger, on_tick_callback)
+    def __init__(self, settings, logger, ws: KuegiWebsocket, on_tick_callback=None, on_execution_callback=None):
+        super().__init__(settings, logger, on_tick_callback, on_execution_callback)
         self.symbol = settings.SYMBOL
         self.baseCurrency = settings.BASE
         self.ws = ws
@@ -190,9 +190,9 @@ class ExchangeWithWS(ExchangeInterface):
                                                                                len(self.orders),
                                                                                self.positions[self.symbol].quantity,
                                                                                self.positions[self.symbol].avgEntryPrice))
-            self.ws.subscribeDataAfterAuth()
+            self.ws.subscribe_data_after_auth()
         else:
-            self.ws.subscribeRealtimeData()
+            self.ws.subscribe_realtime_data()
 
     def initOrders(self):
         raise NotImplementedError

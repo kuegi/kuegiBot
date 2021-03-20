@@ -42,8 +42,8 @@ class Bar:
         self.subbars: List[Bar] = subbars if subbars is not None else []
         self.bot_data = {"indicators": {}}
         self.did_change: bool = True
-        self.last_tick_tstamp: float = tstamp if subbars is None or len(subbars) == 0 else\
-                                        subbars[0].last_tick_tstamp
+        self.last_tick_tstamp: float = tstamp if subbars is None or len(subbars) == 0 else \
+            subbars[0].last_tick_tstamp
 
     def __str__(self):
         result = "%s (%i) %.1f/%.1f\\%.1f-%.1f %.1f" % (
@@ -63,7 +63,7 @@ class Bar:
         self.close = subbar.close
         self.volume += subbar.volume
         self.subbars.insert(0, subbar)
-        self.last_tick_tstamp = max(self.last_tick_tstamp,subbar.last_tick_tstamp)
+        self.last_tick_tstamp = max(self.last_tick_tstamp, subbar.last_tick_tstamp)
         self.did_change = True
 
 
@@ -71,7 +71,8 @@ class Account:
     def __init__(self):
         self.equity = 0
         self.usd_equity = 0
-        self.open_position:AccountPosition = AccountPosition(symbol="dummy",quantity=0,avgEntryPrice=0,walletBalance=0)
+        self.open_position: AccountPosition = AccountPosition(symbol="dummy", quantity=0, avgEntryPrice=0,
+                                                              walletBalance=0)
         self.open_orders = []
         self.order_history = []
 
@@ -80,39 +81,40 @@ class Account:
 
 
 class Symbol:
-    def __init__(self, symbol: str, isInverse, lotSize, tickSize, makerFee, takerFee,pricePrecision = 2, quantityPrecision= 2):
+    def __init__(self, symbol: str, isInverse, lotSize, tickSize, makerFee, takerFee, pricePrecision=2,
+                 quantityPrecision=2):
         self.symbol: str = symbol
         self.isInverse = isInverse
         self.lotSize = lotSize
         self.tickSize = tickSize
         self.makerFee = makerFee
         self.takerFee = takerFee
-        self.pricePrecision= pricePrecision
-        self.quantityPrecision= quantityPrecision
+        self.pricePrecision = pricePrecision
+        self.quantityPrecision = quantityPrecision
 
     def __str__(self):
         return str(self.__dict__)
 
-    def normalizePrice(self,price, roundUp):
+    def normalizePrice(self, price, roundUp):
         if price is None:
             return None
-        rou= math.ceil if roundUp else math.floor
-        closestTicks= round(price / self.tickSize)
-        if math.fabs(closestTicks - price/self.tickSize) < 0.01: #already rounded close enough
-            toTicks= closestTicks*self.tickSize
+        rou = math.ceil if roundUp else math.floor
+        closestTicks = round(price / self.tickSize)
+        if math.fabs(closestTicks - price / self.tickSize) < 0.01:  # already rounded close enough
+            toTicks = closestTicks * self.tickSize
         else:
-            toTicks= rou(price/self.tickSize)*self.tickSize
-        return round(toTicks,self.pricePrecision)
+            toTicks = rou(price / self.tickSize) * self.tickSize
+        return round(toTicks, self.pricePrecision)
 
-    def normalizeSize(self,size):
+    def normalizeSize(self, size):
         if size is None:
             return None
-        closestLot= round(size / self.lotSize)
-        if math.fabs(closestLot-size/self.lotSize) < 0.01: #already rounded close enough
-            toTicks= closestLot*self.lotSize
+        closestLot = round(size / self.lotSize)
+        if math.fabs(closestLot - size / self.lotSize) < 0.01:  # already rounded close enough
+            toTicks = closestLot * self.lotSize
         else:
-            toTicks= math.floor(size/self.lotSize)*self.lotSize
-        return round(toTicks,self.quantityPrecision)
+            toTicks = math.floor(size / self.lotSize) * self.lotSize
+        return round(toTicks, self.quantityPrecision)
 
 
 class OrderType(Enum):
@@ -131,23 +133,29 @@ class Order:
         self.executed_price = None
         self.active = True
         self.stop_triggered = False
-        self.tstamp:float = 0
-        self.execution_tstamp:float = 0
+        self.tstamp: float = 0
+        self.execution_tstamp: float = 0
         self.exchange_id: str = None
 
     def __str__(self):
-        return str(self.__dict__)
+        string = f"{self.id} ({'active' if self.active else 'inactive'}, " \
+                 f"{self.exchange_id[-8:] if self.exchange_id is not None else None})" \
+                 f" {self.amount}@{self.limit_price}/{self.stop_price} at {datetime.fromtimestamp(self.tstamp)}"
+        if self.executed_price is not None:
+            string += f" ex: {self.executed_amount}@{self.executed_price} at " \
+                      f"{datetime.fromtimestamp(self.execution_tstamp) if self.execution_tstamp is not None else None}"
+        return string
 
     def print_info(self):
-        precision= 1
+        precision = 1
         if abs(self.amount) < 1:
-            precision= 3
-        format= "{:."+str(precision)+"f}"
-        amount= format.format(self.amount)
+            precision = 3
+        format = "{:." + str(precision) + "f}"
+        amount = format.format(self.amount)
         if self.limit_price is None and self.stop_price is None:
             return "%s %s @ market" % (self.id, amount)
         else:
-            price= ""
+            price = ""
             if self.stop_price is not None:
                 price += "%.3f" % self.stop_price
             if self.limit_price is not None:
@@ -159,6 +167,10 @@ class Order:
 
 
 class OrderInterface:
+
+    def __init__(self):
+        self.handles_executions = False
+
     def send_order(self, order: Order):
         pass
 
@@ -167,6 +179,7 @@ class OrderInterface:
 
     def cancel_order(self, order: Order):
         pass
+
 
 class PositionStatus(Enum):
     PENDING = "pending"
@@ -182,15 +195,20 @@ class Position:
         self.id: str = id
         self.signal_tstamp = tstamp
         self.status: PositionStatus = PositionStatus.PENDING
+        self.changed = False
         self.wanted_entry = entry
         self.initial_stop = stop
         self.amount = amount
+        self.max_filled_amount = 0
+        self.current_open_amount = 0
+        self.last_filled_entry: float = None
         self.filled_entry: float = None
         self.filled_exit: float = None
         self.entry_tstamp = 0
         self.exit_tstamp = 0
         self.exit_equity = 0
-        self.connectedOrders :List[Order] = []
+        self.custom_data = {}
+        self.connectedOrders: List[Order] = []
         self.stats = {}
 
     def __str__(self):
@@ -199,10 +217,10 @@ class Position:
     def to_json(self):
         tempdic = dict(self.__dict__)
         tempdic['status'] = self.status.value
-        orders= tempdic['connectedOrders']
-        tempdic['connectedOrders']= []
+        orders = tempdic['connectedOrders']
+        tempdic['connectedOrders'] = []
         for order in orders:
-            if isinstance(order,dict):
+            if isinstance(order, dict):
                 tempdic['connectedOrders'].append(order)
             else:
                 tempdic['connectedOrders'].append(order.__dict__)
@@ -214,30 +232,42 @@ class Position:
         for prop in pos.__dict__.keys():
             if prop in pos_json.keys():
                 setattr(pos, prop, pos_json[prop])
-        state= PositionStatus.MISSED
+        # backward comp
+        if "currentOpenAmount" in pos_json.keys():
+            pos.current_open_amount = pos_json['currentOpenAmount']
+        if "customData" in pos_json.keys():
+            pos.custom_data = pos_json['customData']
+
+        state = PositionStatus.MISSED
         for status in PositionStatus:
             if pos.status == status.value:
                 state = status
                 break
-        pos.status= state
+        pos.status = state
+
+        # backward compatibility
+        if pos.status == PositionStatus.OPEN and (pos.current_open_amount == 0 or pos.max_filled_amount == 0):
+            # happens when old open positions file gets read in
+            pos.max_filled_amount = pos.amount
+            pos.current_open_amount = pos.amount
         return pos
 
     def daysInPos(self):
         if self.entry_tstamp is None or self.entry_tstamp is None:
             return 0
-        return (self.exit_tstamp-self.entry_tstamp)/(60*60*24)
+        return (self.exit_tstamp - self.entry_tstamp) / (60 * 60 * 24)
 
 
 def parse_utc_timestamp(timestamp: str) -> float:
     import calendar
     if "." in timestamp:
-        if timestamp[-1] == 'Z' and len(timestamp)> 27:
-            timestamp= timestamp[:26]+"Z"
+        if timestamp[-1] == 'Z' and len(timestamp) > 27:
+            timestamp = timestamp[:26] + "Z"
         d = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
     else:
         d = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
 
-    return calendar.timegm(d.timetuple())+d.microsecond/1000000.0
+    return calendar.timegm(d.timetuple()) + d.microsecond / 1000000.0
 
 
 def process_low_tf_bars(subbars: List[Bar], timeframe_minutes, start_offset_minutes=0):
@@ -265,11 +295,12 @@ def process_low_tf_bars(subbars: List[Bar], timeframe_minutes, start_offset_minu
 
 
 class ExchangeInterface(OrderInterface):
-    def __init__(self, settings, logger,on_tick_callback=None):
+    def __init__(self, settings, logger, on_tick_callback=None, on_execution_callback=None):
         self.settings = settings
         self.logger = logger
         self.symbol = None
-        self.on_tick_callback= on_tick_callback
+        self.on_tick_callback = on_tick_callback
+        self.on_execution_callback = on_execution_callback
 
         atexit.register(lambda: self.exit())
 

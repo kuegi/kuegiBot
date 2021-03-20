@@ -17,15 +17,15 @@ def strOrNone(input):
     if input is None:
         return None
     else:
-        string= str(input)
+        string = str(input)
         if string[-2:] == ".0":
-            string= string[:-2]
+            string = string[:-2]
         return string
 
 
 class ByBitLinearInterface(ExchangeWithWS):
 
-    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None):
+    def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None, on_execution_callback=None):
         self.on_api_error = on_api_error
         self.bybit = bybit.bybit(test=settings.IS_TEST,
                                  api_key=settings.API_KEY,
@@ -34,21 +34,22 @@ class ByBitLinearInterface(ExchangeWithWS):
             else ["wss://stream.bybit.com/realtime_private", "wss://stream.bytick.com/realtime_private"]
         hosts_public = ["wss://stream-testnet.bybit.com/realtime_public"] if settings.IS_TEST \
             else ["wss://stream.bybit.com/realtime_public", "wss://stream.bytick.com/realtime_public"]
-        self.longPos= AccountPosition(settings.SYMBOL, 0, 0, 0)
-        self.shortPos= AccountPosition(settings.SYMBOL, 0, 0, 0)
+        self.longPos = AccountPosition(settings.SYMBOL, 0, 0, 0)
+        self.shortPos = AccountPosition(settings.SYMBOL, 0, 0, 0)
         super().__init__(settings, logger,
-                         ws=BybitLinearWebsocket(wspublicURLs=hosts_public, wsprivateURLs= hosts_private,
-                                           api_key=settings.API_KEY,
-                                           api_secret=settings.API_SECRET,
-                                           logger=logger,
-                                           callback=self.socket_callback,
-                                           symbol=settings.SYMBOL,
-                                           minutesPerBar=settings.MINUTES_PER_BAR),
-                         on_tick_callback=on_tick_callback)
+                         ws=BybitLinearWebsocket(wspublicURLs=hosts_public, wsprivateURLs=hosts_private,
+                                                 api_key=settings.API_KEY,
+                                                 api_secret=settings.API_SECRET,
+                                                 logger=logger,
+                                                 callback=self.socket_callback,
+                                                 symbol=settings.SYMBOL,
+                                                 minutes_per_bar=settings.MINUTES_PER_BAR),
+                         on_tick_callback=on_tick_callback, on_execution_callback=on_execution_callback)
+        self.handles_executions = True
 
     def is_open(self):
         # ws is always a BybitLinearWebsocket which has a publicWS
-        return not self.ws.exited and not self.ws.publicWS.exited
+        return not self.ws.exited and not self.ws.public_ws.exited
 
     def initOrders(self):
         apiOrders = self._execute(self.bybit.LinearOrder.LinearOrder_query(symbol=self.symbol))
@@ -59,43 +60,44 @@ class ByBitLinearInterface(ExchangeWithWS):
             self.logger.debug(str(order))
 
     def initPositions(self):
-        api_wallet=  self._execute(self.bybit.Wallet.Wallet_getBalance(coin=self.baseCurrency))
-        balance= api_wallet[self.baseCurrency]["wallet_balance"]
+        api_wallet = self._execute(self.bybit.Wallet.Wallet_getBalance(coin=self.baseCurrency))
+        balance = api_wallet[self.baseCurrency]["wallet_balance"]
         api_positions = self._execute(self.bybit.LinearPositions.LinearPositions_myPosition(symbol=self.symbol))
         self.longPos = AccountPosition(self.symbol, 0, 0, balance)
         self.shortPos = AccountPosition(self.symbol, 0, 0, balance)
         if api_positions is not None:
             for pos in api_positions:
                 if pos["side"] == "Sell":
-                    self.shortPos.avgEntryPrice=float(pos["entry_price"])
-                    self.shortPos.quantity= -1*pos["size"]
+                    self.shortPos.avgEntryPrice = float(pos["entry_price"])
+                    self.shortPos.quantity = -1 * pos["size"]
                 else:
-                    self.longPos.avgEntryPrice=float(pos["entry_price"])
-                    self.longPos.quantity= pos["size"]
+                    self.longPos.avgEntryPrice = float(pos["entry_price"])
+                    self.longPos.quantity = pos["size"]
         self.updatePosition_internally()
 
     def updatePosition_internally(self):
         if self.longPos.quantity > -self.shortPos.quantity:
-            entry= self.longPos.avgEntryPrice
+            entry = self.longPos.avgEntryPrice
         else:
-            entry= self.shortPos.avgEntryPrice
+            entry = self.shortPos.avgEntryPrice
 
         if self.symbol in self.positions.keys() and \
-                self.positions[self.symbol].quantity != self.longPos.quantity+self.shortPos.quantity:
+                self.positions[self.symbol].quantity != self.longPos.quantity + self.shortPos.quantity:
             self.logger.info("position changed %.2f -> %.2f" % (
-                self.positions[self.symbol].quantity, self.longPos.quantity+self.shortPos.quantity))
+                self.positions[self.symbol].quantity, self.longPos.quantity + self.shortPos.quantity))
 
         self.positions[self.symbol] = AccountPosition(self.symbol,
-                                                          quantity=self.longPos.quantity+self.shortPos.quantity,
-                                                          avgEntryPrice= entry,
-                                                          walletBalance=self.longPos.walletBalance)
+                                                      quantity=self.longPos.quantity + self.shortPos.quantity,
+                                                      avgEntryPrice=entry,
+                                                      walletBalance=self.longPos.walletBalance)
 
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
         if order.stop_price is not None:
             self._execute(
-                self.bybit.LinearConditional.LinearConditional_cancel(stop_order_id=order.exchange_id, symbol=self.symbol))
+                self.bybit.LinearConditional.LinearConditional_cancel(stop_order_id=order.exchange_id,
+                                                                      symbol=self.symbol))
         else:
             self._execute(self.bybit.LinearOrder.LinearOrder_cancel(order_id=order.exchange_id, symbol=self.symbol))
 
@@ -114,7 +116,29 @@ class ByBitLinearInterface(ExchangeWithWS):
                 1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
             normalizedStop = self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
-            result = self._execute(self.bybit.LinearConditional.LinearConditional_new(side=("Buy" if order.amount > 0 else "Sell"),
+            result = self._execute(
+                self.bybit.LinearConditional.LinearConditional_new(side=("Buy" if order.amount > 0 else "Sell"),
+                                                                   symbol=self.symbol,
+                                                                   order_type=order_type,
+                                                                   qty=strOrNone(
+                                                                       self.symbol_info.normalizeSize(
+                                                                           abs(order.amount))),
+                                                                   price=strOrNone(
+                                                                       self.symbol_info.normalizePrice(
+                                                                           order.limit_price, order.amount < 0)),
+                                                                   stop_px=strOrNone(normalizedStop),
+                                                                   order_link_id=order.id,
+                                                                   base_price=strOrNone(round(
+                                                                       normalizedStop + base_side,
+                                                                       self.symbol_info.pricePrecision)),
+                                                                   time_in_force="GoodTillCancel",
+                                                                   reduce_only=orderType != OrderType.ENTRY,
+                                                                   close_on_trigger=orderType != OrderType.ENTRY))
+            if result is not None:
+                order.exchange_id = result['stop_order_id']
+
+        else:
+            result = self._execute(self.bybit.LinearOrder.LinearOrder_new(side=("Buy" if order.amount > 0 else "Sell"),
                                                                           symbol=self.symbol,
                                                                           order_type=order_type,
                                                                           qty=strOrNone(
@@ -122,56 +146,39 @@ class ByBitLinearInterface(ExchangeWithWS):
                                                                                   abs(order.amount))),
                                                                           price=strOrNone(
                                                                               self.symbol_info.normalizePrice(
-                                                                                  order.limit_price, order.amount < 0)),
-                                                                          stop_px=strOrNone(normalizedStop),
+                                                                                  order.limit_price,
+                                                                                  order.amount < 0)),
                                                                           order_link_id=order.id,
-                                                                          base_price=strOrNone(round(
-                                                                              normalizedStop + base_side,
-                                                                              self.symbol_info.pricePrecision)),
                                                                           time_in_force="GoodTillCancel",
-                                                                          reduce_only= orderType != OrderType.ENTRY,
-                                                                          close_on_trigger= orderType != OrderType.ENTRY))
-            if result is not None:
-                order.exchange_id = result['stop_order_id']
-
-        else:
-            result = self._execute(self.bybit.LinearOrder.LinearOrder_new(side=("Buy" if order.amount > 0 else "Sell"),
-                                                              symbol=self.symbol,
-                                                              order_type=order_type,
-                                                              qty=strOrNone(
-                                                                              self.symbol_info.normalizeSize(
-                                                                                  abs(order.amount))),
-                                                              price=strOrNone(
-                                                                  self.symbol_info.normalizePrice(order.limit_price,
-                                                                                                  order.amount < 0)),
-                                                              order_link_id=order.id,
-                                                              time_in_force="GoodTillCancel",
-                                                              reduce_only= orderType != OrderType.ENTRY,
-                                                              close_on_trigger= orderType != OrderType.ENTRY))
+                                                                          reduce_only=orderType != OrderType.ENTRY,
+                                                                          close_on_trigger=orderType != OrderType.ENTRY))
             if result is not None:
                 order.exchange_id = result['order_id']
 
     def internal_update_order(self, order: Order):
         if order.stop_price is not None:
             self._execute(self.bybit.LinearConditional.LinearConditional_replace(stop_order_id=order.exchange_id,
-                                                                     symbol=self.symbol,
-                                                                      p_r_qty=strOrNone(
-                                                                          self.symbol_info.normalizeSize(
-                                                                              abs(order.amount))),
-                                                                     p_r_trigger_price=strOrNone(
-                                                                         self.symbol_info.normalizePrice(
-                                                                             order.stop_price, order.amount > 0)),
-                                                                     p_r_price=strOrNone(
-                                                                         self.symbol_info.normalizePrice(
-                                                                             order.limit_price, order.amount < 0))))
+                                                                                 symbol=self.symbol,
+                                                                                 p_r_qty=strOrNone(
+                                                                                     self.symbol_info.normalizeSize(
+                                                                                         abs(order.amount))),
+                                                                                 p_r_trigger_price=
+                                                                                 self.symbol_info.normalizePrice(
+                                                                                     order.stop_price,
+                                                                                     order.amount > 0),
+                                                                                 p_r_price=
+                                                                                 self.symbol_info.normalizePrice(
+                                                                                     order.limit_price,
+                                                                                     order.amount < 0)))
         else:
             self._execute(self.bybit.LinearOrder.LinearOrder_replace(order_id=order.exchange_id,
-                                                         symbol=self.symbol,
-                                                         p_r_qty=strOrNone(
-                                                              self.symbol_info.normalizeSize(abs(order.amount))),
-                                                         p_r_price=
-                                                             self.symbol_info.normalizePrice(order.limit_price,
-                                                                                             order.amount < 0)))
+                                                                     symbol=self.symbol,
+                                                                     p_r_qty=strOrNone(
+                                                                         self.symbol_info.normalizeSize(
+                                                                             abs(order.amount))),
+                                                                     p_r_price=
+                                                                     self.symbol_info.normalizePrice(order.limit_price,
+                                                                                                     order.amount < 0)))
 
     def get_current_liquidity(self) -> tuple:
         book = self._execute(self.bybit.LinearMarket.LinearMarket_orderbook(symbol=self.symbol))
@@ -191,7 +198,7 @@ class ByBitLinearInterface(ExchangeWithWS):
         apibars = self._execute(self.bybit.LinearKline.LinearKline_get(
             **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
         # get more history to fill enough (currently 200 H4 bars.
-        for idx in range(1+ math.ceil((min_bars_needed*timeframe_minutes)/(tf*200))):
+        for idx in range(1 + math.ceil((min_bars_needed * timeframe_minutes) / (tf * 200))):
             start = int(apibars[0]['open_time']) - tf * 60 * 200
             bars1 = self._execute(self.bybit.LinearKline.LinearKline_get(
                 **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
@@ -220,7 +227,8 @@ class ByBitLinearInterface(ExchangeWithWS):
                               makerFee=float(entry['maker_fee']),
                               takerFee=float(entry['taker_fee']),
                               pricePrecision=entry['price_scale'],
-                              quantityPrecision=3 if entry["quote_currency"] == "USDT" else 0)  # hardcoded 5 digits FIXME!
+                              quantityPrecision=3 if entry[
+                                                         "quote_currency"] == "USDT" else 0)  # hardcoded 5 digits FIXME!
         return None
 
     def get_ticker(self, symbol=None):
@@ -269,6 +277,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                             # ws removes stop price when executed
                             if order.stop_price is None:
                                 order.stop_price = prev.stop_price
+                                order.stop_triggered = True  # there was a stop and its no longer there -> it was triggered and order turned to linear
                             if order.limit_price is None:
                                 order.limit_price = prev.limit_price
                         prev = order
@@ -276,7 +285,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                             prev.execution_tstamp = datetime.utcnow().timestamp()
                         self.orders[order.exchange_id] = prev
 
-                        self.logger.info("received order update: %s" % (str(order)))
+                        self.logger.info("order update: %s" % (str(order)))
                 elif topic == 'execution':
                     # {'symbol': 'BTCUSD', 'side': 'Buy', 'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951',
                     # 'exec_id': '22add7a8-bb15-585f-b068-3a8648f6baff', 'order_link_id': '', 'price': '7307.5',
@@ -289,13 +298,17 @@ class ByBitLinearInterface(ExchangeWithWS):
                             order.executed_amount = (execution['order_qty'] - execution['leaves_qty']) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
+                            self.on_execution_callback(order_id=order.id,
+                                                       executed_price=float(execution['price']),
+                                                       amount=execution['exec_qty'] * sideMulti,
+                                                       tstamp=parse_utc_timestamp(execution['trade_time']))
                             self.logger.info("got order execution: %s %.3f @ %.2f " % (
                                 execution['order_link_id'], execution['exec_qty'] * sideMulti,
                                 float(execution['price'])))
                 elif topic == 'wallet':
                     for wallet in msgs:
-                        self.longPos.walletBalance= float(wallet["wallet_balance"])
-                        self.shortPos.walletBalance= float(wallet["wallet_balance"])
+                        self.longPos.walletBalance = float(wallet["wallet_balance"])
+                        self.shortPos.walletBalance = float(wallet["wallet_balance"])
                     self.updatePosition_internally()
                 elif topic == 'position':
                     # {'user_id': 712961, 'symbol': 'BTCUSD', 'size': 1, 'side': 'Buy', 'position_value':
@@ -308,11 +321,11 @@ class ByBitLinearInterface(ExchangeWithWS):
                     for pos in msgs:
                         if pos['symbol'] == self.symbol:
                             if pos["side"] == "Sell":
-                                self.shortPos.quantity= -float(pos['size'])
-                                self.shortPos.avgEntryPrice= float(pos['entry_price'])
+                                self.shortPos.quantity = -float(pos['size'])
+                                self.shortPos.avgEntryPrice = float(pos['entry_price'])
                             else:
-                                self.longPos.quantity= float(pos['size'])
-                                self.longPos.avgEntryPrice= float(pos['entry_price'])
+                                self.longPos.quantity = float(pos['size'])
+                                self.longPos.avgEntryPrice = float(pos['entry_price'])
 
                             self.updatePosition_internally()
 
@@ -347,7 +360,7 @@ class ByBitLinearInterface(ExchangeWithWS):
             # new bars is handling directly in the messagecause we get a new one on each tick
             if topic in ["order", "stop_order", "execution", "wallet"]:
                 gotTick = True
-                self.reset_order_sync_timer() # only when something with orders changed
+                self.reset_order_sync_timer()  # only when something with orders changed
             if gotTick and self.on_tick_callback is not None:
                 self.on_tick_callback(
                     fromAccountAction=topic in ["order", "stop_order", "execution", "wallet"])  # got something new
@@ -370,7 +383,8 @@ class ByBitLinearInterface(ExchangeWithWS):
                         msg = result['ret_msg']
                     self.on_api_error("problem sending request: %s %s: %s" %
                                       (str(call.operation.http_method).upper(), call.operation.path_name, msg))
-                self.logger.error('got empty result for %s, \nparams:%s\nresult: %s' % (call.operation.operation_id, call.future.request.params, str(result)))
+                self.logger.error('got empty result for %s, \nparams:%s\nresult: %s' % (
+                call.operation.operation_id, call.future.request.params, str(result)))
                 return None
 
     @staticmethod
@@ -388,10 +402,10 @@ class ByBitLinearInterface(ExchangeWithWS):
                       amount=float(o["qty"]) * sideMulti)
         if "order_status" in o.keys():
             order.stop_triggered = o["order_status"] == "New" and stop is not None
-            order.active = o['order_status'] == 'New' or o['order_status'] == 'Untriggered'
+            order.active = o['order_status'] in ['New', 'Untriggered', "PartiallyFilled"]
         elif "stop_order_status" in o.keys():
             order.stop_triggered = o["stop_order_status"] == 'Triggered' or o['stop_order_status'] == 'Active'
-            order.active = o['stop_order_status'] == 'Triggered' or o['stop_order_status'] == 'Untriggered'
+            order.active = o['stop_order_status'] in ['Triggered', 'Untriggered']
         execution = o['cum_exec_qty'] if 'cum_exec_qty' in o.keys() else 0
         order.executed_amount = float(execution) * sideMulti
         order.tstamp = parse_utc_timestamp(o['updated_time'] if 'updated_time' in o.keys() else o['update_time'])

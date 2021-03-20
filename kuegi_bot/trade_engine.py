@@ -35,14 +35,17 @@ class LiveTrading(OrderInterface):
         self.logger.info(
             "############ Start LiveTrading " + settings.id + " on " + settings.EXCHANGE + " #################")
         self.exchange: ExchangeInterface = None
+        #FIXME: implement on_execution for bitmex, binance and phemex
         if settings.EXCHANGE == 'bitmex':
             self.exchange = BitmexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'bybit':
             self.exchange = ByBitInterface(settings=settings, logger=self.logger,
-                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution)
+                                           on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
+                                           on_execution_callback= trading_bot.on_execution)
         elif settings.EXCHANGE == 'bybit-linear':
             self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
-                                           on_tick_callback=self.on_tick, on_api_error=self.telegram_bot.send_execution)
+                                           on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
+                                           on_execution_callback= trading_bot.on_execution)
         elif settings.EXCHANGE == 'binance_future':
             self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':
@@ -51,6 +54,7 @@ class LiveTrading(OrderInterface):
             self.logger.error("unkown exchange: " + settings.EXCHANGE)
             self.alive = False
             return
+        self.handles_executions= self.exchange.handles_executions
 
         self.alive = True
 
@@ -78,10 +82,13 @@ class LiveTrading(OrderInterface):
 
     def on_tick(self, fromAccountAction: bool = True):
         if fromAccountAction:
-            delay = 2
+            delay = 1
         else:
             delay = 0
         self.last_tick = max(self.last_tick, time.time() + delay)
+
+    def on_api_error(self,msg):
+        self.telegram_bot.send_execution(f"ERROR in {self.id}: {msg}")
 
     def print_status(self):
         """Print the current status."""
@@ -104,7 +111,7 @@ class LiveTrading(OrderInterface):
         self.exchange.send_order(order)
 
     def update_order(self, order: Order):
-        if self.telegram_bot is not None and TradingBot.order_type_from_order_id(order.id) == OrderType.SL:
+        if self.telegram_bot is not None:
             self.telegram_bot.send_log("updating (" + self.id + "): " + order.print_info(), order.id)
         self.exchange.update_order(order)
         self.exchange.on_tick_callback(True) ##simulate tick to prevent early updates (need to wait for exchange to update order
@@ -209,8 +216,9 @@ class LiveTrading(OrderInterface):
 
     def handle_tick(self):
         try:
-            if self.bot.unaccountedPositionCoolOff > 0:
-                self.telegram_bot.send_execution("%s having problem with unaccounted pos!" % self.id)
+            if self.bot.unaccounted_position_cool_off > 0:
+                if self.bot.unaccounted_position_cool_off > 1:
+                    self.telegram_bot.send_execution("%s having problem with unaccounted pos!" % self.id)
                 self.exchange.resyncOrders()
             self.update_bars()
             self.update_account()
