@@ -1,10 +1,11 @@
+import logging
 import math
 from datetime import datetime
 
 from typing import List
 
-import bybit
-from bravado.http_future import HttpFuture
+import pybit
+from pybit import HTTP
 
 from kuegi_bot.exchanges.bybit.bybit_websocket import BybitWebsocket
 from kuegi_bot.utils.trading_classes import Order, Bar, TickerData, AccountPosition, \
@@ -22,9 +23,11 @@ class ByBitInterface(ExchangeWithWS):
 
     def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None, on_execution_callback=None):
         self.on_api_error = on_api_error
-        self.bybit = bybit.bybit(test=settings.IS_TEST,
+        self.pybit= HTTP(endpoint= 'https://api-testnet.bybit.com' if settings.IS_TEST else 'https://api.bybit.com',
                                  api_key=settings.API_KEY,
-                                 api_secret=settings.API_SECRET)
+                                 api_secret=settings.API_SECRET,
+                                logging_level=settings.LOG_LEVEL)
+        logging.root.handlers= [] # needed cause pybit adds to rootlogger
         hosts = ["wss://stream-testnet.bybit.com/realtime"] if settings.IS_TEST \
             else ["wss://stream.bybit.com/realtime", "wss://stream.bytick.com/realtime"]
         super().__init__(settings, logger,
@@ -41,15 +44,15 @@ class ByBitInterface(ExchangeWithWS):
 
 
     def initOrders(self):
-        apiOrders = self._execute(self.bybit.Order.Order_query(symbol=self.symbol))
-        apiOrders += self._execute(self.bybit.Conditional.Conditional_query(symbol=self.symbol))
+        apiOrders =  self.handle_result(lambda:self.pybit.query_active_order(symbol=self.symbol))
+        apiOrders +=  self.handle_result(lambda:self.pybit.query_conditional_order(symbol=self.symbol))
         self.processOrders(apiOrders)
 
         for order in self.orders.values():
             self.logger.debug(str(order))
 
     def initPositions(self):
-        api_positions = self._execute(self.bybit.Positions.Positions_myPosition())
+        api_positions= self.handle_result(lambda: self.pybit.my_position())
         self.positions[self.symbol] = AccountPosition(self.symbol, 0, 0, 0)
         if api_positions is not None:
             for pos in api_positions:
@@ -65,10 +68,9 @@ class ByBitInterface(ExchangeWithWS):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
         if order.stop_price is not None:
-            self._execute(
-                self.bybit.Conditional.Conditional_cancel(stop_order_id=order.exchange_id, symbol=self.symbol))
+            self.handle_result(lambda:self.pybit.cancel_conditional_order(stop_order_id=order.exchange_id, symbol=self.symbol))
         else:
-            self._execute(self.bybit.Order.Order_cancel(order_id=order.exchange_id, symbol=self.symbol))
+            self.handle_result(lambda:self.pybit.cancel_active_order(order_id=order.exchange_id, symbol=self.symbol))
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
@@ -83,7 +85,7 @@ class ByBitInterface(ExchangeWithWS):
                 1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
             normalizedStop = self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
-            result = self._execute(self.bybit.Conditional.Conditional_new(side=("Buy" if order.amount > 0 else "Sell"),
+            result =  self.handle_result(lambda:self.pybit.place_conditional_order(side=("Buy" if order.amount > 0 else "Sell"),
                                                                           symbol=self.symbol,
                                                                           order_type=order_type,
                                                                           qty=strOrNone(int(abs(order.amount))),
@@ -100,7 +102,7 @@ class ByBitInterface(ExchangeWithWS):
                 order.exchange_id = result['stop_order_id']
 
         else:
-            result = self._execute(self.bybit.Order.Order_new(side=("Buy" if order.amount > 0 else "Sell"),
+            result =  self.handle_result(lambda:self.pybit.place_active_order(side=("Buy" if order.amount > 0 else "Sell"),
                                                               symbol=self.symbol,
                                                               order_type=order_type,
                                                               qty=strOrNone(int(abs(order.amount))),
@@ -114,7 +116,7 @@ class ByBitInterface(ExchangeWithWS):
 
     def internal_update_order(self, order: Order):
         if order.stop_price is not None:
-            self._execute(self.bybit.Conditional.Conditional_replace(stop_order_id=order.exchange_id,
+             self.handle_result(lambda:self.pybit.replace_conditional_order(stop_order_id=order.exchange_id,
                                                                      symbol=self.symbol,
                                                                      p_r_qty=strOrNone(int(abs(order.amount))),
                                                                      p_r_trigger_price=strOrNone(
@@ -124,7 +126,7 @@ class ByBitInterface(ExchangeWithWS):
                                                                          self.symbol_info.normalizePrice(
                                                                              order.limit_price, order.amount < 0))))
         else:
-            self._execute(self.bybit.Order.Order_replace(order_id=order.exchange_id,
+             self.handle_result(lambda:self.pybit.replace_active_order(order_id=order.exchange_id,
                                                          symbol=self.symbol,
                                                          p_r_qty=strOrNone(int(abs(order.amount))),
                                                          p_r_price=strOrNone(
@@ -132,7 +134,7 @@ class ByBitInterface(ExchangeWithWS):
                                                                                              order.amount < 0))))
 
     def get_current_liquidity(self) -> tuple:
-        book = self._execute(self.bybit.Market.Market_orderbook(symbol=self.symbol))
+        book =  self.handle_result(lambda:self.pybit.orderbook(symbol=self.symbol))
         buy = 0
         sell = 0
         for entry in book:
@@ -146,12 +148,12 @@ class ByBitInterface(ExchangeWithWS):
     def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed=600) -> List[Bar]:
         tf = 1 if timeframe_minutes <= 60 else 60
         start = int(datetime.now().timestamp() - tf * 60 * 199)
-        apibars = self._execute(self.bybit.Kline.Kline_get(
+        apibars =  self.handle_result(lambda:self.pybit.query_kline(
             **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
         # get more history to fill enough (currently 200 H4 bars.
         for idx in range(1+ math.ceil((min_bars_needed*timeframe_minutes)/(tf*200))):
             start = int(apibars[0]['open_time']) - tf * 60 * 200
-            bars1 = self._execute(self.bybit.Kline.Kline_get(
+            bars1 =  self.handle_result(lambda:self.pybit.query_kline(
                 **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
             apibars = bars1 + apibars
 
@@ -168,7 +170,7 @@ class ByBitInterface(ExchangeWithWS):
     def get_instrument(self, symbol=None):
         if symbol is None:
             symbol = self.symbol
-        instr = self._execute(self.bybit.Symbol.Symbol_get())
+        instr =  self.handle_result(lambda:self.pybit.query_symbol())
         for entry in instr:
             if entry['name'] == symbol:
                 return Symbol(symbol=entry['name'],
@@ -184,7 +186,7 @@ class ByBitInterface(ExchangeWithWS):
     def get_ticker(self, symbol=None):
         if symbol is None:
             symbol = self.symbol
-        symbolData = self._execute(self.bybit.Market.Market_symbolInfo())
+        symbolData =  self.handle_result(lambda:self.pybit.latest_information_for_symbol(symbol= symbol))
         for data in symbolData:
             if data["symbol"] == symbol:
                 return TickerData(bid=float(data["bid_price"]), ask=float(data["ask_price"]),
@@ -319,24 +321,19 @@ class ByBitInterface(ExchangeWithWS):
         except Exception as e:
             self.logger.error("error in socket data(%s): %s " % (topic, str(e)))
 
-    def _execute(self, call: HttpFuture, silent=False, remainingRetries=0):
-        # TODO: handle exception
-        result = call.response().result
-        if 'result' in result.keys() and result['result'] is not None:
-            return result['result']
-        else:
-            if remainingRetries > 0:
-                self.logger.debug('retry after empty result for %s: %s' % (call.operation.operation_id, str(result)))
-                return self._execute(call, silent, remainingRetries - 1)
+    def handle_result(self,call):
+        try:
+            result= call()
+            if result is not None and 'result' in result.keys() and result['result'] is not None:
+                return result['result']
             else:
-                if self.on_api_error is not None:
-                    msg = "unkown error"
-                    if 'ret_msg' in result.keys():
-                        msg = result['ret_msg']
-                    self.on_api_error("problem sending request: %s %s: %s" %
-                                      (str(call.operation.http_method).upper(), call.operation.path_name, msg))
-                self.logger.error('got empty result for %s, \nparams:%s\nresult: %s' % (call.operation.operation_id, call.future.request.params, str(result)))
+                self.logger.error(f"empty result: {result}")
+                self.on_api_error(f"problem in request: {str(call)}")
                 return None
+        except pybit.exceptions.InvalidRequestError as e:
+            self.logger.error(str(e))
+            self.on_api_error(f"problem in request: {e.message}")
+            return None
 
     @staticmethod
     def orderDictToOrder(o):
