@@ -52,14 +52,22 @@ class ByBitInterface(ExchangeWithWS):
             self.logger.debug(str(order))
 
     def initPositions(self):
-        api_positions= self.handle_result(lambda: self.pybit.my_position())
+        api_positions= self.handle_result(lambda: self.pybit.my_position(symbol=self.symbol))
         self.positions[self.symbol] = AccountPosition(self.symbol, 0, 0, 0)
         if api_positions is not None:
-            for pos in api_positions:
-                if pos['is_valid']:
-                    posdata = pos['data']
-                    sizefac = -1 if posdata["side"] == "Sell" else 1
-                    self.positions[posdata['symbol']] = AccountPosition(posdata['symbol'],
+            if "symbol" in api_positions: # single reply
+                posdata = api_positions
+                sizefac = -1 if posdata["side"] == "Sell" else 1
+                self.positions[posdata['symbol']] = AccountPosition(posdata['symbol'],
+                                                                    avgEntryPrice=float(posdata["entry_price"]),
+                                                                    quantity=posdata["size"] * sizefac,
+                                                                    walletBalance=float(posdata['wallet_balance']))
+            else:
+                for pos in api_positions:
+                    if pos['is_valid']:
+                        posdata = pos['data']
+                        sizefac = -1 if posdata["side"] == "Sell" else 1
+                        self.positions[posdata['symbol']] = AccountPosition(posdata['symbol'],
                                                                         avgEntryPrice=float(posdata["entry_price"]),
                                                                         quantity=posdata["size"] * sizefac,
                                                                         walletBalance=float(posdata['wallet_balance']))
