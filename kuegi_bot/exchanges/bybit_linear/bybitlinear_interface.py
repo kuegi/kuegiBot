@@ -27,10 +27,10 @@ class ByBitLinearInterface(ExchangeWithWS):
 
     def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None, on_execution_callback=None):
         self.on_api_error = on_api_error
-        self.pybit= HTTP(endpoint= 'https://api-testnet.bybit.com' if settings.IS_TEST else 'https://api.bybit.com',
-                                 api_key=settings.API_KEY,
-                                 api_secret=settings.API_SECRET,
-                                logging_level=settings.LOG_LEVEL)
+        self.pybit = HTTP(endpoint='https://api-testnet.bybit.com' if settings.IS_TEST else 'https://api.bybit.com',
+                          api_key=settings.API_KEY,
+                          api_secret=settings.API_SECRET,
+                          logging_level=settings.LOG_LEVEL)
         hosts_private = ["wss://stream-testnet.bybit.com/realtime_private"] if settings.IS_TEST \
             else ["wss://stream.bybit.com/realtime_private", "wss://stream.bytick.com/realtime_private"]
         hosts_public = ["wss://stream-testnet.bybit.com/realtime_public"] if settings.IS_TEST \
@@ -61,9 +61,9 @@ class ByBitLinearInterface(ExchangeWithWS):
             self.logger.debug(str(order))
 
     def initPositions(self):
-        api_wallet= self.handle_result(lambda: self.pybit.get_wallet_balance(coin=self.baseCurrency))
-        balance= api_wallet[self.baseCurrency]["wallet_balance"]
-        api_positions= self.handle_result(lambda: self.pybit.my_position(symbol=self.symbol))
+        api_wallet = self.handle_result(lambda: self.pybit.get_wallet_balance(coin=self.baseCurrency))
+        balance = api_wallet[self.baseCurrency]["wallet_balance"]
+        api_positions = self.handle_result(lambda: self.pybit.my_position(symbol=self.symbol))
         self.longPos = AccountPosition(self.symbol, 0, 0, balance)
         self.shortPos = AccountPosition(self.symbol, 0, 0, balance)
         if api_positions is not None:
@@ -96,7 +96,8 @@ class ByBitLinearInterface(ExchangeWithWS):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
         if order.stop_price is not None:
-            self.handle_result(lambda: self.pybit.cancel_conditional_order(stop_order_id=order.exchange_id, symbol=self.symbol))
+            self.handle_result(
+                lambda: self.pybit.cancel_conditional_order(stop_order_id=order.exchange_id, symbol=self.symbol))
         else:
             self.handle_result(lambda: self.pybit.cancel_active_order(order_id=order.exchange_id, symbol=self.symbol))
 
@@ -115,64 +116,68 @@ class ByBitLinearInterface(ExchangeWithWS):
                 1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
             normalizedStop = self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
-            result =  self.handle_result(lambda:self.pybit.place_conditional_order(side=("Buy" if order.amount > 0 else "Sell"),
-                                                                          symbol=self.symbol,
-                                                                          order_type=order_type,
-                                                                          qty=strOrNone(
-                                                                              self.symbol_info.normalizeSize(
-                                                                                  abs(order.amount))),
-                                                                          price=strOrNone(
-                                                                              self.symbol_info.normalizePrice(
-                                                                                  order.limit_price,
-                                                                                  order.amount < 0)),
-                                                                          order_link_id=order.id,
-                                                                          time_in_force="GoodTillCancel",
-                                                                          reduce_only= orderType != OrderType.ENTRY,
-                                                                          close_on_trigger= orderType != OrderType.ENTRY))
+            result = self.handle_result(
+                lambda: self.pybit.place_conditional_order(side=("Buy" if order.amount > 0 else "Sell"),
+                                                           symbol=self.symbol,
+                                                           order_type=order_type,
+                                                           qty=strOrNone(
+                                                               self.symbol_info.normalizeSize(
+                                                                   abs(order.amount))),
+                                                           price=strOrNone(
+                                                               self.symbol_info.normalizePrice(
+                                                                   order.limit_price,
+                                                                   order.amount < 0)),
+                                                           order_link_id=order.id,
+                                                           time_in_force="GoodTillCancel",
+                                                           reduce_only=orderType != OrderType.ENTRY,
+                                                           close_on_trigger=orderType != OrderType.ENTRY))
             if result is not None:
                 order.exchange_id = result['stop_order_id']
 
         else:
-            result =  self.handle_result(lambda:self.pybit.place_active_order(side=("Buy" if order.amount > 0 else "Sell"),
-                                                              symbol=self.symbol,
-                                                              order_type=order_type,
-                                                              qty=strOrNone(
-                                                                              self.symbol_info.normalizeSize(
-                                                                                  abs(order.amount))),
-                                                              price=strOrNone(
-                                                                  self.symbol_info.normalizePrice(order.limit_price,
-                                                                                                  order.amount < 0)),
-                                                              order_link_id=order.id,
-                                                              time_in_force="GoodTillCancel",
-                                                              reduce_only= orderType != OrderType.ENTRY,
-                                                              close_on_trigger= orderType != OrderType.ENTRY))
+            result = self.handle_result(
+                lambda: self.pybit.place_active_order(side=("Buy" if order.amount > 0 else "Sell"),
+                                                      symbol=self.symbol,
+                                                      order_type=order_type,
+                                                      qty=strOrNone(
+                                                          self.symbol_info.normalizeSize(
+                                                              abs(order.amount))),
+                                                      price=strOrNone(
+                                                          self.symbol_info.normalizePrice(order.limit_price,
+                                                                                          order.amount < 0)),
+                                                      order_link_id=order.id,
+                                                      time_in_force="GoodTillCancel",
+                                                      reduce_only=orderType != OrderType.ENTRY,
+                                                      close_on_trigger=orderType != OrderType.ENTRY))
             if result is not None:
                 order.exchange_id = result['order_id']
 
     def internal_update_order(self, order: Order):
         if order.stop_price is not None:
-            self.handle_result(lambda:self.pybit.replace_conditional_order(stop_order_id=order.exchange_id,
-                                                                     symbol=self.symbol,
-                                                                      p_r_qty=strOrNone(
-                                                                          self.symbol_info.normalizeSize(
-                                                                              abs(order.amount))),
-                                                                     p_r_trigger_price=
-                                                                         self.symbol_info.normalizePrice(
-                                                                             order.stop_price, order.amount > 0),
-                                                                     p_r_price=
-                                                                         self.symbol_info.normalizePrice(
-                                                                             order.limit_price, order.amount < 0)))
+            self.handle_result(lambda: self.pybit.replace_conditional_order(stop_order_id=order.exchange_id,
+                                                                            symbol=self.symbol,
+                                                                            p_r_qty=strOrNone(
+                                                                                self.symbol_info.normalizeSize(
+                                                                                    abs(order.amount))),
+                                                                            p_r_trigger_price=
+                                                                            self.symbol_info.normalizePrice(
+                                                                                order.stop_price, order.amount > 0),
+                                                                            p_r_price=
+                                                                            self.symbol_info.normalizePrice(
+                                                                                order.limit_price, order.amount < 0)))
         else:
-            self.handle_result(lambda:self.pybit.replace_active_order(order_id=order.exchange_id,
-                                                         symbol=self.symbol,
-                                                         p_r_qty=strOrNone(
-                                                              self.symbol_info.normalizeSize(abs(order.amount))),
-                                                         p_r_price=
-                                                             self.symbol_info.normalizePrice(order.limit_price,
-                                                                                             order.amount < 0)))
+            self.handle_result(lambda: self.pybit.replace_active_order(order_id=order.exchange_id,
+                                                                       symbol=self.symbol,
+                                                                       p_r_qty=strOrNone(
+                                                                           self.symbol_info.normalizeSize(
+                                                                               abs(order.amount))),
+                                                                       p_r_price=
+                                                                       self.symbol_info.normalizePrice(
+                                                                           order.limit_price,
+                                                                           order.amount < 0)))
 
     def get_current_liquidity(self) -> tuple:
-        book =  self.handle_result(lambda:self.pybit.orderbook(symbol=self.symbol))
+        book = self.handle_result(lambda: self.pybit.orderbook(symbol=self.symbol))
         buy = 0
         sell = 0
         for entry in book:
@@ -186,12 +191,12 @@ class ByBitLinearInterface(ExchangeWithWS):
     def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed) -> List[Bar]:
         tf = 1 if timeframe_minutes <= 60 else 60
         start = int(datetime.now().timestamp() - tf * 60 * 199)
-        apibars = self.handle_result(lambda:self.pybit.query_kline(
+        apibars = self.handle_result(lambda: self.pybit.query_kline(
             **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
         # get more history to fill enough (currently 200 H4 bars.
         for idx in range(1 + math.ceil((min_bars_needed * timeframe_minutes) / (tf * 200))):
             start = int(apibars[0]['open_time']) - tf * 60 * 200
-            bars1 = self.handle_result(lambda:self.pybit.query_kline(
+            bars1 = self.handle_result(lambda: self.pybit.query_kline(
                 **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
             apibars = bars1 + apibars
 
@@ -208,7 +213,7 @@ class ByBitLinearInterface(ExchangeWithWS):
     def get_instrument(self, symbol=None):
         if symbol is None:
             symbol = self.symbol
-        instr = self.handle_result(lambda:self.pybit.query_symbol())
+        instr = self.handle_result(lambda: self.pybit.query_symbol())
         for entry in instr:
             if entry['name'] == symbol:
                 return Symbol(symbol=entry['name'],
@@ -225,7 +230,7 @@ class ByBitLinearInterface(ExchangeWithWS):
     def get_ticker(self, symbol=None):
         if symbol is None:
             symbol = self.symbol
-        symbolData =  self.handle_result(lambda:self.pybit.latest_information_for_symbol(symbol= symbol))
+        symbolData = self.handle_result(lambda: self.pybit.latest_information_for_symbol(symbol=symbol))
         for data in symbolData:
             if data["symbol"] == symbol:
                 return TickerData(bid=float(data["bid_price"]), ask=float(data["ask_price"]),
@@ -358,9 +363,9 @@ class ByBitLinearInterface(ExchangeWithWS):
         except Exception as e:
             self.logger.error("error in socket data(%s): %s " % (topic, str(e)))
 
-    def handle_result(self,call):
+    def handle_result(self, call):
         try:
-            result= call()
+            result = call()
             if result is not None and 'result' in result.keys() and result['result'] is not None:
                 return result['result']
             else:
