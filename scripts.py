@@ -61,7 +61,7 @@ funding = dict()
 with open("history/bybit/BTCUSD_fundraw.json") as f:
     fund= json.load(f)
     for key, value in fund.items():
-        tstamp = parse_utc_timestamp(key)
+        tstamp = parse_utc_timestamp(key)+8*60*60 # funding in history is "in 8 hours"
         funding[int(tstamp)]= value
 
 with open("history/bybit/BTCUSD_funding.json","w") as f:
