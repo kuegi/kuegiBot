@@ -108,8 +108,6 @@ while True:
     wasOk= len(data) >= 200
     if not wasOk:
         print(str(data)[:100])
-        if len(result) > 0:
-            sleep(10)
         if exchange == "bitstamp" and len(result) == 0:
             start+= 1000*60
     else:
@@ -145,6 +143,9 @@ while True:
                     json.dump(result[idx*batchsize-offset:(idx+1)*batchsize-offset],file)
                     print("wrote file "+str(idx))
             idx += 1
+
+    if not wasOk:
+        sleep(10)
 
 #########################################
 # live tests
