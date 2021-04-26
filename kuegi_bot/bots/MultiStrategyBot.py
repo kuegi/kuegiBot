@@ -62,7 +62,7 @@ class Strategy:
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         pass
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions: dict):
+    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions_of_strat: dict, all_open_pos: dict):
         pass
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
@@ -135,7 +135,7 @@ class MultiStrategyBot(TradingBot):
         [signalId, direction] = self.split_pos_Id(position.id)
         for strat in self.strategies:
             if strat.owns_signal_id(signalId):
-                self.call_with_open_positions_for_strat(strat, lambda open_pos:
+                self.call_with_open_positions_for_strat(strat, lambda open_pos,all_pos:
                 strat.position_got_opened_or_changed(position, bars,
                                                      account, open_pos))
                 break
@@ -153,7 +153,7 @@ class MultiStrategyBot(TradingBot):
             if strat.owns_signal_id(signalId):
                 open_pos[pos.id] = pos
                 pos_ids.add(pos.id)
-        call(open_pos)
+        call(open_pos,self.open_positions)
         for pos in open_pos.values():
             if pos.id in pos_ids:
                 pos_ids.remove(pos.id)
@@ -173,7 +173,7 @@ class MultiStrategyBot(TradingBot):
             [signalId, direction] = self.split_pos_Id(posId)
             for strat in self.strategies:
                 if strat.owns_signal_id(signalId):
-                    self.call_with_open_positions_for_strat(strat, lambda open_pos:
+                    self.call_with_open_positions_for_strat(strat, lambda open_pos,all_pos:
                     strat.manage_open_order(order,
                                             self.open_positions[posId],
                                             bars, to_update, to_cancel,
@@ -200,9 +200,9 @@ class MultiStrategyBot(TradingBot):
 
     def open_orders(self, bars: List[Bar], account: Account):
         for strat in self.strategies:
-            self.call_with_open_positions_for_strat(strat, lambda open_pos:
+            self.call_with_open_positions_for_strat(strat, lambda open_pos,all_open_pos:
             strat.open_orders(self.is_new_bar,
-                              self.directionFilter, bars, account, open_pos))
+                              self.directionFilter, bars, account, open_pos,all_open_pos))
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
         super().add_to_plot(fig, bars, time)

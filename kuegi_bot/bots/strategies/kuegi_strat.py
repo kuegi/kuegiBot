@@ -118,7 +118,7 @@ class KuegiStrategy(ChannelStrategy):
             p.status = PositionStatus.CANCELLED
             pos_ids_to_cancel.append(p.id)
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions):
+    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < 5:
             return  # only open orders on beginning of bar
 
