@@ -89,7 +89,7 @@ class MeanReversion(StrategyWithExitModulesAndFilter):
             if order not in account.open_orders:  # outside world might have already added it
                 account.open_orders.append(order)
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions):
+    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < self.min_bars_needed():
             return  # only open orders on beginning of bar
 

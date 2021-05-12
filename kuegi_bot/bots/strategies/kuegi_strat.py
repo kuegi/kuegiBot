@@ -12,7 +12,7 @@ class KuegiStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3,
                  limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter: bool = False, tp_fac: float = 0):
+                 cancel_on_filter:bool = False, tp_fac: float = 0, min_stop_diff_atr : float = 0):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -23,6 +23,7 @@ class KuegiStrategy(ChannelStrategy):
         self.delayed_cancel = delayed_cancel
         self.cancel_on_filter = cancel_on_filter
         self.tp_fac = tp_fac
+        self.min_stop_diff_atr = min_stop_diff_atr
 
     def myId(self):
         return "kuegi"
@@ -117,7 +118,7 @@ class KuegiStrategy(ChannelStrategy):
             p.status = PositionStatus.CANCELLED
             pos_ids_to_cancel.append(p.id)
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions):
+    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < 5:
             return  # only open orders on beginning of bar
 
@@ -144,11 +145,14 @@ class KuegiStrategy(ChannelStrategy):
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             if atr * self.min_channel_size_factor < swing_range < atr * self.max_channel_size_factor:
                 risk = self.risk_factor
+                longEntry = self.symbol.normalizePrice(max(data.longSwing, bars[0].high), roundUp=True)
+                shortEntry = self.symbol.normalizePrice(min(data.shortSwing, bars[0].low), roundUp=False)
+
                 stopLong = self.symbol.normalizePrice(max(data.shortSwing, data.longTrail), roundUp=False)
                 stopShort = self.symbol.normalizePrice(min(data.longSwing, data.shortTrail), roundUp=True)
 
-                longEntry = self.symbol.normalizePrice(max(data.longSwing, bars[0].high), roundUp=True)
-                shortEntry = self.symbol.normalizePrice(min(data.shortSwing, bars[0].low), roundUp=False)
+                stopLong = min(stopLong,longEntry - self.min_stop_diff_atr*atr)
+                stopShort = max(stopShort, shortEntry + self.min_stop_diff_atr*atr)
 
                 expectedEntrySplipagePerc = 0.0015 if self.limit_entry_offset_perc is None else 0
                 expectedExitSlipagePerc = 0.0015

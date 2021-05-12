@@ -47,7 +47,7 @@ class SfpStrategy(ChannelStrategy):
     def owns_signal_id(self, signalId: str):
         return signalId.startswith("sfp+")
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions):
+    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < 5:
             return  # only open orders on beginning of bar
 
@@ -122,15 +122,15 @@ class SfpStrategy(ChannelStrategy):
                 and (bars[1].high - hh) > (bars[1].high - bars[1].close)*self.min_air_wick_fac \
                 and directionFilter <= 0 and bars[1].high > rangeMedian + atr * self.range_filter_fac \
                     and bars[1].high - bars[1].close > (bars[1].high - bars[1].low) * self.min_wick_to_body:
-            self.__open_position(PositionDirection.SHORT, bars, swingHigh if gotHighSwing else hh,open_positions)
+            self.__open_position(PositionDirection.SHORT, bars, swingHigh if gotHighSwing else hh,open_positions,all_open_pos)
 
         if (shortSFP or shortRej) and (bars[1].close - bars[1].low) > atr * self.min_wick_fac \
                 and (ll - bars[1].low) > (bars[1].close - bars[1].low)*self.min_air_wick_fac \
                 and directionFilter >= 0 and bars[1].low < rangeMedian - atr * self.range_filter_fac\
                    and bars[1].close - bars[1].low > (bars[1].high - bars[1].low) * self.min_wick_to_body:
-            self.__open_position(PositionDirection.LONG, bars, swingLow if gotLowSwing else ll,open_positions)
+            self.__open_position(PositionDirection.LONG, bars, swingLow if gotLowSwing else ll,open_positions,all_open_pos)
 
-    def __open_position(self, direction, bars, swing ,open_positions):
+    def __open_position(self, direction, bars, swing ,open_positions,all_open_pos):
         directionFactor= 1
         oppDirection= PositionDirection.SHORT
         extreme= bars[1].low
@@ -181,6 +181,7 @@ class SfpStrategy(ChannelStrategy):
             pos = Position(id=posId, entry=entry, amount=amount, stop=stop,
                            tstamp=bars[0].tstamp)
             open_positions[posId] = pos
+            all_open_pos[posId] = pos # need to add to the bots open pos too, so the execution of the market is not missed
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
                                                   amount=amount, stop=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
