@@ -125,9 +125,12 @@ class ByBitLinearInterface(ExchangeWithWS):
                                                                    abs(order.amount))),
                                                            price=strOrNone(
                                                                self.symbol_info.normalizePrice(
-                                                                   order.limit_price,
-                                                                   order.amount < 0)),
+                                                                   order.limit_price, order.amount < 0)),
+                                                           stop_px=strOrNone(normalizedStop),
                                                            order_link_id=order.id,
+                                                           base_price=strOrNone(round(
+                                                                    normalizedStop + base_side,
+                                                                    self.symbol_info.pricePrecision)),
                                                            time_in_force="GoodTillCancel",
                                                            reduce_only=orderType != OrderType.ENTRY,
                                                            close_on_trigger=orderType != OrderType.ENTRY))
