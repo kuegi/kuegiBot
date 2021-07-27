@@ -170,7 +170,7 @@ def write_dashboard(dashboardFile):
                 data['moduleData'][engine.bars[1].tstamp] = ExitModule.get_data_for_json(engine.bars[1])
 
             else:
-                result[engine.id] = {"alive": False}
+                result[engine.id] = {"alive": engine.alive}
         except Exception as e:
             logger.error("exception in writing dashboard: " + traceback.format_exc())
             thread.bot.alive= False
