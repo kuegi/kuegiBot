@@ -105,7 +105,8 @@ class ByBitInterface(ExchangeWithWS):
                                                                           base_price=strOrNone(round(
                                                                               normalizedStop + base_side,
                                                                               self.symbol_info.pricePrecision)),
-                                                                          time_in_force="GoodTillCancel"))
+                                                                          time_in_force="GoodTillCancel",
+                                                                          trigger_by="LastPrice"))
             if result is not None:
                 order.exchange_id = result['stop_order_id']
 
