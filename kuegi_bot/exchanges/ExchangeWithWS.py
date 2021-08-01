@@ -47,11 +47,12 @@ class KuegiWebsocket(object):
         self.auth = False
 
         self.ws = websocket.WebSocketApp(usedUrl,
-                                         on_message=self.on_message,
+                                         on_message=lambda ws, message : self.on_message(message),
                                          on_close=self.__on_close,
                                          on_open=self.__on_open,
                                          on_error=self.on_error,
                                          keep_running=True)
+
 
         self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=5))
         self.wst.daemon = True
@@ -130,7 +131,7 @@ class KuegiWebsocket(object):
             self.on_error("error during restart: "+str(e))
 
 
-    def on_error(self, error):
+    def on_error(self, ws, error):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited and not self.restarting:
             self.logger.error("Error : %s" % error)
@@ -139,15 +140,15 @@ class KuegiWebsocket(object):
             self.try_restart()
 
 
-    def __on_open(self):
+    def __on_open(self,ws):
         """
         Called when the WS opens.
         """
         self.logger.debug("Websocket Opened.")
 
-    def __on_close(self):
+    def __on_close(self,ws,status_code,close_msg):
         """Called on websocket close."""
-        self.logger.info('Websocket Closed '+str(self.exited)+" "+str(self.restarting))
+        self.logger.info('Websocket Closed '+str(self.exited)+" "+str(self.restarting)+ " with message: "+close_msg)
         if not self.exited and not self.restarting:
             self.exit()
 

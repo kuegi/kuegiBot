@@ -1,5 +1,5 @@
 plotly>=5.1.0
 requests>=2.26.0
 future>=0.18.2
-websocket-client==0.57.0
+websocket-client==1.1.0
 pybit>=1.2.1
