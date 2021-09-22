@@ -13,7 +13,7 @@ from urllib.parse import parse_qs
 # ====================================
 #
 # api-endpoint
-from kuegi_bot.utils.helper import history_file_name, known_history_files, get_last_known
+from kuegi_bot.utils.helper import history_file_name, get_last_known
 from kuegi_bot.utils.trading_classes import parse_utc_timestamp
 
 exchange = sys.argv[1] if len(sys.argv) > 1 else 'bybit'
