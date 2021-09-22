@@ -7,11 +7,13 @@ import math
 import sys
 from time import sleep
 
-from datetime import datetime
+import datetime
+from urllib.parse import urlparse
+from urllib.parse import parse_qs
 # ====================================
 #
 # api-endpoint
-from kuegi_bot.utils.helper import history_file_name, known_history_files
+from kuegi_bot.utils.helper import history_file_name, known_history_files, get_last_known
 from kuegi_bot.utils.trading_classes import parse_utc_timestamp
 
 exchange = sys.argv[1] if len(sys.argv) > 1 else 'bybit'
@@ -52,7 +54,7 @@ offset = 0
 # init
 # TODO: adapt this to your number if you already have history files
 
-lastknown = known_history_files[exchange+"_"+symbol] if exchange+"_"+symbol in known_history_files else -1
+lastknown = get_last_known(exchange)
 
 try:
     os.makedirs('history/'+exchange)
@@ -78,40 +80,44 @@ if lastknown >= 0:
         print("lier! you didn't have any history yet! ("+str(e)+")")
         lastknown = 0
 
-wroteData= False
-lastSync= 0
+wroteData = False
+lastSync = 0
 while True:
     # sending get request and saving the response as response object
-    url= URL+"&start="+str(start)
-    if exchange in ['bybit','bybit-linear']:
+    url = URL+"&start="+str(start)
+    if exchange in ['bybit', 'bybit-linear']:
         url = URL + "&from=" + str(start)
-    elif exchange in ['binance_future','binanceSpot']:
-        url= URL + "&startTime="+str(start)
+    elif exchange in ['binance_future', 'binanceSpot']:
+        url = URL + "&startTime="+str(start)
     elif exchange == 'phemex':
         url = URL + "&from=" + str(start)+"&to="+str(start+2000*60)
 
+    parsed_url = urlparse(url)
+    date_str = parse_qs(parsed_url.query)['from'][0]
+
     print(url+" __ "+str(len(result)))
+    print(datetime.datetime.fromtimestamp(int(date_str)))
     r = requests.get(url=url)
     # extracting data in json format
-    jsonData= r.json()
-    data=jsonData
-    if  exchange in ['bybit','bybit-linear']:
+    jsonData = r.json()
+    data = jsonData
+    if exchange in ['bybit', 'bybit-linear']:
         data = jsonData["result"]
     elif exchange == 'phemex':
         if jsonData['msg'] == 'OK':
             data = jsonData['data']['rows']
         else:
-            data= []
+            data = []
     elif exchange == "bitstamp":
-        data= jsonData['data']['ohlc']
+        data = jsonData['data']['ohlc']
 
-    wasOk= len(data) >= 200
+    wasOk = len(data) >= 200
     if not wasOk:
         print(str(data)[:100])
         if exchange == "bitstamp" and len(result) == 0:
-            start+= 1000*60
+            start += 1000*60
     else:
-        wroteData= False
+        wroteData = False
         if exchange == 'bitmex':
             for b in data:
                 b['tstamp'] = parse_utc_timestamp(b['timestamp'])
@@ -120,8 +126,8 @@ while True:
             result += data
         lastSync += len(data)
         if exchange == 'bitmex':
-            start= start +len(data)
-        elif exchange in ['bybit','bybit-linear']:
+            start = start + len(data)
+        elif exchange in ['bybit', 'bybit-linear']:
             start = int(data[-1]['open_time'])+1
         elif exchange == 'phemex':
             if len(data) == 0:
@@ -150,10 +156,3 @@ while True:
 #########################################
 # live tests
 ########
-
-
-
-
-
-
-

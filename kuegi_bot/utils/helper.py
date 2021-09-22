@@ -4,12 +4,15 @@ import sys
 from datetime import datetime
 from typing import List
 
-from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
+from os import listdir
+from os.path import isfile, join
+
+# from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
-from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
-from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
+# from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
+# from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.indicators.indicator import Indicator
-from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
+# from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.utils import log
 
 import plotly.graph_objects as go
@@ -54,24 +57,14 @@ def history_file_name(index, exchange,symbol='') :
         symbol += "_"
     return 'history/' + exchange + '/' + symbol + 'M1_' + str(index) + '.json'
 
-known_history_files= {
-    "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 28,
-    "bybit_ETHUSD":23,
-    "bybit_XRPUSD":14,
-    "bybit_BTCUSDM21":1,
-    "bybit-linear_BTCUSDT":9,
-    "bybit-linear_LINKUSDT":3,
-    "bybit-linear_ETHUSDT":3,
-    "bybit-linear_LTCUSDT":3,
-    "binance_BTCUSDT": 9,
-    "binanceSpot_BTCUSD": 28,
-    "phemex_BTCUSD": 6,
-    "bitstamp_btceur": 99,
-    "bitstamp_etheur": 35,
-    "bitstamp_xrpeur": 42,
-    "bitstamp_eurusd": 94
-    }
+
+def get_last_known(exchange):
+    onlyfiles = [f for f in listdir('history/' + exchange + '/') if isfile(join('history/' + exchange + '/', f))]
+#    print(f'all files: {onlyfiles}')
+    all_file_number = []
+    for i in onlyfiles:
+        all_file_number.append(int(i.split('_')[2].split('.')[0]))
+    return max(all_file_number)
 
 
 def load_funding(exchange='bybit',symbol='BTCUSD'):
