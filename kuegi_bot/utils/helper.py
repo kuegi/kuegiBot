@@ -60,11 +60,13 @@ def history_file_name(index, exchange,symbol='') :
 
 def get_last_known(exchange):
     onlyfiles = [f for f in listdir('history/' + exchange + '/') if isfile(join('history/' + exchange + '/', f))]
-#    print(f'all files: {onlyfiles}')
     all_file_number = []
     for i in onlyfiles:
         all_file_number.append(int(i.split('_')[2].split('.')[0]))
-    return max(all_file_number)
+    if len(all_file_number) > 0:
+        return max(all_file_number)
+    else:
+        return 0
 
 
 def load_funding(exchange='bybit',symbol='BTCUSD'):
@@ -80,17 +82,21 @@ def load_funding(exchange='bybit',symbol='BTCUSD'):
         return None
 
 
-def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit',symbol='BTCUSD'):
-    #empty symbol is legacy and means btcusd
-    end = known_history_files[exchange+"_"+symbol]
-    start = max(0,end - int(days_in_history * 1440 / 50000)-1)
+def load_bars(days_in_history, wanted_tf, start_offset_minutes=0, exchange='bybit', symbol='BTCUSD'):
+    exchange = 'bybit'
+    # empty symbol is legacy and means btcusd
+    end = get_last_known('bybit')
+    start = max(0, end - int(days_in_history * 1440 / 50000)-1)
     m1_bars_temp = []
-    logger.info("loading " + str(end - start+1) + " history files from "+exchange)
+    logger.info("loading " + str(end - start+1) + " history files from " + exchange)
     for i in range(start, end + 1):
-        with open(history_file_name(i,exchange,symbol)) as f:
+        file = history_file_name(i, exchange, symbol)
+        print(f'next file: {file}')
+        with open(file) as f:
+            print(f'opened: {file}')
             m1_bars_temp += json.load(f)
     logger.info("done loading files, now preparing them")
-    start = int(max(0,len(m1_bars_temp)-(days_in_history * 1440)))
+    start = int(max(0, len(m1_bars_temp)-(days_in_history * 1440)))
     m1_bars = m1_bars_temp[start:]
 
     subbars: List[Bar] = []
