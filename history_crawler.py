@@ -28,7 +28,7 @@ elif exchange == 'bitmex':
         symbol = 'XBT'
 else:
     symbol = sys.argv[2] if len(sys.argv) > 2 else 'BTCUSD'
-print(f'crywling from: {exchange}, with symbol: {symbol}')
+print(f'crawling from: {exchange}, with symbol: {symbol}')
 
 batchsize = 50000
 
