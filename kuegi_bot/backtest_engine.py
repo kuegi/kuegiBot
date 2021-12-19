@@ -66,6 +66,8 @@ class BackTest(OrderInterface):
         self.maxExposure = 0
         self.lastHHPosition = 0
 
+        self.profit = 0
+
         self.current_bars: List[Bar] = []
 
         self.reset()
@@ -367,14 +369,14 @@ class BackTest(OrderInterface):
                 minDays = min(minDays, pos.daysInPos())
             daysInPos /= len(self.bot.position_history)
 
-            profit = self.account.equity - self.initialEquity
+            self.profit = self.account.equity - self.initialEquity
             uw_updates_per_day = 1440  # every minute
             total_days = (self.bars[0].tstamp - self.bars[-1].tstamp) / (60 * 60 * 24)
-            rel = profit / (self.maxDD if self.maxDD > 0 else 1)
+            rel = self.profit / (self.maxDD if self.maxDD > 0 else 1)
             rel_per_year = rel / (total_days / 365)
             self.logger.info("finished | closed pos: " + str(len(self.bot.position_history))
                              + " | open pos: " + str(len(self.bot.open_positions))
-                             + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
+                             + " | profit: " + ("%.2f" % (100 * self.profit / self.initialEquity))
                              + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
                              + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
                              + " | maxExp: " + ("%.2f" % (self.maxExposure / self.initialEquity))
@@ -385,7 +387,7 @@ class BackTest(OrderInterface):
         else:
             self.logger.info("finished with no trades")
 
-        # self.write_results_to_files()
+        #self.write_results_to_files()
         return self
 
     def prepare_plot(self):
@@ -396,6 +398,7 @@ class BackTest(OrderInterface):
         high = list(map(lambda b: b.high, self.bars))
         low = list(map(lambda b: b.low, self.bars))
         close = list(map(lambda b: b.close, self.bars))
+
 
         self.logger.info("creating plot")
         fig = go.Figure(

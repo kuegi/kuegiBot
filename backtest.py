@@ -80,26 +80,27 @@ def checkDayFilterByDay(bars,symbol= None):
                          .withEntryFilter(DayOfWeekFilter(1 << i))
                          )
 
-        b= BackTest(bot, bars,symbol).run()
+        b = BackTest(bot, bars, symbol).run()
 
-pair= "BTCUSD"
-pair= "BTCUSDT"
-#pair= "ETHUSD"
 
-exchange= 'bybit'
+pair = "BTCUSD"
+#pair = "BTCUSDT"
+# pair= "ETHUSD"
 
-tf= 240
-monthsBack= 18
+exchange = 'bybit'
+
+tf = 240
+monthsBack = 12
 
 if exchange == 'bybit' and "USDT" in pair:
-    exchange= 'bybit-linear'
+    exchange = 'bybit-linear'
 
-funding = load_funding(exchange,pair)
+funding = load_funding(exchange, pair)
 
 #bars_p = load_bars(30 * 12, 240,0,'phemex')
 #bars_n = load_bars(30 * 12, 240,0,'binance_f')
 #bars_ns = load_bars(30 * 24, 240,0,'binanceSpot')
-bars_b = load_bars(30 * monthsBack, tf,0,exchange,pair)
+bars_b = load_bars(30 * monthsBack, tf, 0, 'bybit', pair)
 #bars_m = load_bars(30 * 12, 240,0,'bitmex')
 
 #bars_b = load_bars(30 * 12, 60,0,'bybit')
@@ -163,19 +164,37 @@ runOpti(bars_oos, funding=funding,
 
 #'''
 
-bot=MultiStrategyBot(logger=logger, directionFilter= 0)
-bot.add_strategy(KuegiStrategy()
+bot = MultiStrategyBot(logger=logger, directionFilter=0)
+bot.add_strategy(KuegiStrategy(min_channel_size_factor=0, max_channel_size_factor=5,
+    entry_tightening=1, bars_till_cancel_triggered=5,
+    limit_entry_offset_perc=-0.15, delayed_entry=False, delayed_cancel=False, cancel_on_filter= False)
+                 .withChannel(max_look_back=13, threshold_factor=1, buffer_factor=0.1, max_dist_factor=2,max_swing_length=4)
+                 .withRM(risk_factor=1, max_risk_mul=2, risk_type=1, atr_factor=2)
+                 .withExitModule(SimpleBE(factor=1, buffer=0))
+                 .withExitModule(ParaTrail(accInit=0.02, accInc=0.02, accMax=0.2,resetToCurrent=False))
+                 .withEntryFilter(DayOfWeekFilter(127))
                  )
 
-bot.add_strategy(SfpStrategy()
-                 )
+bot.add_strategy(SfpStrategy(
+     min_stop_diff_perc=1.1, ignore_on_tight_stop=True,
+     init_stop_type=1, tp_fac=10,
+     min_wick_fac=1.5, min_swing_length=20,
+     range_length=60, min_rej_length= 15, range_filter_fac=0,
+     close_on_opposite=False,entries=0)
+                  .withChannel(max_look_back=13, threshold_factor=0.8, buffer_factor=0.05, max_dist_factor=1,
+                               max_swing_length=4)
+                  .withRM(risk_factor=1, max_risk_mul=2, risk_type=1, atr_factor=1)
+                  .withExitModule(SimpleBE(factor=0.6, buffer=0.4))
+                  .withExitModule(ParaTrail(accInit=0.01, accInc=0.02, accMax=0.3,resetToCurrent=True))
+                  .withEntryFilter(DayOfWeekFilter(63))
+                  )
 
-b= BackTest(bot, bars_full, funding=funding, symbol=symbol,market_slipage_percent=0.15).run()
+b = BackTest(bot, bars_full, funding=funding, symbol=symbol, market_slipage_percent=0.15).run()
 
-#performance chart with lots of numbers
-bot.create_performance_plot(bars).show()
+# performance chart with lots of numbers
+#bot.create_performance_plot(bars).show()
 
 # chart with signals:
-b.prepare_plot().show()
+#b.prepare_plot().show()
 
 #'''
