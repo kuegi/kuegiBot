@@ -82,6 +82,40 @@ class Indicator:
         return ["1"]
 
 
+class MarketTrend(Indicator):
+    ''' Market status based on SMAs
+    '''
+
+    def __init__(self, slowMA: int, midMA: int, fastMA: int, veryfastMA: int):
+        super().__init__("MarketTrend" + str(slowMA) + str(midMA) + str(fastMA)+ str(veryfastMA))
+        self.slowMA = SMA(slowMA)
+        self.midMA = SMA(midMA)
+        self.fastMA = SMA(fastMA)
+        self.veryfastMA = SMA(veryfastMA)
+
+    def on_tick(self, bars: List[Bar]):
+        self.slowMA.on_tick(bars)
+        self.midMA.on_tick(bars)
+        self.fastMA.on_tick(bars)
+        self.veryfastMA.on_tick(bars)
+
+    def get_market_trend(self, bars: List[Bar]):
+        slowMA = self.slowMA.get_data(bars[1])
+        midMA = self.midMA.get_data(bars[1])
+        fastMA = self.fastMA.get_data(bars[1])
+        veryfastMA = self.veryfastMA.get_data(bars[1])
+
+        if slowMA is not None and midMA is not None and fastMA is not None:
+            if slowMA > midMA > fastMA > veryfastMA:
+                return 1 # bear
+            elif slowMA < midMA < fastMA < veryfastMA:
+                return 2 # bull
+            else:
+                return 3 # ranging
+        else:
+            return 0    #invalid
+
+
 class SMA(Indicator):
     def __init__(self, period: int):
         super().__init__("SMA" + str(period))
