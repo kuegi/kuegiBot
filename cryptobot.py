@@ -12,6 +12,7 @@ from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
 from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
+from kuegi_bot.bots.strategies.ranging_strat import RangingStrategy
 from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule
 from kuegi_bot.trade_engine import LiveTrading
 from kuegi_bot.utils import log
@@ -61,6 +62,31 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                  buffer_factor=stratSettings.KB_BUFFER_FACTOR,
                                  max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
                                  max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
+                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
+                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
+                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
+                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
+            elif stratId == "ranging":
+                strat = RangingStrategy(
+                    min_channel_size_factor=stratSettings.KB_MIN_CHANNEL_SIZE_FACTOR,
+                    max_channel_size_factor=stratSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
+                    entry_tightening=stratSettings.KB_ENTRY_TIGHTENING,
+                    bars_till_cancel_triggered=stratSettings.KB_BARS_TILL_CANCEL_TRIGGERED,
+                    limit_entry_offset_perc=stratSettings.KB_LIMIT_OFFSET,
+                    delayed_entry=stratSettings.KB_DELAYED_ENTRY,
+                    delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
+                    cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
+                    tp_fac=stratSettings.KB_TP_FAC,
+                    sl_fac = stratSettings.KB_SL_FAC)\
+                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
+                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
+                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
+                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
+                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)\
+                    .withMarketTrend(slowMA=stratSettings.SLOW_MA,
+                                     midMA=stratSettings.MID_MA,
+                                     fastMA=stratSettings.FAST_MA,
+                                     veryfastMA=stratSettings.VERY_FAST_MA)
                 if "KB_TRAIL_TO_SWING" in stratSettings.keys():
                     strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
                                     delayed_swing=stratSettings.KB_DELAYED_ENTRY,
