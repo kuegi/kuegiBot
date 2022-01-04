@@ -6,13 +6,15 @@ from kuegi_bot.bots.strategies.channel_strat import ChannelStrategy
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import Data, clean_range
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Position, Order, PositionStatus
+from kuegi_bot.indicators.indicator import MarketTrend
 
 
 class RangingStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3,
                  limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False, tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac: float = 0.2):
+                 cancel_on_filter:bool = False, tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac: float = 0.2,
+                 slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -25,16 +27,21 @@ class RangingStrategy(ChannelStrategy):
         self.tp_fac = tp_fac
         self.min_stop_diff_atr = min_stop_diff_atr
         self.sl_fac = sl_fac
+        self.slowMA = slowMA
+        self.midMA = midMA
+        self.fastMA = fastMA
+        self.veryfastMA = veryfastMA
+        self.markettrend = MarketTrend(slowMA, midMA, fastMA, veryfastMA)
 
     def myId(self):
         return "ranging"
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
-        self.logger.info("init with %.0f %.1f  %.1f %i %s %s %s  %s %s" %
+        self.logger.info("init with %.0f %.1f  %.1f %i %s %s %s  %s %s %s %s  %s %s" %
                          (self.max_channel_size_factor, self.min_channel_size_factor, self.entry_tightening,
                           self.bars_till_cancel_triggered,
                           self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
-                          self.cancel_on_filter, self.sl_fac))
+                          self.cancel_on_filter, self.sl_fac, self.slowMA, self.midMA, self.fastMA, self.veryfastMA))
         super().init(bars, account, symbol)
         self.markettrend.on_tick(bars)
 

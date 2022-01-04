@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 from kuegi_bot.bots.strategies.strat_with_exit_modules import StrategyWithExitModulesAndFilter
 from kuegi_bot.bots.trading_bot import TradingBot
 from kuegi_bot.indicators.kuegi_channel import KuegiChannel, Data
-from kuegi_bot.indicators.indicator import MarketTrend
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType
 
 
@@ -31,10 +30,6 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
         self.delayed_swing_trail = delayed_swing
         self.trail_to_swing = trail_to_swing
         self.trail_back = trail_back
-        return self
-
-    def withMarketTrend(self, slowMA, midMA, fastMA, veryfastMA):
-        self.markettrend = MarketTrend(slowMA, midMA, fastMA, veryfastMA)
         return self
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
