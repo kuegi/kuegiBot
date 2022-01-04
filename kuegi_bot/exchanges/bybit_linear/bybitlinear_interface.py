@@ -133,6 +133,7 @@ class ByBitLinearInterface(ExchangeWithWS):
                                                                     self.symbol_info.pricePrecision)),
                                                            trigger_by="LastPrice",
                                                            time_in_force="GoodTillCancel",
+                                                           trigger_by="LastPrice",
                                                            reduce_only=orderType != OrderType.ENTRY,
                                                            close_on_trigger=orderType != OrderType.ENTRY))
             if result is not None:
