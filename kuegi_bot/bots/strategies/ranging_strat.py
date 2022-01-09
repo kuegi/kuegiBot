@@ -1,6 +1,7 @@
 import math
 from datetime import datetime
 from typing import List
+import plotly.graph_objects as go
 
 from kuegi_bot.bots.strategies.channel_strat import ChannelStrategy
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
@@ -185,7 +186,7 @@ class RangingStrategy(ChannelStrategy):
                 stopLong = min(stopLong,longEntry - self.min_stop_diff_atr * atr)
                 stopShort = max(stopShort, shortEntry + self.min_stop_diff_atr * atr)
 
-                marketTrend = self.markettrend.get_market_trend(bars)
+                marketTrend = self.markettrend.get_market_trend()
 
                 expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
                 expectedExitSlippagePer = 0.0015
@@ -252,7 +253,7 @@ class RangingStrategy(ChannelStrategy):
                 # return
 
                 signalId = self.get_signal_id(bars)
-                if not foundLong and directionFilter >= 0 and entriesAllowed and marketTrend == 3:
+                if not foundLong and directionFilter >= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == 1):
                     posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
                     entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
 
@@ -261,7 +262,7 @@ class RangingStrategy(ChannelStrategy):
                                                           limit=longEntry - entryBuffer if entryBuffer is not None else None))
                     open_positions[posId] = Position(id=posId, entry=longEntry, amount=longAmount, stop=stopLong,
                                                      tstamp=bars[0].tstamp)
-                if not foundShort and directionFilter <= 0 and entriesAllowed and marketTrend == 3:
+                if not foundShort and directionFilter <= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == -1):
                     posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
                     entryBuffer = shortEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
                     self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
@@ -269,3 +270,16 @@ class RangingStrategy(ChannelStrategy):
                                                           limit=shortEntry + entryBuffer if entryBuffer is not None else None))
                     open_positions[posId] = Position(id=posId, entry=shortEntry, amount=shortAmount,
                                                      stop=stopShort, tstamp=bars[0].tstamp)
+
+    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_plot(fig, bars, time)
+        lines = self.markettrend.get_number_of_lines()
+        styles = self.markettrend.get_line_styles()
+        names = self.markettrend.get_line_names()
+        offset = 1
+        self.logger.info("adding ranging")
+        #fig.update_layout(hovermode = 'x')
+        for idx in range(0, lines):
+            sub_data = list(map(lambda b: self.markettrend.get_data_for_plot(b)[idx], bars))
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[idx],
+                            name=self.markettrend.id + "_" + names[idx])
