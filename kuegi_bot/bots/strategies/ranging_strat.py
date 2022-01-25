@@ -7,7 +7,8 @@ from kuegi_bot.bots.strategies.channel_strat import ChannelStrategy
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import Data, clean_range
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Position, Order, PositionStatus
-from kuegi_bot.indicators.indicator import MarketTrend
+from kuegi_bot.indicators.indicator import Indicator, SMA
+#from kuegi_bot.indicators.indicator import MarketTrend
 
 
 class RangingStrategy(ChannelStrategy):
@@ -278,8 +279,104 @@ class RangingStrategy(ChannelStrategy):
         names = self.markettrend.get_line_names()
         offset = 1
         self.logger.info("adding ranging")
-        #fig.update_layout(hovermode = 'x')
-        for idx in range(0, lines):
-            sub_data = list(map(lambda b: self.markettrend.get_data_for_plot(b)[idx], bars))
-            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[idx],
-                            name=self.markettrend.id + "_" + names[idx])
+        #for idx in range(0, lines):
+        #    sub_data = list(map(lambda b: self.markettrend.get_data_for_plot(b)[idx], bars))
+        #    fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[idx],
+        #                    name=self.markettrend.id + "_" + names[idx])
+
+
+class TrendData:
+    def __init__(self,  trend, slowMA, midMA, fastMA, verfastMA):
+        self.trend = trend
+        self.slowMA = slowMA
+        self.midMA = midMA
+        self.fastMA = fastMA
+        self.verfastMA = verfastMA
+
+
+class MarketTrend(Indicator):
+    ''' Market trend based on SMAs
+    '''
+
+    def __init__(self, slowMA: int, midMA: int, fastMA: int, veryfastMA: int):
+        super().__init__('MarketTrend(' + str(slowMA) + ',' + str(midMA) + ',' + str(fastMA) + ',' + str(
+            veryfastMA) + ')')
+        self.slowMA = SMA(slowMA)
+        self.midMA = SMA(midMA)
+        self.fastMA = SMA(fastMA)
+        self.veryfastMA = SMA(veryfastMA)
+        self.markettrend = 0
+        self.trend_buffer = 5
+
+    def on_tick(self, bars: List[Bar]):
+        self.slowMA.on_tick(bars)
+        self.midMA.on_tick(bars)
+        self.fastMA.on_tick(bars)
+        self.veryfastMA.on_tick(bars)
+        self.markettrend = self.calc_market_trend(bars)
+
+    def get_market_trend(self):
+        return self.markettrend
+
+    def calc_market_trend(self, bars: List[Bar]):
+        slowMA = self.slowMA.get_data(bars[1])
+        midMA = self.midMA.get_data(bars[1])
+        fastMA = self.fastMA.get_data(bars[1])
+        veryfastMA = self.veryfastMA.get_data(bars[1])
+        bar = bars[1]
+        trend_buffer_threshold = 0
+        buffer = 5
+
+        if slowMA is not None and midMA is not None and fastMA is not None:
+            if slowMA > midMA > fastMA > veryfastMA:
+                self.trend_buffer -= 1
+                if self.trend_buffer <= trend_buffer_threshold:
+                    trend = -1 # bear
+                else:
+                    trend = 0  # ranging
+
+                data = TrendData(trend*1000, slowMA, midMA, fastMA, veryfastMA)
+                self.write_data(bars[1], data)
+                return trend
+            elif slowMA < midMA < fastMA < veryfastMA:
+                self.trend_buffer -= 1
+                if self.trend_buffer <= trend_buffer_threshold:
+                    trend = 1  # bull
+                else:
+                    trend = 0  # ranging
+
+                data = TrendData(trend * 1000, slowMA, midMA, fastMA, veryfastMA)
+                self.write_data(bars[1], data)
+                return trend
+            else:
+                trend = 0 # ranging
+                self.trend_buffer = buffer # low pass filter for the ranging condition
+                data = TrendData(trend * 1000, slowMA, midMA, fastMA, veryfastMA)
+                self.write_data(bars[1],data)
+                return trend
+        else:
+            trend = 0 #invalid
+            self.trend_buffer = buffer
+            data = TrendData(trend * 1000, bar.close, bar.close, bar.close, bar.close)
+            self.write_data(bars[1], data)
+            return trend
+
+    def get_line_names(self):
+        return ["MarketTrend",  "slowMA", "midMA", "fastMA", "verfastMA"]
+
+    def get_number_of_lines(self):
+        return 5
+
+    def get_line_styles(self):
+        return [{"width": 1, "color": "blue"},
+                {"width": 1, "color": "red"},
+                {"width": 1, "color": "orange"},
+                {"width": 1, "color": "yellow"},
+                {"width": 1, "color": "cyan"}]
+
+    def get_data_for_plot(self, bar: Bar):
+        data: TrendData = self.get_data(bar)
+        if data is not None:
+            return [data.trend, data.slowMA, data.midMA, data.fastMA, data.verfastMA]
+        else:
+            return [0, bar.close, bar.close, bar.close, bar.close]
