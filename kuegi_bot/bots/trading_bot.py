@@ -200,7 +200,7 @@ class TradingBot:
             # completly closed
             if abs(position.current_open_amount + amount) < self.symbol.lotSize / 2:
                 position.status = PositionStatus.CLOSED
-            if position.filled_exit is not None:
+            if position.filled_exit is not None and (position.max_filled_amount - position.current_open_amount - amount) != 0:
                 position.filled_exit = (position.filled_exit * (
                         position.max_filled_amount - position.current_open_amount) + executed_price * (-amount)) \
                                        / (position.max_filled_amount - position.current_open_amount - amount)
