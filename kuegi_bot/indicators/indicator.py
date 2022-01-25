@@ -210,14 +210,6 @@ class SMA(Indicator):
         return ["sma" + str(self.period)]
 
 
-class RSI(Indicator):
-    def __init__(self, period: int):
-        super().__init__("RSI" + str(period))
-        self.period = period
-
-    def on_tick(self, bars: List[Bar]):
-        test = 1
-
 class EMA(Indicator):
     def __init__(self, period: int):
         super().__init__("EMA" + str(period))
