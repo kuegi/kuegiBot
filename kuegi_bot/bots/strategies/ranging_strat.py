@@ -8,7 +8,6 @@ from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import Data, clean_range
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Position, Order, PositionStatus
 from kuegi_bot.indicators.indicator import Indicator, SMA
-#from kuegi_bot.indicators.indicator import MarketTrend
 
 
 class RangingStrategy(ChannelStrategy):
@@ -81,18 +80,17 @@ class RangingStrategy(ChannelStrategy):
                           stop=position.initial_stop,
                           amount=-position.amount)
             self.order_interface.send_order(order)
+
         if self.tp_fac > 0 and not gotTp:
             ref = position.filled_entry - position.initial_stop
-            #tp = position.filled_entry + ref * self.tp_fac
-            data: Data = self.channel.get_data(bars[1])
-            if order.amount<0:
-                tp = data.shortTrail
+            if ref<0:
+                tp = max(0,position.filled_entry + ref * self.tp_fac)
             else:
-                tp = data.longTrail
+                tp = max(0,position.filled_entry + ref * self.tp_fac)
 
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,type=OrderType.TP),
                           limit=tp,amount=-position.amount)
-            #self.order_interface.send_order(order)
+            self.order_interface.send_order(order)
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
@@ -130,16 +128,6 @@ class RangingStrategy(ChannelStrategy):
                 to_cancel.append(order)
                 del open_positions[position.id]
 
-        if orderType == OrderType.TP:
-            data: Data = self.channel.get_data(bars[1])
-            if position.amount > 0:
-                tp = data.shortTrail
-                order.limit_price = tp
-            else:
-                tp = data.longTrail
-                order.limit_price = tp
-            #to_update.append(order)
-
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         # cancel marked positions
         if hasattr(p, "markForCancel") and p.status == PositionStatus.PENDING and (
@@ -175,8 +163,6 @@ class RangingStrategy(ChannelStrategy):
             atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             if atr * self.min_channel_size_factor < swing_range < atr * self.max_channel_size_factor:
                 risk = self.risk_factor
-                #longEntry = self.symbol.normalizePrice(data.shortSwing, roundUp=False)
-                #shortEntry = self.symbol.normalizePrice(data.longSwing, roundUp=True)
 
                 longEntry = self.symbol.normalizePrice(data.longTrail, roundUp=False)
                 shortEntry = self.symbol.normalizePrice(data.shortTrail, roundUp=True)
