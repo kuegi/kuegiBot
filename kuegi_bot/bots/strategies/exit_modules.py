@@ -157,6 +157,49 @@ class TimedExit(ExitModule):
             to_update.append(order)
 
 
+class FixedPercentage(ExitModule):
+    ''' trails the stop to a specified percentage from from the highes high reached '''
+    def __init__(self, slPercentage: float= 0.0, useInitialSLRange: bool = False, rangeFactor: float = 1):
+        super().__init__()
+        self.slPercentage = min(slPercentage,1)     # trailing stop in fixed percentage
+        self.useInitialSLRange = useInitialSLRange  # use initials SL range
+        self.rangeFactor = abs(rangeFactor)              # SL range factor
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info(f"init Percentage Trail {self.slPercentage}")
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        if order.stop_price is None:
+            return
+
+        if position is not None:
+            extremePoint = bars[0].high if position.amount > 0 else bars[0].low     # new highest/lowest price
+            currentStop = sl_perc = sl_range= order.stop_price                      # current SL price
+            refRange = abs(position.wanted_entry - position.initial_stop)           # initial SL range in $
+            refRangePercent = refRange/position.wanted_entry                        # initial SL range in %
+
+            if position.amount > 0:
+                sl1 = extremePoint * (1-self.slPercentage)                                      # SL in fixed percentage from extreme point
+                sl2 = max(extremePoint * (1 - refRangePercent * self.rangeFactor),currentStop)  # SL in initial SL range percentage from extreme point
+                if currentStop < sl1 and self.slPercentage > 0:
+                    sl_perc = self.symbol.normalizePrice(sl1, roundUp=position.amount < 0)
+                if currentStop < sl2 and self.useInitialSLRange:
+                    sl_range = self.symbol.normalizePrice(sl2, roundUp=position.amount < 0)
+                newStop = max(sl_perc,sl_range,currentStop)
+            else:
+                sl1 = extremePoint * (1 + self.slPercentage)
+                sl2 = min(extremePoint * (1 + refRangePercent * self.rangeFactor),currentStop)
+                if currentStop > sl1 and self.slPercentage > 0:
+                    sl_perc = self.symbol.normalizePrice(sl1,roundUp=position.amount < 0)
+                if currentStop > sl2 and self.useInitialSLRange:
+                    sl_range = self.symbol.normalizePrice(sl2, roundUp=position.amount < 0)
+                newStop = min(sl_perc, sl_range, currentStop)
+
+            if newStop != order.stop_price:
+                order.stop_price = newStop
+                to_update.append(order)
+
 class ParaData:
     def __init__(self):
         self.acc = 0
