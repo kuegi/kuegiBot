@@ -13,7 +13,7 @@ from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
 from kuegi_bot.bots.strategies.ranging_strat import RangingStrategy
-from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule
+from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule, FixedPercentage
 from kuegi_bot.trade_engine import LiveTrading
 from kuegi_bot.utils import log
 from kuegi_bot.utils.telegram import TelegramBot
@@ -142,6 +142,10 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                                    accInc=stratSettings.EM_PARA_INC,
                                                    accMax=stratSettings.EM_PARA_MAX,
                                                    resetToCurrent=resetToCurrent))
+                if "SL_PERC" in stratSettings.keys():
+                    strat.withExitModule(FixedPercentage(slPercentage = stratSettings.SL_PERC,
+                                                         useInitialSLRange= stratSettings.USE_INIT_SL,
+                                                         rangeFactor =stratSettings.RANGE_FAC))
                 if "FILTER_DAYWEEK" in stratSettings.keys():
                     strat.withEntryFilter(DayOfWeekFilter(stratSettings.FILTER_DAYWEEK))
                 bot.add_strategy(strat)

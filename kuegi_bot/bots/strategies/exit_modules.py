@@ -167,7 +167,7 @@ class FixedPercentage(ExitModule):
 
     def init(self, logger,symbol):
         super().init(logger,symbol)
-        self.logger.info(f"init Percentage Trail {self.slPercentage}")
+        self.logger.info("init Percentage Trail %.1f %s %.1f" % (self.slPercentage, self.useInitialSLRange, self.rangeFactor))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         if order.stop_price is None:
