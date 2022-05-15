@@ -26,7 +26,7 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
         return self
 
     def withTrail(self, trail_to_swing: bool = False, delayed_swing: bool = True, trail_back: bool = False):
-        self.trail_active = True
+        self.trail_active = False
         self.delayed_swing_trail = delayed_swing
         self.trail_to_swing = trail_to_swing
         self.trail_back = trail_back

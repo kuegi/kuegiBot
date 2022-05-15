@@ -38,10 +38,9 @@ class RangingStrategy(ChannelStrategy):
         return "ranging"
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
-        self.logger.info("init with %.0f %.1f  %.1f %i %s %s %s  %s %s %s %s  %s %s" %
+        self.logger.info("init with %.0f %.1f %.1f %i %s %s %s %s %s %s %s %s %s" %
                          (self.max_channel_size_factor, self.min_channel_size_factor, self.entry_tightening,
-                          self.bars_till_cancel_triggered,
-                          self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
+                          self.bars_till_cancel_triggered, self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
                           self.cancel_on_filter, self.sl_fac, self.slowMA, self.midMA, self.fastMA, self.veryfastMA))
         super().init(bars, account, symbol)
         self.markettrend.on_tick(bars)
