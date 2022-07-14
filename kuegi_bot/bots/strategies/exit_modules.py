@@ -158,12 +158,12 @@ class TimedExit(ExitModule):
 
 
 class FixedPercentage(ExitModule):
-    ''' trails the stop to a specified percentage from from the highes high reached '''
+    ''' trails the stop to a specified percentage from the highest high reached '''
     def __init__(self, slPercentage: float= 0.0, useInitialSLRange: bool = False, rangeFactor: float = 1):
         super().__init__()
         self.slPercentage = min(slPercentage,1)     # trailing stop in fixed percentage
         self.useInitialSLRange = useInitialSLRange  # use initials SL range
-        self.rangeFactor = abs(rangeFactor)              # SL range factor
+        self.rangeFactor = abs(rangeFactor)         # SL range factor
 
     def init(self, logger,symbol):
         super().init(logger,symbol)

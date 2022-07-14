@@ -13,6 +13,7 @@ from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
 from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
 from kuegi_bot.bots.strategies.ranging_strat import RangingStrategy
+from kuegi_bot.bots.strategies.DegenStrat import DegenStrategy
 from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule, FixedPercentage
 from kuegi_bot.trade_engine import LiveTrading
 from kuegi_bot.utils import log
@@ -44,9 +45,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
 
             if stratId == "macross":
                 strat = MACross(fastMA = stratSettings.MAC_FAST_MA,
-                                slowMA =stratSettings.MAC_SLOW_MA,
-                                swingBefore = stratSettings.MAC_SWING_BEFORE,
-                                swingAfter = stratSettings.MAC_SWING_AFTER)
+                                slowMA =stratSettings.MAC_SLOW_MA)
             elif stratId == "kuegi":
                 strat = KuegiStrategy(min_channel_size_factor=stratSettings.KB_MIN_CHANNEL_SIZE_FACTOR,
                                       max_channel_size_factor=stratSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
@@ -57,6 +56,34 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                       delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
                                       cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
                                       tp_fac=stratSettings.KB_TP_FAC) \
+                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
+                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
+                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
+                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
+                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
+                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
+                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
+                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
+                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
+            elif stratId == "degen":
+                strat = DegenStrategy(trail_short_fac=stratSettings.TRAIL_SHORT_FAC,
+                                      trail_long_fac=stratSettings.TRAIL_LONG_FAC,
+                                      atr_period=stratSettings.ATR_PERIOD,
+                                      extreme_period=stratSettings.EXTREME_PERIOD,
+                                      entry_short_fac=stratSettings.ENTRY_SHORT_FAC,
+                                      entry_long_fac=stratSettings.ENTRY_LONG_FAC,
+                                      rsiPeriod=stratSettings.RSI_PERIOD,
+                                      periodStoch=stratSettings.PERIOD_STOCH,
+                                      fastMACD=stratSettings.FAST_MACD,
+                                      slowMACD=stratSettings.SLOW_MACD,
+                                      signal_period=stratSettings.SIGNAL_PERIOD,
+                                      rsi_high_limit=stratSettings.RSI_HIGH_LIMIT,
+                                      rsi_low_limit=stratSettings.RSI_LOW_LIMIT,
+                                      fastK_lim=stratSettings.FASTK_LIM,
+                                      trail_past=stratSettings.TRAIL_PAST,
+                                      close_on_opposite=stratSettings.CLOSE_ON_OPPOSITE,
+                                      bars_till_cancel_triggered=stratSettings.BARS_TILL_CANCEL,
+                                      cancel_on_filter=stratSettings.CANEL_ON_FILTER)\
                     .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
                                  threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
                                  buffer_factor=stratSettings.KB_BUFFER_FACTOR,
@@ -77,11 +104,11 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
                     cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
                     tp_fac=stratSettings.KB_TP_FAC,
-                    sl_fac = stratSettings.KB_SL_FAC,
-                    slowMA = stratSettings.SLOW_MA,
-                    midMA = stratSettings.MID_MA,
-                    fastMA = stratSettings.FAST_MA,
-                    veryfastMA = stratSettings.VERY_FAST_MA)\
+                    sl_fac=stratSettings.KB_SL_FAC,
+                    slowMA=stratSettings.SLOW_MA,
+                    midMA=stratSettings.MID_MA,
+                    fastMA=stratSettings.FAST_MA,
+                    veryfastMA=stratSettings.VERY_FAST_MA) \
                     .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
                                  threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
                                  buffer_factor=stratSettings.KB_BUFFER_FACTOR,
