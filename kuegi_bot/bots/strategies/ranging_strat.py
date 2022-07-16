@@ -82,11 +82,7 @@ class RangingStrategy(ChannelStrategy):
 
         if self.tp_fac > 0 and not gotTp:
             ref = position.filled_entry - position.initial_stop
-            if ref<0:
-                tp = max(0,position.filled_entry + ref * self.tp_fac)
-            else:
-                tp = max(0,position.filled_entry + ref * self.tp_fac)
-
+            tp = max(0,position.filled_entry + ref * self.tp_fac)
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,type=OrderType.TP),
                           limit=tp,amount=-position.amount)
             self.order_interface.send_order(order)
@@ -163,11 +159,11 @@ class RangingStrategy(ChannelStrategy):
             if atr * self.min_channel_size_factor < swing_range < atr * self.max_channel_size_factor:
                 risk = self.risk_factor
 
-                longEntry = self.symbol.normalizePrice(data.longTrail, roundUp=False)
-                shortEntry = self.symbol.normalizePrice(data.shortTrail, roundUp=True)
+                longEntry = self.symbol.normalizePrice(data.longTrail, roundUp=True)
+                shortEntry = self.symbol.normalizePrice(data.shortTrail, roundUp=False)
 
                 stopLong = self.symbol.normalizePrice(longEntry-self.sl_fac*(shortEntry-data.longTrail), roundUp=False)
-                stopShort = self.symbol.normalizePrice(shortEntry+self.sl_fac*(data.shortTrail-longEntry), roundUp=False)
+                stopShort = self.symbol.normalizePrice(shortEntry+self.sl_fac*(data.shortTrail-longEntry), roundUp=True)
 
                 stopLong = min(stopLong,longEntry - self.min_stop_diff_atr * atr)
                 stopShort = max(stopShort, shortEntry + self.min_stop_diff_atr * atr)

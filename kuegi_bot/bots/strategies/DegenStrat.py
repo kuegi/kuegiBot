@@ -37,7 +37,10 @@ class DegenStrategy(ChannelStrategy):
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
-        self.logger.info("Init with ")
+        self.logger.info("Init with %i %.1f %.1f %i %i %.1f %.1f %i %s %i %s" %
+                         (self.minBars, self.trail_short_fac, self.trail_long_fac, self.atr_period, self.extreme_period,
+                          self.entry_long_fac, self.entry_short_fac, self.trail_past, self.close_on_opposite,
+                          self.bars_till_cancel_triggered, self.cancel_on_filter))
 
     def myId(self):
         return "degen"
@@ -188,7 +191,9 @@ class DegenIndicator(Indicator):
 
     def __init__(self, rsiPeriod: int = 20, periodStoch: int = 10, fastMACD: int =7, slowMACD: int =15, signal_period: int = 10,
                  rsi_high_limit: int = 50, rsi_low_limit: int = 20, fastK_lim: int = 25):
-        super().__init__('DegenIndicator:')
+        super().__init__('DegenIndicator: %i %i %i %i %i %i %i %i'%
+                         (rsiPeriod, periodStoch, fastMACD, slowMACD, signal_period, rsi_high_limit,
+                          rsi_low_limit, fastK_lim))
         self.degenData = DegenData()
         self.rsiPeriod = rsiPeriod
         self.periodStoch = periodStoch
@@ -197,7 +202,7 @@ class DegenIndicator(Indicator):
         self.signal_period = signal_period
         self.rsi_high_limit = rsi_high_limit
         self.rsi_low_limit = rsi_low_limit
-        self.fastK_lim = fastK_lim #20
+        self.fastK_lim = fastK_lim
 
     def on_tick(self, ta: TA()):
         self.calc_market_trend(ta)
@@ -218,8 +223,6 @@ class DegenIndicator(Indicator):
         self.degenData.goShort = False
 
         if self.degenData.fastk[-1] == self.fastK_lim and self.degenData.rsi[-1] < self.rsi_low_limit:
-        #if self.degenData.macd[-1] > self.degenData.macdsignal[-1] and self.degenData.macd[-2] < self.degenData.macdsignal[-2] and\
-        #if self.degenData.fastk[-1] == 0 and self.degenData.rsi[-1] < self.rsi_low_limit:
             self.degenData.goLong = True
         if self.degenData.macd[-1] < self.degenData.macdsignal[-1] and self.degenData.macd[-2] > self.degenData.macdsignal[-2] and \
                 self.degenData.rsi[-1] > self.rsi_high_limit:
@@ -230,7 +233,7 @@ class DegenIndicator(Indicator):
         return ["MarketTrend",  "slowMA", "midMA", "fastMA", "verfastMA"]
 
     def get_number_of_lines(self):
-        return 1#5
+        return 1
 
     def get_line_styles(self):
         return [{"width": 1, "color": "blue"},
@@ -241,8 +244,3 @@ class DegenIndicator(Indicator):
 
     def get_data_for_plot(self, bar: Bar):
         test = 1
-        #data: TrendData = self.get_data(bar)
-        #if data is not None:
-        #    return [data.trend, data.slowMA, data.midMA, data.fastMA, data.verfastMA]
-        #else:
-        #    return [0, bar.close, bar.close, bar.close, bar.close]'''
