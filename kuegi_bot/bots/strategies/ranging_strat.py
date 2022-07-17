@@ -90,9 +90,9 @@ class RangingStrategy(ChannelStrategy):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
 
-        data: Data = self.channel.get_data(bars[1])
-        if data is None:
-            return
+        #data: Data = self.channel.get_data(bars[1])
+        #if data is None:
+        #    return
 
         orderType = TradingBot.order_type_from_order_id(order.id)
 
@@ -115,13 +115,11 @@ class RangingStrategy(ChannelStrategy):
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
-        if orderType == OrderType.ENTRY and \
-                (data.longSwing is None or data.shortSwing is None or
-                 (self.cancel_on_filter and not self.entries_allowed(bars))):
-            if position.status == PositionStatus.PENDING:  # don't delete if triggered
-                self.logger.info("canceling cause channel got invalid: " + position.id)
-                to_cancel.append(order)
-                del open_positions[position.id]
+        if orderType == OrderType.ENTRY and (self.cancel_on_filter and not self.entries_allowed(bars)) and \
+                position.status == PositionStatus.PENDING:  # don't delete if triggered
+            self.logger.info("canceling cause channel got invalid: " + position.id)
+            to_cancel.append(order)
+            del open_positions[position.id]
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         # cancel marked positions

@@ -1,16 +1,13 @@
-import math
-from datetime import datetime
 from typing import List
 
 from kuegi_bot.bots.strategies.channel_strat import ChannelStrategy
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import Data, clean_range
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Position, Order, PositionStatus
-from kuegi_bot.bots.strategies.strat_with_exit_modules import StrategyWithExitModulesAndFilter
 from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.indicators.TAlib import TA
 import talib
-from talib import RSI, STOCH
+from talib import RSI
 
 
 class DegenStrategy(ChannelStrategy):
@@ -141,9 +138,9 @@ class DegenStrategy(ChannelStrategy):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
 
-        data: Data = self.channel.get_data(bars[1])
-        if data is None:
-            return
+        #data: Data = self.channel.get_data(bars[1])
+        #if data is None:
+        #    return
 
         orderType = TradingBot.order_type_from_order_id(order.id)
 
@@ -166,14 +163,51 @@ class DegenStrategy(ChannelStrategy):
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
-        if orderType == OrderType.ENTRY and \
-                (data.longSwing is None or data.shortSwing is None or
-                 (self.cancel_on_filter and not self.entries_allowed(bars))):
+        if orderType == OrderType.ENTRY:
+                #(data.longSwing is None or data.shortSwing is None or
+                # (self.cancel_on_filter and not self.entries_allowed(bars))):
             if position.status == PositionStatus.PENDING:  # don't delete if triggered
                 self.logger.info("canceling cause channel got invalid: " + position.id)
                 to_cancel.append(order)
                 del open_positions[position.id]
 
+    def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
+        other_id = TradingBot.get_other_direction_id(position.id)
+        if other_id in open_positions.keys():
+            open_positions[other_id].markForCancel = bars[0].tstamp
+
+        # add stop
+        gotStop = False  # safety check needed to not add multiple SL in case of an error
+        gotTp = False
+        for order in account.open_orders:
+            orderType = TradingBot.order_type_from_order_id(order.id)
+            posId = TradingBot.position_id_from_order_id(order.id)
+            if orderType == OrderType.SL and posId == position.id:
+                gotStop = True
+                if abs(order.amount + position.current_open_amount) > self.symbol.lotSize / 2:
+                    order.amount = -position.current_open_amount
+                    self.order_interface.update_order(order)
+            elif self.tp_fac > 0 and orderType == OrderType.TP and posId == position.id:
+                gotTp = True
+                amount = self.symbol.normalizeSize(-position.current_open_amount + order.executed_amount)
+                if abs(order.amount - amount) > self.symbol.lotSize / 2:
+                    order.amount = amount
+                    self.order_interface.update_order(order)
+
+        if not gotStop:
+            order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
+                                                               type=OrderType.SL),
+                          stop=position.initial_stop,
+                          amount=-position.amount)
+            self.order_interface.send_order(order)
+        if self.tp_fac > 0 and not gotTp:
+            ref = position.filled_entry - position.initial_stop
+            tp = position.filled_entry + ref * self.tp_fac
+            order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
+                                                               type=OrderType.TP),
+                          limit=tp,
+                          amount=-position.amount)
+            self.order_interface.send_order(order)
 
 class DegenData:
     def __init__(self):
