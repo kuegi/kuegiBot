@@ -3,8 +3,6 @@ from kuegi_bot.utils.trading_classes import Bar
 from typing import List
 
 import numpy as np
-import talib
-
 
 class TA(Indicator):
     def __init__(self):

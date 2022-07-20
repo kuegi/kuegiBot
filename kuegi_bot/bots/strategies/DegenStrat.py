@@ -8,6 +8,7 @@ from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.indicators.TAlib import TA
 import talib
 from talib import RSI
+from datetime import datetime
 
 
 class DegenStrategy(ChannelStrategy):
@@ -67,6 +68,9 @@ class DegenStrategy(ChannelStrategy):
             return
 
         longEntry, shortEntry, stopLong, stopShort = self.calc_stoplosses(channel, bars)
+
+        self.logger.info("---- analyzing ---- Time: %s, goLong: %s, goShort: %s " %
+                         str(datetime.fromtimestamp(bars[0].tstamp)), str(self.degen.degenData.goLong), str(self.degen.degenData.goShort))
 
         # LONG
         if self.degen.degenData.goLong:
