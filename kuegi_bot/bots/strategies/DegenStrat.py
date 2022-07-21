@@ -70,7 +70,7 @@ class DegenStrategy(ChannelStrategy):
         longEntry, shortEntry, stopLong, stopShort = self.calc_stoplosses(channel, bars)
 
         self.logger.info("---- analyzing ---- Time: %s, goLong: %s, goShort: %s " %
-                         str(datetime.fromtimestamp(bars[0].tstamp)), str(self.degen.degenData.goLong), str(self.degen.degenData.goShort))
+                         (str(datetime.fromtimestamp(bars[0].tstamp)), str(self.degen.degenData.goLong), str(self.degen.degenData.goShort)))
 
         # LONG
         if self.degen.degenData.goLong:
