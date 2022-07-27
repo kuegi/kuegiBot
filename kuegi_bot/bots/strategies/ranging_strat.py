@@ -12,22 +12,29 @@ from kuegi_bot.indicators.indicator import Indicator, SMA
 
 class RangingStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
-                 entry_tightening=0, bars_till_cancel_triggered=3,
-                 limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False, tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac: float = 0.2,
+                 entry_tightening=0, bars_till_cancel_triggered=3, limit_entry_offset_perc: float = None,
+                 entry_range_fac: float = 0.05, delayed_entry: bool = True, delayed_cancel: bool = False,
+                 cancel_on_filter:bool = False, useSwings: bool = False, useTrail4SL: bool = False,
+                 tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac_trail: float = 0.2, sl_fac_swing: float = 0.2,
+                 sl_fac_trail4Swing: float = 0.9,
                  slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
         self.limit_entry_offset_perc = limit_entry_offset_perc
+        self.entry_range_fac = entry_range_fac
         self.delayed_entry = delayed_entry
+        self.useSwings = useSwings
+        self.useTrail4SL = useTrail4SL
         self.entry_tightening = entry_tightening
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
         self.delayed_cancel = delayed_cancel
         self.cancel_on_filter = cancel_on_filter
         self.tp_fac = tp_fac
         self.min_stop_diff_atr = min_stop_diff_atr
-        self.sl_fac = sl_fac
+        self.sl_fac_trail = sl_fac_trail
+        self.sl_fac_swing = sl_fac_swing
+        self.sl_fac_trail4Swing = sl_fac_trail4Swing
         self.slowMA = slowMA
         self.midMA = midMA
         self.fastMA = fastMA
@@ -41,7 +48,7 @@ class RangingStrategy(ChannelStrategy):
         self.logger.info("init with %.0f %.1f %.1f %i %s %s %s %s %s %s %s %s %s" %
                          (self.max_channel_size_factor, self.min_channel_size_factor, self.entry_tightening,
                           self.bars_till_cancel_triggered, self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
-                          self.cancel_on_filter, self.sl_fac, self.slowMA, self.midMA, self.fastMA, self.veryfastMA))
+                          self.cancel_on_filter, self.sl_fac_trail, self.slowMA, self.midMA, self.fastMA, self.veryfastMA))
         super().init(bars, account, symbol)
         self.markettrend.on_tick(bars)
 
@@ -103,7 +110,7 @@ class RangingStrategy(ChannelStrategy):
             if other_id in open_positions.keys():
                 open_positions[other_id].markForCancel = bars[0].tstamp
 
-            position.status = PositionStatus.TRIGGERED
+            #position.status = PositionStatus.TRIGGERED
             if not hasattr(position, 'waitingToFillSince'):
                 position.waitingToFillSince = bars[0].tstamp
             if (bars[0].tstamp - position.waitingToFillSince) > self.bars_till_cancel_triggered * (
@@ -115,14 +122,18 @@ class RangingStrategy(ChannelStrategy):
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
-        if orderType == OrderType.ENTRY and (self.cancel_on_filter and not self.entries_allowed(bars)) and \
-                position.status == PositionStatus.PENDING:  # don't delete if triggered
-            self.logger.info("canceling cause channel got invalid: " + position.id)
-            to_cancel.append(order)
-            del open_positions[position.id]
+        marketTrend = self.markettrend.get_market_trend()
+        if orderType == OrderType.ENTRY and \
+                (self.cancel_on_filter and not self.entries_allowed(bars) or
+                 position.amount > 0 and marketTrend == -1) or (position.amount < 0 and marketTrend == 1):
+            if position.status == PositionStatus.PENDING:  # don't delete if triggered
+                self.logger.info("canceling cause channel got invalid: " + position.id)
+                to_cancel.append(order)
+                del open_positions[position.id]
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         # cancel marked positions
+        self.logger.info("managing position: " + p.id)
         if hasattr(p, "markForCancel") and p.status == PositionStatus.PENDING and (
                 not self.delayed_cancel or p.markForCancel < bars[0].tstamp):
             self.logger.info("canceling position caused marked for cancel: " + p.id)
@@ -139,8 +150,8 @@ class RangingStrategy(ChannelStrategy):
 
         last_data: Data = self.channel.get_data(bars[2])
         data: Data = self.channel.get_data(bars[1])
-        if data is None:
-            return
+        #if data is None:
+            #return
 
         self.logger.info("---- analyzing: %s atr: %.1f buffer: %.1f swings: %s/%s trails: %.1f/%.1f resets:%i/%i" %
                          (str(datetime.fromtimestamp(bars[0].tstamp)),
@@ -148,23 +159,37 @@ class RangingStrategy(ChannelStrategy):
                           ("%.1f" % data.longSwing) if data.longSwing is not None else "-",
                           ("%.1f" % data.shortSwing) if data.shortSwing is not None else "-",
                           data.longTrail, data.shortTrail, data.sinceLongReset, data.sinceShortReset))
-        if last_data is not None and \
-                data.shortSwing is not None and data.longSwing is not None and \
-                (not self.delayed_entry or (last_data.shortSwing is not None and last_data.longSwing is not None)):
-            swing_range = data.longSwing - data.shortSwing
 
-            atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
-            if atr * self.min_channel_size_factor < swing_range < atr * self.max_channel_size_factor:
+        channel_available = data.shortSwing is not None and data.longSwing is not None
+        last_channel_available = last_data.shortSwing is not None and last_data.longSwing is not None
+
+        if not self.delayed_entry and channel_available:
+
+            #atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
+            isTrue = True
+            if isTrue:#atr * self.min_channel_size_factor < atr * self.max_channel_size_factor:
                 risk = self.risk_factor
 
-                longEntry = self.symbol.normalizePrice(data.longTrail, roundUp=True)
-                shortEntry = self.symbol.normalizePrice(data.shortTrail, roundUp=False)
+                trailRange = data.shortTrail - data.longTrail
+                longEntry = self.symbol.normalizePrice(data.longTrail - trailRange * self.entry_range_fac, roundUp=True)
+                shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac, roundUp=False)
 
-                stopLong = self.symbol.normalizePrice(longEntry-self.sl_fac*(shortEntry-data.longTrail), roundUp=False)
-                stopShort = self.symbol.normalizePrice(shortEntry+self.sl_fac*(data.shortTrail-longEntry), roundUp=True)
+                stopLong = self.symbol.normalizePrice(longEntry-self.sl_fac_trail*trailRange, roundUp=False)
+                stopShort = self.symbol.normalizePrice(shortEntry+self.sl_fac_trail*trailRange, roundUp=True)
 
-                stopLong = min(stopLong,longEntry - self.min_stop_diff_atr * atr)
-                stopShort = max(stopShort, shortEntry + self.min_stop_diff_atr * atr)
+                #stopLong = min(stopLong,longEntry - self.min_stop_diff_atr * atr)
+                #stopShort = max(stopShort, shortEntry + self.min_stop_diff_atr * atr)
+
+                if self.useSwings and data.longSwing is not None and data.shortSwing is not None:
+                    longEntry = self.symbol.normalizePrice(data.shortSwing, roundUp=True)
+                    shortEntry = self.symbol.normalizePrice(data.longSwing, roundUp=False)
+                    if self.useTrail4SL:
+                        stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail4Swing * trailRange, roundUp=False)
+                        stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail4Swing * trailRange, roundUp=True)
+                    else:
+                        swingRange = data.longSwing - data.shortSwing
+                        stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_swing * swingRange, roundUp=False)
+                        stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_swing * swingRange, roundUp=True)
 
                 marketTrend = self.markettrend.get_market_trend()
 
@@ -180,6 +205,7 @@ class RangingStrategy(ChannelStrategy):
                                                  atr=data.atr)
                 if longEntry < stopLong or shortEntry > stopShort:
                     self.logger.warn("can't put initial stop above entry")
+                    return
 
                 foundLong = False
                 foundShort = False
@@ -221,6 +247,8 @@ class RangingStrategy(ChannelStrategy):
                                 order.amount = amount
                                 if changed:
                                     self.order_interface.update_order(order)
+                                    self.logger.info("changing order id: %s, amount: %.1f, stop price: %.1f, limit price: %.f, active: %s" %
+                                                     (order.id, order.amount, order.stop_price, order.limit_price, order.active))
                                 else:
                                     self.logger.info("order didn't change: %s" % order.print_info())
 
