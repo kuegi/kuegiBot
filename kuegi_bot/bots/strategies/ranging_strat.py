@@ -14,7 +14,7 @@ class RangingStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3, limit_entry_offset_perc: float = None,
                  entry_range_fac: float = 0.05, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False, useSwings: bool = False, useTrail4SL: bool = False,
+                 cancel_on_filter:bool = False, useSwings4Longs: bool = False, useTrail4SL: bool = False,
                  tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac_trail: float = 0.2, sl_fac_swing: float = 0.2,
                  sl_fac_trail4Swing: float = 0.9,
                  slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14):
@@ -24,7 +24,7 @@ class RangingStrategy(ChannelStrategy):
         self.limit_entry_offset_perc = limit_entry_offset_perc
         self.entry_range_fac = entry_range_fac
         self.delayed_entry = delayed_entry
-        self.useSwings = useSwings
+        self.useSwings4Longs = useSwings4Longs
         self.useTrail4SL = useTrail4SL
         self.entry_tightening = entry_tightening
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
@@ -160,10 +160,10 @@ class RangingStrategy(ChannelStrategy):
                           ("%.1f" % data.shortSwing) if data.shortSwing is not None else "-",
                           data.longTrail, data.shortTrail, data.sinceLongReset, data.sinceShortReset))
 
-        channel_available = data.shortSwing is not None and data.longSwing is not None
-        last_channel_available = last_data.shortSwing is not None and last_data.longSwing is not None
+        #channel_available = data.shortSwing is not None and data.longSwing is not None
+        #last_channel_available = last_data.shortSwing is not None and last_data.longSwing is not None
 
-        if not self.delayed_entry and channel_available:
+        if not self.delayed_entry:# and channel_available:
 
             #atr = clean_range(bars, offset=0, length=self.channel.max_look_back * 2)
             isTrue = True
@@ -171,25 +171,27 @@ class RangingStrategy(ChannelStrategy):
                 risk = self.risk_factor
 
                 trailRange = data.shortTrail - data.longTrail
-                longEntry = self.symbol.normalizePrice(data.longTrail - trailRange * self.entry_range_fac, roundUp=True)
-                shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac, roundUp=False)
 
-                stopLong = self.symbol.normalizePrice(longEntry-self.sl_fac_trail*trailRange, roundUp=False)
-                stopShort = self.symbol.normalizePrice(shortEntry+self.sl_fac_trail*trailRange, roundUp=True)
-
-                #stopLong = min(stopLong,longEntry - self.min_stop_diff_atr * atr)
-                #stopShort = max(stopShort, shortEntry + self.min_stop_diff_atr * atr)
-
-                if self.useSwings and data.longSwing is not None and data.shortSwing is not None:
+                if self.useSwings4Longs and data.shortSwing is not None:
                     longEntry = self.symbol.normalizePrice(data.shortSwing, roundUp=True)
-                    shortEntry = self.symbol.normalizePrice(data.longSwing, roundUp=False)
-                    if self.useTrail4SL:
-                        stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail4Swing * trailRange, roundUp=False)
-                        stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail4Swing * trailRange, roundUp=True)
+                    #shortEntry = self.symbol.normalizePrice(data.longSwing, roundUp=False)
+                    shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac, roundUp=False)
+
+                    if self.useTrail4SL or data.shortSwing is None or data.longSwing is None:
+                        stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail4Swing * trailRange,roundUp=False)
+                        stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail4Swing * trailRange,roundUp=True)
+                        stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange,roundUp=True)
                     else:
                         swingRange = data.longSwing - data.shortSwing
                         stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_swing * swingRange, roundUp=False)
                         stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_swing * swingRange, roundUp=True)
+                        stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange,roundUp=True)
+                else:
+                    longEntry = self.symbol.normalizePrice(data.longTrail - trailRange * self.entry_range_fac, roundUp=True)
+                    shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac, roundUp=False)
+
+                    stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail * trailRange, roundUp=False)
+                    stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange, roundUp=True)
 
                 marketTrend = self.markettrend.get_market_trend()
 

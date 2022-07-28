@@ -104,8 +104,8 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     delayed_entry=stratSettings.KB_DELAYED_ENTRY,
                     delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
                     cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
-                    useSwings = stratSettings.USE_SWINGS,
-                    useTrail4SL = stratSettings.USE_TRAIL_4_SL,
+                    useSwings4Longs = stratSettings.USE_SWINGS_FOR_LONGS,
+                    useTrail4SL = stratSettings.USE_TRAIL_FOR_SL,
                     tp_fac=stratSettings.KB_TP_FAC,
                     min_stop_diff_atr = stratSettings.MIN_STOP_DIFF_ATR,
                     sl_fac_trail=stratSettings.SL_FAC_TRAIL,
@@ -161,7 +161,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 if "KB_BE_FACTOR" in stratSettings.keys():
                     strat.withExitModule(SimpleBE(factor=stratSettings.KB_BE_FACTOR,
                                                   buffer=stratSettings.KB_BE_BUFFER))
-                for i in range(1,8):
+                for i in range(1,10):
                     factorKey= "KB_BE"+str(i)+"_FACTOR"
                     bufferKey= "KB_BE"+str(i)+"_BUFFER"
                     if factorKey in stratSettings.keys():
