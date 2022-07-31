@@ -129,7 +129,7 @@ class RangingStrategy(ChannelStrategy):
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         # cancel marked positions
-        self.logger.info("managing position: " + p.id)
+        #self.logger.info("managing position: " + p.id)
         if hasattr(p, "markForCancel") and p.status == PositionStatus.PENDING and (
                 not self.delayed_cancel or p.markForCancel < bars[0].tstamp):
             self.logger.info("canceling position caused marked for cancel: " + p.id)
