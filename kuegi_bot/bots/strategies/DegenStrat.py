@@ -17,7 +17,7 @@ class DegenStrategy(ChannelStrategy):
                  entry_long_fac: float = 1, entry_short_fac: float = 1,
                  periodStoch: int = 10, fastMACD: int =7, slowMACD: int =15, signal_period: int = 10, rsi_high_limit: int = 15,
                  rsi_low_limit: int = 25, fastK_lim: int = 25, trail_past: int = 1,
-                 close_on_opposite: bool = False, bars_till_cancel_triggered: int = 20, cancel_on_filter:bool = False):
+                 close_on_opposite: bool = False, bars_till_cancel_triggered: int = 20, cancel_on_filter:bool = False, tp_fac: float = 0):
         super().__init__()
         self.minBars = max(rsiPeriod, extreme_period)
         self.ta = TA()
@@ -32,6 +32,7 @@ class DegenStrategy(ChannelStrategy):
         self.close_on_opposite = close_on_opposite
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
         self.cancel_on_filter = cancel_on_filter
+        self.tp_fac = tp_fac
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
