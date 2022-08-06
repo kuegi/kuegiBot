@@ -194,7 +194,7 @@ class RangingStrategy(ChannelStrategy):
             foundLong = False
             foundShort = False
             for position in open_positions.values():
-                if position.status == PositionStatus.PENDING:
+                if position.status == PositionStatus.PENDING and not hasattr(position, "markForCancel"):
                     if position.amount > 0:
                         foundLong = True
                         entry = longEntry
