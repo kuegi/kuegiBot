@@ -103,7 +103,6 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     limit_entry_offset_perc=stratSettings.KB_LIMIT_OFFSET,
                     entry_range_fac_long = stratSettings.ENTRY_RANGE_FAC_LONG,
                     entry_range_fac_short = stratSettings.ENTRY_RANGE_FAC_SHORT,
-                    delayed_entry=stratSettings.KB_DELAYED_ENTRY,
                     delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
                     cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
                     useSwings4Longs = stratSettings.USE_SWINGS_FOR_LONGS,

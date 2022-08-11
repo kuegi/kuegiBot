@@ -7,13 +7,13 @@ from kuegi_bot.bots.strategies.channel_strat import ChannelStrategy
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import Data, clean_range
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Position, Order, PositionStatus
-from kuegi_bot.indicators.indicator import Indicator, SMA
+from kuegi_bot.indicators.indicator import Indicator, SMA, highest, lowest, BarSeries
 
 
 class RangingStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3, limit_entry_offset_perc: float = None,
-                 entry_range_fac_long: float = 0.05, entry_range_fac_short: float = 0.05, delayed_entry: bool = True, delayed_cancel: bool = False,
+                 entry_range_fac_long: float = 0.05, entry_range_fac_short: float = 0.05, delayed_cancel: bool = False,
                  cancel_on_filter:bool = False, useSwings4Longs: bool = False, useTrail4SL: bool = False,
                  tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac_trail: float = 0.2, sl_fac_swing: float = 0.2,
                  sl_fac_trail4Swing: float = 0.9,
@@ -24,7 +24,6 @@ class RangingStrategy(ChannelStrategy):
         self.limit_entry_offset_perc = limit_entry_offset_perc
         self.entry_range_fac_long = entry_range_fac_long
         self.entry_range_fac_short = entry_range_fac_short
-        self.delayed_entry = delayed_entry
         self.useSwings4Longs = useSwings4Longs
         self.useTrail4SL = useTrail4SL
         self.entry_tightening = entry_tightening
@@ -46,9 +45,9 @@ class RangingStrategy(ChannelStrategy):
         return "ranging"
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
-        self.logger.info("init with %.0f %.1f %.1f %i %s %s %s %s %s %s %s %s %s" %
+        self.logger.info("init with %.0f %.1f %.1f %i %s %s %s %s %s %s %s %s" %
                          (self.max_channel_size_factor, self.min_channel_size_factor, self.entry_tightening,
-                          self.bars_till_cancel_triggered, self.limit_entry_offset_perc, self.delayed_entry, self.delayed_cancel,
+                          self.bars_till_cancel_triggered, self.limit_entry_offset_perc, self.delayed_cancel,
                           self.cancel_on_filter, self.sl_fac_trail, self.slowMA, self.midMA, self.fastMA, self.veryfastMA))
         super().init(bars, account, symbol)
         self.markettrend.on_tick(bars)
@@ -119,17 +118,16 @@ class RangingStrategy(ChannelStrategy):
                 to_cancel.append(order)
 
         marketTrend = self.markettrend.get_market_trend()
-        if orderType == OrderType.ENTRY and \
-                (self.cancel_on_filter and not self.entries_allowed(bars) or
-                 position.amount > 0 and marketTrend == -1) or (position.amount < 0 and marketTrend == 1):
-            if position.status == PositionStatus.PENDING:  # don't delete if triggered
-                self.logger.info("canceling cause channel got invalid: " + position.id)
-                to_cancel.append(order)
-                del open_positions[position.id]
+        if orderType == OrderType.ENTRY and position.status == PositionStatus.PENDING and \
+                ((self.cancel_on_filter and not self.entries_allowed(bars)) or
+                 (position.amount > 0 and marketTrend == -1) or
+                 (position.amount < 0 and marketTrend == 1)):
+            self.logger.info("canceling cause channel got invalid: " + position.id)
+            to_cancel.append(order)
+            del open_positions[position.id]
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         # cancel marked positions
-        #self.logger.info("managing position: " + p.id)
         if hasattr(p, "markForCancel") and p.status == PositionStatus.PENDING and (
                 not self.delayed_cancel or p.markForCancel < bars[0].tstamp):
             self.logger.info("canceling position caused marked for cancel: " + p.id)
@@ -153,112 +151,111 @@ class RangingStrategy(ChannelStrategy):
                           ("%.1f" % data.shortSwing) if data.shortSwing is not None else "-",
                           data.longTrail, data.shortTrail, data.sinceLongReset, data.sinceShortReset))
 
-        if not self.delayed_entry:
-            risk = self.risk_factor
-            trailRange = data.shortTrail - data.longTrail
+        risk = self.risk_factor
+        trailRange = data.shortTrail - data.longTrail
 
-            if self.useSwings4Longs and data.shortSwing is not None:
-                longEntry = self.symbol.normalizePrice(data.shortSwing- trailRange * self.entry_range_fac_long, roundUp=True)
-                shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac_short, roundUp=False)
+        if self.useSwings4Longs and data.shortSwing is not None:
+            longEntry = self.symbol.normalizePrice(data.shortSwing- trailRange * self.entry_range_fac_long, roundUp=True)
+            shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac_short, roundUp=False)
 
-                if self.useTrail4SL or data.shortSwing is None or data.longSwing is None:
-                    stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail4Swing * trailRange,roundUp=False)
-                    stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange,roundUp=True)
-                else:
-                    swingRange = data.longSwing - data.shortSwing
-                    stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_swing * swingRange, roundUp=False)
-                    stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange,roundUp=True)
+            if self.useTrail4SL or data.shortSwing is None or data.longSwing is None:
+                stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail4Swing * trailRange,roundUp=False)
+                stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange,roundUp=True)
             else:
-                longEntry = self.symbol.normalizePrice(data.longTrail - trailRange * self.entry_range_fac_long, roundUp=True)
-                shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac_short, roundUp=False)
+                swingRange = data.longSwing - data.shortSwing
+                stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_swing * swingRange, roundUp=False)
+                stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange,roundUp=True)
+        else:
+            longEntry = self.symbol.normalizePrice(data.longTrail - trailRange * self.entry_range_fac_long, roundUp=True)
+            shortEntry = self.symbol.normalizePrice(data.shortTrail + trailRange * self.entry_range_fac_short, roundUp=False)
 
-                stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail * trailRange, roundUp=False)
-                stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange, roundUp=True)
+            stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail * trailRange, roundUp=False)
+            stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange, roundUp=True)
 
-            marketTrend = self.markettrend.get_market_trend()
+        marketTrend = self.markettrend.get_market_trend()
 
-            expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
-            expectedExitSlippagePer = 0.0015
+        expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
+        expectedExitSlippagePer = 0.0015
 
-            # first check if we should update an existing one
-            longAmount = self.calc_pos_size(risk=risk, exitPrice=stopLong * (1 - expectedExitSlippagePer),
-                                            entry=longEntry * (1 + expectedEntrySlippagePer),
-                                            atr=data.atr)
-            shortAmount = self.calc_pos_size(risk=risk, exitPrice=stopShort * (1 + expectedExitSlippagePer),
-                                             entry=shortEntry * (1 - expectedEntrySlippagePer),
-                                             atr=data.atr)
-            if longEntry < stopLong or shortEntry > stopShort:
-                self.logger.warn("can't put initial stop above entry")
-                return
+        # first check if we should update an existing one
+        longAmount = self.calc_pos_size(risk=risk, exitPrice=stopLong * (1 - expectedExitSlippagePer),
+                                        entry=longEntry * (1 + expectedEntrySlippagePer),
+                                        atr=data.atr)
+        shortAmount = self.calc_pos_size(risk=risk, exitPrice=stopShort * (1 + expectedExitSlippagePer),
+                                         entry=shortEntry * (1 - expectedEntrySlippagePer),
+                                         atr=data.atr)
+        if longEntry < stopLong or shortEntry > stopShort:
+            self.logger.warn("can't put initial stop above entry")
+            return
 
-            foundLong = False
-            foundShort = False
-            for position in open_positions.values():
-                if position.status == PositionStatus.PENDING and not hasattr(position, "markForCancel"):
-                    if position.amount > 0:
-                        foundLong = True
-                        entry = longEntry
-                        stop = stopLong
-                        entryFac = (1 + expectedEntrySlippagePer)
-                        exitFac = (1 - expectedExitSlippagePer)
-                    else:
-                        foundShort = True
-                        entry = shortEntry
-                        stop = stopShort
-                        entryFac = (1 - expectedEntrySlippagePer)
-                        exitFac = (1 + expectedExitSlippagePer)
-                    entryBuffer = entry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
-                    for order in account.open_orders:
-                        if TradingBot.position_id_from_order_id(order.id) == position.id:
-                            newEntry = position.wanted_entry * (
-                                        1 - self.entry_tightening) + entry * self.entry_tightening
-                            newEntry = self.symbol.normalizePrice(newEntry, roundUp=order.amount > 0)
-                            newStop = position.initial_stop * (
-                                        1 - self.entry_tightening) + stop * self.entry_tightening
-                            newStop = self.symbol.normalizePrice(newStop, roundUp=order.amount < 0)
-                            amount = self.calc_pos_size(risk=risk, exitPrice=newStop * exitFac,
-                                                        entry=newEntry * entryFac, atr=data.atr)
-                            if amount * order.amount < 0:
-                                self.logger.warn("updating order switching direction")
-                            changed = False
-                            changed = changed or order.stop_price != newEntry
-                            order.stop_price = newEntry
-                            if self.limit_entry_offset_perc is not None:
-                                newLimit = newEntry - entryBuffer * math.copysign(1, amount)
-                                changed = changed or order.limit_price != newLimit
-                                order.limit_price = newLimit
-                            changed = changed or order.amount != amount
-                            order.amount = amount
-                            if changed:
-                                self.order_interface.update_order(order)
-                                self.logger.info("changing order id: %s, amount: %.1f, stop price: %.1f, limit price: %.f, active: %s" %
-                                                 (order.id, order.amount, order.stop_price, order.limit_price, order.active))
-                            else:
-                                self.logger.info("order didn't change: %s" % order.print_info())
+        foundLong = False
+        foundShort = False
+        for position in open_positions.values():
+            if position.status == PositionStatus.PENDING:
+                if position.amount > 0:
+                    foundLong = True
+                    entry = longEntry
+                    stop = stopLong
+                    entryFac = (1 + expectedEntrySlippagePer)
+                    exitFac = (1 - expectedExitSlippagePer)
+                else:
+                    foundShort = True
+                    entry = shortEntry
+                    stop = stopShort
+                    entryFac = (1 - expectedEntrySlippagePer)
+                    exitFac = (1 + expectedExitSlippagePer)
+                entryBuffer = entry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
+                for order in account.open_orders:
+                    if TradingBot.position_id_from_order_id(order.id) == position.id:
+                        newEntry = position.wanted_entry * (
+                                    1 - self.entry_tightening) + entry * self.entry_tightening
+                        newEntry = self.symbol.normalizePrice(newEntry, roundUp=order.amount > 0)
+                        newStop = position.initial_stop * (
+                                    1 - self.entry_tightening) + stop * self.entry_tightening
+                        newStop = self.symbol.normalizePrice(newStop, roundUp=order.amount < 0)
+                        amount = self.calc_pos_size(risk=risk, exitPrice=newStop * exitFac,
+                                                    entry=newEntry * entryFac, atr=data.atr)
+                        if amount * order.amount < 0:
+                            self.logger.warn("updating order switching direction")
+                        changed = False
+                        changed = changed or order.stop_price != newEntry
+                        order.stop_price = newEntry
+                        if self.limit_entry_offset_perc is not None:
+                            newLimit = newEntry - entryBuffer * math.copysign(1, amount)
+                            changed = changed or order.limit_price != newLimit
+                            order.limit_price = newLimit
+                        changed = changed or order.amount != amount
+                        order.amount = amount
+                        if changed:
+                            self.order_interface.update_order(order)
+                            self.logger.info("changing order id: %s, amount: %.1f, stop price: %.1f, limit price: %.f, active: %s" %
+                                             (order.id, order.amount, order.stop_price, order.limit_price, order.active))
+                        else:
+                            self.logger.info("order didn't change: %s" % order.print_info())
 
-                            position.initial_stop = newStop
-                            position.amount = amount
-                            position.wanted_entry = newEntry
-                            break
+                        position.initial_stop = newStop
+                        position.amount = amount
+                        position.wanted_entry = newEntry
+                        break
 
-            signalId = self.get_signal_id(bars)
-            if not foundLong and directionFilter >= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == 1):
-                posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
-                entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
+        signalId = self.get_signal_id(bars)
+        if not foundLong and directionFilter >= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == 1):
+            posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
+            entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
 
-                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                      amount=longAmount, stop=longEntry,
-                                                      limit=longEntry - entryBuffer if entryBuffer is not None else None))
-                open_positions[posId] = Position(id=posId, entry=longEntry, amount=longAmount, stop=stopLong,
-                                                 tstamp=bars[0].tstamp)
-            if not foundShort and directionFilter <= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == -1):
-                posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
-                entryBuffer = shortEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
-                self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                      amount=shortAmount, stop=shortEntry,
-                                                      limit=shortEntry + entryBuffer if entryBuffer is not None else None))
-                open_positions[posId] = Position(id=posId, entry=shortEntry, amount=shortAmount,
-                                                 stop=stopShort, tstamp=bars[0].tstamp)
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
+                                                  amount=longAmount, stop=longEntry,
+                                                  limit=longEntry - entryBuffer if entryBuffer is not None else None))
+            open_positions[posId] = Position(id=posId, entry=longEntry, amount=longAmount, stop=stopLong,
+                                             tstamp=bars[0].tstamp)
+        if not foundShort and directionFilter <= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == -1):
+            posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
+            entryBuffer = shortEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
+                                                  amount=shortAmount, stop=shortEntry,
+                                                  limit=shortEntry + entryBuffer if entryBuffer is not None else None))
+            open_positions[posId] = Position(id=posId, entry=shortEntry, amount=shortAmount,
+                                             stop=stopShort, tstamp=bars[0].tstamp)
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
         super().add_to_plot(fig, bars, time)
