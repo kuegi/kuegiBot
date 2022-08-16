@@ -81,7 +81,6 @@ class DegenStrategy(ChannelStrategy):
         if self.degen.degenData.goShort:
             self.__open_position(PositionDirection.SHORT, bars, stopShort,open_positions,all_open_pos, shortEntry) # short the ponzi
 
-
     def __open_position(self, direction, bars, stop, open_positions, all_open_pos, entry):
         # SL && TP
         directionFactor = 1
@@ -168,11 +167,9 @@ class DegenStrategy(ChannelStrategy):
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
-        if orderType == OrderType.ENTRY:
-                #(data.longSwing is None or data.shortSwing is None or
-                # (self.cancel_on_filter and not self.entries_allowed(bars))):
+        if orderType == OrderType.ENTRY and (self.cancel_on_filter and not self.entries_allowed(bars)):
             if position.status == PositionStatus.PENDING:  # don't delete if triggered
-                self.logger.info("canceling cause channel got invalid: " + position.id)
+                self.logger.info("canceling, because entries not allowed: " + position.id)
                 to_cancel.append(order)
                 del open_positions[position.id]
 
