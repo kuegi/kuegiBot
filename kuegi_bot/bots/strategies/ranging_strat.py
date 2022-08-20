@@ -17,7 +17,8 @@ class RangingStrategy(ChannelStrategy):
                  cancel_on_filter:bool = False, useSwings4Longs: bool = False, useTrail4SL: bool = False,
                  tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac_trail: float = 0.2, sl_fac_swing: float = 0.2,
                  sl_fac_trail4Swing: float = 0.9,
-                 slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14):
+                 slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14,
+                 par_1: float = 1, var_2: float = 1):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -40,6 +41,8 @@ class RangingStrategy(ChannelStrategy):
         self.fastMA = fastMA
         self.veryfastMA = veryfastMA
         self.markettrend = MarketTrend(slowMA, midMA, fastMA, veryfastMA)
+        self.par_1 = par_1
+        self.var_2 = var_2
 
     def myId(self):
         return "ranging"
@@ -172,6 +175,13 @@ class RangingStrategy(ChannelStrategy):
             stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail * trailRange, roundUp=False)
             stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange, roundUp=True)
 
+            if longEntry > bars[1].close:
+                longEntry = bars[1].close - trailRange * self.par_1
+                stopLong = self.symbol.normalizePrice(longEntry - trailRange, roundUp=False)
+            elif shortEntry < bars[1].close:
+                shortEntry = bars[1].close + trailRange * self.par_1
+                stopShort = self.symbol.normalizePrice(shortEntry + trailRange, roundUp=True)
+
         marketTrend = self.markettrend.get_market_trend()
 
         expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
@@ -184,7 +194,7 @@ class RangingStrategy(ChannelStrategy):
         shortAmount = self.calc_pos_size(risk=risk, exitPrice=stopShort * (1 + expectedExitSlippagePer),
                                          entry=shortEntry * (1 - expectedEntrySlippagePer),
                                          atr=data.atr)
-        if longEntry < stopLong or shortEntry > stopShort:
+        if longEntry < stopLong or shortEntry > stopShort or longAmount < 0 or shortAmount > 0:
             self.logger.warn("can't put initial stop above entry")
             return
 
