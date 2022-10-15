@@ -197,6 +197,7 @@ class FixedPercentage(ExitModule):
                 newStop = min(sl_perc, sl_range, currentStop)
 
             if newStop != order.stop_price:
+                self.logger.info("changing SL. Previous Stop: " + str(order.stop_price) + "; New Stop: " + str(newStop))
                 order.stop_price = newStop
                 to_update.append(order)
 

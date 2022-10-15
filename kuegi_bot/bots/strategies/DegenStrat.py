@@ -169,7 +169,7 @@ class DegenStrategy(ChannelStrategy):
 
         if orderType == OrderType.ENTRY and (self.cancel_on_filter and not self.entries_allowed(bars)):
             if position.status == PositionStatus.PENDING:  # don't delete if triggered
-                self.logger.info("canceling, because entries not allowed: " + position.id)
+                self.logger.info("canceling because of filters: " + position.id)
                 to_cancel.append(order)
                 del open_positions[position.id]
 

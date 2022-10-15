@@ -95,9 +95,10 @@ class RangingStrategy(ChannelStrategy):
             self.order_interface.send_order(order)
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
-
         orderType = TradingBot.order_type_from_order_id(order.id)
+        if orderType == OrderType.SL:
+            for module in self.exitModules:
+                module.manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
 
         # check for triggered but not filled
         if order.stop_triggered:
@@ -117,6 +118,7 @@ class RangingStrategy(ChannelStrategy):
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
+        # cancel if the trend has changed
         marketTrend = self.markettrend.get_market_trend()
         if orderType == OrderType.ENTRY and position.status == PositionStatus.PENDING and \
                 ((self.cancel_on_filter and not self.entries_allowed(bars)) or
@@ -130,7 +132,7 @@ class RangingStrategy(ChannelStrategy):
         # cancel marked positions
         if hasattr(p, "markForCancel") and p.status == PositionStatus.PENDING and (
                 not self.delayed_cancel or p.markForCancel < bars[0].tstamp):
-            self.logger.info("canceling position caused marked for cancel: " + p.id)
+            self.logger.info("cancelling position, because marked for cancel: " + p.id)
             p.status = PositionStatus.CANCELLED
             pos_ids_to_cancel.append(p.id)
 
@@ -172,6 +174,13 @@ class RangingStrategy(ChannelStrategy):
             stopLong = self.symbol.normalizePrice(longEntry - self.sl_fac_trail * trailRange, roundUp=False)
             stopShort = self.symbol.normalizePrice(shortEntry + self.sl_fac_trail * trailRange, roundUp=True)
 
+            if longEntry > bars[1].close:
+                longEntry = bars[1].close - trailRange * self.par_1
+                stopLong = self.symbol.normalizePrice(longEntry - trailRange, roundUp=False)
+            elif shortEntry < bars[1].close:
+                shortEntry = bars[1].close + trailRange * self.par_1
+                stopShort = self.symbol.normalizePrice(shortEntry + trailRange, roundUp=True)
+
         marketTrend = self.markettrend.get_market_trend()
 
         expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
@@ -184,7 +193,7 @@ class RangingStrategy(ChannelStrategy):
         shortAmount = self.calc_pos_size(risk=risk, exitPrice=stopShort * (1 + expectedExitSlippagePer),
                                          entry=shortEntry * (1 - expectedEntrySlippagePer),
                                          atr=data.atr)
-        if longEntry < stopLong or shortEntry > stopShort:
+        if longEntry < stopLong or shortEntry > stopShort or longAmount < 0 or shortAmount > 0:
             self.logger.warn("can't put initial stop above entry")
             return
 
@@ -219,17 +228,23 @@ class RangingStrategy(ChannelStrategy):
                             self.logger.warn("updating order switching direction")
                         changed = False
                         changed = changed or order.stop_price != newEntry
+                        if changed:
+                            self.logger.info("old entry: %.1f, new entry: %.1f" % (order.stop_price, newEntry))
                         order.stop_price = newEntry
                         if self.limit_entry_offset_perc is not None:
                             newLimit = newEntry - entryBuffer * math.copysign(1, amount)
                             changed = changed or order.limit_price != newLimit
+                            if changed:
+                                self.logger.info("old limit: %.1f, new limit: %.1f" % (order.limit_price, newLimit))
                             order.limit_price = newLimit
                         changed = changed or order.amount != amount
+                        if changed:
+                            self.logger.info("old amount: %.1f, new amount: %.1f" % (order.amount, amount))
                         order.amount = amount
                         if changed:
-                            self.order_interface.update_order(order)
                             self.logger.info("changing order id: %s, amount: %.1f, stop price: %.1f, limit price: %.f, active: %s" %
                                              (order.id, order.amount, order.stop_price, order.limit_price, order.active))
+                            self.order_interface.update_order(order)
                         else:
                             self.logger.info("order didn't change: %s" % order.print_info())
 
@@ -242,7 +257,6 @@ class RangingStrategy(ChannelStrategy):
         if not foundLong and directionFilter >= 0 and entriesAllowed and (marketTrend == 0 or marketTrend == 1):
             posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
             entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
-
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
                                                   amount=longAmount, stop=longEntry,
                                                   limit=longEntry - entryBuffer if entryBuffer is not None else None))
