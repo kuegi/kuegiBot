@@ -41,8 +41,8 @@ class RangingStrategy(ChannelStrategy):
         self.fastMA = fastMA
         self.veryfastMA = veryfastMA
         self.markettrend = MarketTrend(slowMA, midMA, fastMA, veryfastMA)
-        self.par_1 = par_1
         self.var_2 = var_2
+        self.par_1 = par_1
         self.maxPositions = maxPositions
 
     def myId(self):
