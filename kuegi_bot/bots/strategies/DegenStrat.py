@@ -142,10 +142,6 @@ class DegenStrategy(ChannelStrategy):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
 
-        #data: Data = self.channel.get_data(bars[1])
-        #if data is None:
-        #    return
-
         orderType = TradingBot.order_type_from_order_id(order.id)
 
         # check for triggered but not filled

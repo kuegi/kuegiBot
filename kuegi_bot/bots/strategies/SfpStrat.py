@@ -181,7 +181,7 @@ class SfpStrategy(ChannelStrategy):
             pos = Position(id=posId, entry=entry, amount=amount, stop=stop,
                            tstamp=bars[0].tstamp)
             open_positions[posId] = pos
-            all_open_pos[posId] = pos # need to add to the bots open pos too, so the execution of the market is not missed
+            #all_open_pos[posId] = pos # need to add to the bots open pos too, so the execution of the market is not missed
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
                                                   amount=amount, stop=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),

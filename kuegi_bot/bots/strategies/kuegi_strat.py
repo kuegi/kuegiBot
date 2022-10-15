@@ -12,7 +12,8 @@ class KuegiStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3,
                  limit_entry_offset_perc: float = None, delayed_entry: bool = True, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False, tp_fac: float = 0, min_stop_diff_atr : float = 0):
+                 cancel_on_filter:bool = False, tp_fac: float = 0, min_stop_diff_atr : float = 0,
+                 maxPositions: int = 100):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -24,6 +25,7 @@ class KuegiStrategy(ChannelStrategy):
         self.cancel_on_filter = cancel_on_filter
         self.tp_fac = tp_fac
         self.min_stop_diff_atr = min_stop_diff_atr
+        self.maxPositions = maxPositions
 
     def myId(self):
         return "kuegi"

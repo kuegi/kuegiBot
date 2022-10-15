@@ -17,6 +17,7 @@ class EntryFilter:
     def entries_allowed(self,bars:List[Bar]):
         pass
 
+
 class StrategyWithExitModulesAndFilter(Strategy):
 
     def __init__(self):

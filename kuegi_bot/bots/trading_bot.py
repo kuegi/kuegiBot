@@ -680,6 +680,7 @@ class TradingBot:
         try:
             self.manage_open_orders(bars, account)
             self.open_orders(bars, account)
+            self.consolidate_open_positions(bars, account)
         except Exception as e:
             self.save_open_positions(bars)
             raise e
@@ -696,6 +697,9 @@ class TradingBot:
         pass
 
     def open_orders(self, bars: list, account: Account):
+        pass
+
+    def consolidate_open_positions(self, bars: list, account: Account):
         pass
 
     def update_new_bar(self, bars: List[Bar]):

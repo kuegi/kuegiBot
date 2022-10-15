@@ -93,9 +93,10 @@ class SimpleBE(ExitModule):
             if refRange != 0:
                 ep = bars[0].high if position.amount > 0 else bars[0].low
                 be = position.wanted_entry + refRange * self.buffer
-                if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
-                        and (be - newStop) * position.amount > 0:
-                    newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
+                if newStop is not None:
+                    if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
+                            and (be - newStop) * position.amount > 0:
+                        newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
 
             if newStop != order.stop_price:
                 order.stop_price = newStop
@@ -157,8 +158,23 @@ class TimedExit(ExitModule):
             to_update.append(order)
 
 
+class RsiExit(ExitModule):
+    """ closes positions at oversold and overbougt RSI """
+    def __init__(self, rsi_high_lim: float = 100, rsi_low_lim: int = 0):
+        super().__init__()
+        self.rsi_high_lim = rsi_high_lim
+        self.rsi_low_lim = rsi_low_lim
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info("init RSI TP at high: %i and low %i" % (self.rsi_high_lim, self.rsi_low_lim))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        test = 1
+
+
 class FixedPercentage(ExitModule):
-    ''' trails the stop to a specified percentage from the highest high reached '''
+    """ trails the stop to a specified percentage from the highest high reached """
     def __init__(self, slPercentage: float= 0.0, useInitialSLRange: bool = False, rangeFactor: float = 1):
         super().__init__()
         self.slPercentage = min(slPercentage,1)     # trailing stop in fixed percentage

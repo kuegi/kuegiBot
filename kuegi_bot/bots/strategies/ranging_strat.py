@@ -14,10 +14,11 @@ class RangingStrategy(ChannelStrategy):
     def __init__(self, max_channel_size_factor: float = 6, min_channel_size_factor: float = 0,
                  entry_tightening=0, bars_till_cancel_triggered=3, limit_entry_offset_perc: float = None,
                  entry_range_fac_long: float = 0.05, entry_range_fac_short: float = 0.05, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False, useSwings4Longs: bool = False, useTrail4SL: bool = False,
+                 cancel_on_filter:bool = False, useSwings4Longs: bool = False, useTrail4SL: bool = False, maxPositions: int = 100,
                  tp_fac: float = 0, min_stop_diff_atr: float = 0, sl_fac_trail: float = 0.2, sl_fac_swing: float = 0.2,
                  sl_fac_trail4Swing: float = 0.9,
-                 slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14):
+                 slowMA: int = 20, midMA: int = 18, fastMA: int = 16, veryfastMA: int = 14,
+                 par_1: float = 1, var_2: float = 1):
         super().__init__()
         self.max_channel_size_factor = max_channel_size_factor
         self.min_channel_size_factor = min_channel_size_factor
@@ -40,6 +41,9 @@ class RangingStrategy(ChannelStrategy):
         self.fastMA = fastMA
         self.veryfastMA = veryfastMA
         self.markettrend = MarketTrend(slowMA, midMA, fastMA, veryfastMA)
+        self.par_1 = par_1
+        self.var_2 = var_2
+        self.maxPositions = maxPositions
 
     def myId(self):
         return "ranging"
