@@ -103,6 +103,41 @@ class SimpleBE(ExitModule):
                 to_update.append(order)
 
 
+class QuickBreakEven(ExitModule):
+    ''' trails the stop to "break even" within the provided time period as long as the stop is not in profit '''
+    def __init__(self, seconds_to_BE: int = 999999, factor: float = 1.0):
+        super().__init__()
+        self.seconds_to_BE = seconds_to_BE
+        self.factor = factor
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info("init QuickBreakEven %i" % (self.seconds_to_BE))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        newStop = order.stop_price
+        current_tstamp = bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
+
+        refRange = abs(position.wanted_entry - position.initial_stop)
+        seconds_since_entry = current_tstamp - position.entry_tstamp
+
+        if self.seconds_to_BE is not None and self.seconds_to_BE != 0:
+            equity_per_second = refRange / self.seconds_to_BE
+
+            if (order.stop_price < self.factor * position.wanted_entry and position.amount > 0) or \
+                    (order.stop_price > position.wanted_entry/self.factor and position.amount < 0):
+                if position.amount > 0:
+                    newStop = position.initial_stop + equity_per_second * seconds_since_entry
+                else:
+                    newStop = position.initial_stop - equity_per_second * seconds_since_entry
+
+                newStop = self.symbol.normalizePrice(newStop, roundUp=position.amount < 0)
+
+            if newStop != order.stop_price:
+                order.stop_price = newStop
+                to_update.append(order)
+
+
 class MaxSLDiff(ExitModule):
     ''' trails the stop to a max dist in ATR from the extreme point
     '''

@@ -147,6 +147,7 @@ class RangingStrategy(ChannelStrategy):
         entriesAllowed = self.entries_allowed(bars)
         if not entriesAllowed:
             self.logger.info("new entries not allowed by filter")
+            return
 
         data: Data = self.channel.get_data(bars[1])
 
@@ -331,17 +332,7 @@ class MarketTrend(Indicator):
         buffer = 5
 
         if slowMA is not None and midMA is not None and fastMA is not None:
-            if slowMA > midMA > fastMA > veryfastMA:
-                self.trend_buffer -= 1
-                if self.trend_buffer <= trend_buffer_threshold:
-                    trend = -1 # bear
-                else:
-                    trend = 0  # ranging
-
-                data = TrendData(trend*1000, slowMA, midMA, fastMA, veryfastMA)
-                self.write_data(bars[1], data)
-                return trend
-            elif slowMA < midMA < fastMA < veryfastMA:
+            if slowMA < midMA < fastMA < veryfastMA:
                 self.trend_buffer -= 1
                 if self.trend_buffer <= trend_buffer_threshold:
                     trend = 1  # bull
@@ -349,6 +340,16 @@ class MarketTrend(Indicator):
                     trend = 0  # ranging
 
                 data = TrendData(trend * 1000, slowMA, midMA, fastMA, veryfastMA)
+                self.write_data(bars[1], data)
+                return trend
+            elif slowMA > midMA > fastMA > veryfastMA:
+                self.trend_buffer -= 1
+                if self.trend_buffer <= trend_buffer_threshold:
+                    trend = -1 # bear
+                else:
+                    trend = 0  # ranging
+
+                data = TrendData(trend*1000, slowMA, midMA, fastMA, veryfastMA)
                 self.write_data(bars[1], data)
                 return trend
             else:
