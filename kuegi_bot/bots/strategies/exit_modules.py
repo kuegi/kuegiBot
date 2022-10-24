@@ -124,8 +124,8 @@ class QuickBreakEven(ExitModule):
         if self.seconds_to_BE is not None and self.seconds_to_BE != 0:
             equity_per_second = refRange / self.seconds_to_BE
 
-            if (order.stop_price < self.factor * position.wanted_entry and position.amount > 0) or \
-                    (order.stop_price > position.wanted_entry/self.factor and position.amount < 0):
+            if (newStop < (position.wanted_entry + self.factor * refRange) and position.amount > 0) or \
+                    (newStop > max((position.wanted_entry - refRange * self.factor),0) and position.amount < 0):
                 if position.amount > 0:
                     newStop = position.initial_stop + equity_per_second * seconds_since_entry
                 else:

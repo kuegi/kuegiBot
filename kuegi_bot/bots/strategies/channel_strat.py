@@ -110,37 +110,38 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
             orderType = TradingBot.order_type_from_order_id(order.id)
             posId = TradingBot.position_id_from_order_id(order.id)
 
-            if orderType == OrderType.SL and open_positions[posId].status == PositionStatus.OPEN:
-                if order.amount < 0:
-                    nmbLongs = nmbLongs + 1
-                    if lowestSL is None:
-                        lowestSL = order.stop_price
-                        secLowestSL = order.stop_price
-                        lowestSLPosID = posId
-                        amountLowestSL = order.amount
-                        amountSecLowestSL = order.amount
-                    elif order.stop_price < lowestSL:
-                        secLowestSL = lowestSL
-                        lowestSL = order.stop_price
-                        secLowestSLPosID = lowestSLPosID
-                        lowestSLPosID = posId
-                        amountSecLowestSL = amountLowestSL
-                        amountLowestSL = order.amount
-                else:
-                    nmbShorts = nmbShorts + 1
-                    if highestSL is None:
-                        secHighestSL = order.stop_price
-                        highestSL = order.stop_price
-                        highestSLPosID = posId
-                        amountHighestSL = order.amount
-                        amountSecHighestSL = order.amount
-                    elif order.stop_price > highestSL:
-                        secHighestSL = highestSL
-                        highestSL = order.stop_price
-                        secHighestSLPosID = highestSLPosID
-                        highestSLPosID = posId
-                        amountSecHighestSL = amountHighestSL
-                        amountHighestSL = order.amount
+            if orderType == OrderType.SL and posId in open_positions:
+                if open_positions[posId].status == PositionStatus.OPEN:
+                    if order.amount < 0:
+                        nmbLongs = nmbLongs + 1
+                        if lowestSL is None:
+                            lowestSL = order.stop_price
+                            secLowestSL = order.stop_price
+                            lowestSLPosID = posId
+                            amountLowestSL = order.amount
+                            amountSecLowestSL = order.amount
+                        elif order.stop_price < lowestSL:
+                            secLowestSL = lowestSL
+                            lowestSL = order.stop_price
+                            secLowestSLPosID = lowestSLPosID
+                            lowestSLPosID = posId
+                            amountSecLowestSL = amountLowestSL
+                            amountLowestSL = order.amount
+                    else:
+                        nmbShorts = nmbShorts + 1
+                        if highestSL is None:
+                            secHighestSL = order.stop_price
+                            highestSL = order.stop_price
+                            highestSLPosID = posId
+                            amountHighestSL = order.amount
+                            amountSecHighestSL = order.amount
+                        elif order.stop_price > highestSL:
+                            secHighestSL = highestSL
+                            highestSL = order.stop_price
+                            secHighestSLPosID = highestSLPosID
+                            highestSLPosID = posId
+                            amountSecHighestSL = amountHighestSL
+                            amountHighestSL = order.amount
 
         if nmbShorts > self.maxPositions:
             for order in account.open_orders:
