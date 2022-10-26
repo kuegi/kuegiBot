@@ -168,9 +168,11 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 for i in range(1,10):
                     factorKey= "KB_BE"+str(i)+"_FACTOR"
                     bufferKey= "KB_BE"+str(i)+"_BUFFER"
+                    atrKey = "KB_BE" + str(i) + "_ATR"
                     if factorKey in stratSettings.keys():
                         strat.withExitModule(SimpleBE(factor=stratSettings[factorKey],
-                                                      buffer=stratSettings[bufferKey]))
+                                                      buffer=stratSettings[bufferKey],
+                                                      atrPeriod=stratSettings[atrKey]))
                 if "EM_PARA_INIT" in stratSettings.keys():
                     resetToCurrent= False
                     if "EM_PARA_RESET" in stratSettings.keys():
