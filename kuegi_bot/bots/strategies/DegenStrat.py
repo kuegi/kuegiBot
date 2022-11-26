@@ -5,9 +5,8 @@ from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import Data, clean_range
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Position, Order, PositionStatus
 from kuegi_bot.indicators.indicator import Indicator
-from kuegi_bot.indicators.TAlib import TA
+from kuegi_bot.indicators.talibbars import TAlibBars
 import talib
-from talib import RSI
 from datetime import datetime
 
 
@@ -20,7 +19,7 @@ class DegenStrategy(ChannelStrategy):
                  close_on_opposite: bool = False, bars_till_cancel_triggered: int = 20, cancel_on_filter:bool = False, tp_fac: float = 0):
         super().__init__()
         self.minBars = max(rsiPeriod, extreme_period)
-        self.ta = TA()
+        self.talibbars = TAlibBars()
         self.degen = DegenIndicator(rsiPeriod, periodStoch, fastMACD, slowMACD, signal_period, rsi_high_limit, rsi_low_limit, fastK_lim)
         self.trail_short_fac = trail_short_fac
         self.trail_long_fac = trail_long_fac
@@ -44,17 +43,14 @@ class DegenStrategy(ChannelStrategy):
     def myId(self):
         return "degen"
 
-    def owns_signal_id(self, signalId: str):
-        return signalId.startswith("degen+")
-
     def min_bars_needed(self) -> int:
         return self.minBars
 
     def prep_bars(self, is_new_bar: bool, bars: list):
         if is_new_bar:
             self.channel.on_tick(bars)
-            self.ta.on_tick(bars)
-            self.degen.on_tick(self.ta)
+            self.talibbars.on_tick(bars)
+            self.degen.on_tick(self.talibbars)
 
     def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < self.min_bars_needed():
@@ -75,13 +71,13 @@ class DegenStrategy(ChannelStrategy):
 
         # LONG
         if self.degen.degenData.goLong:
-            self.__open_position(PositionDirection.LONG, bars, stopLong,open_positions,all_open_pos, longEntry)  # to the moon
+            self.__open_position(PositionDirection.LONG, bars, stopLong,open_positions, longEntry)  # to the moon
 
         # SHORT
         if self.degen.degenData.goShort:
-            self.__open_position(PositionDirection.SHORT, bars, stopShort,open_positions,all_open_pos, shortEntry) # short the ponzi
+            self.__open_position(PositionDirection.SHORT, bars, stopShort,open_positions, shortEntry) # short the ponzi
 
-    def __open_position(self, direction, bars, stop, open_positions, all_open_pos, entry):
+    def __open_position(self, direction, bars, stop, open_positions, entry):
         # SL && TP
         directionFactor = 1
         oppDirection = PositionDirection.SHORT
@@ -236,20 +232,20 @@ class DegenIndicator(Indicator):
         self.rsi_low_limit = rsi_low_limit
         self.fastK_lim = fastK_lim
 
-    def on_tick(self, ta: TA()):
-        self.calc_market_trend(ta)
+    def on_tick(self, talibbars: TAlibBars()):
+        self.calc_market_trend(talibbars)
 
-    def calc_market_trend(self, ta: TA()):
+    def calc_market_trend(self, talibbars: TAlibBars()):
         # Stoch RSI
         smoothK = 3
         smoothD = 3
-        self.degenData.rsi = RSI(ta.close, self.rsiPeriod)
+        self.degenData.rsi = talib.RSI(talibbars.close, self.rsiPeriod)
         self.degenData.fastk, self.degenData.fastd = talib.STOCHRSI(
-            ta.close, self.periodStoch, fastk_period=smoothK, fastd_period=smoothD,fastd_matype=0)
+            talibbars.close, self.periodStoch, fastk_period=smoothK, fastd_period=smoothD,fastd_matype=0)
 
         # MACD
         self.degenData.macd, self.degenData.macdsignal, self.degenData.macdhist = \
-            talib.MACD(ta.close, fastperiod=self.fastMACD, slowperiod=self.slowMACD, signalperiod=self.signal_period)
+            talib.MACD(talibbars.close, fastperiod=self.fastMACD, slowperiod=self.slowMACD, signalperiod=self.signal_period)
 
         self.degenData.goLong = False
         self.degenData.goShort = False

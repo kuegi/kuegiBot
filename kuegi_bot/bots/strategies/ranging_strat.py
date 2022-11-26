@@ -233,17 +233,17 @@ class RangingStrategy(ChannelStrategy):
                             self.logger.warn("updating order switching direction")
                         changed = False
                         changed = changed or order.stop_price != newEntry
-                        if changed:
+                        if changed and order.stop_price is not None and newEntry is not None:
                             self.logger.info("old entry: %.1f, new entry: %.1f" % (order.stop_price, newEntry))
                         order.stop_price = newEntry
                         if self.limit_entry_offset_perc is not None:
                             newLimit = newEntry - entryBuffer * math.copysign(1, amount)
                             changed = changed or order.limit_price != newLimit
-                            if changed:
+                            if changed and order.stop_price is not None and newEntry is not None:
                                 self.logger.info("old limit: %.1f, new limit: %.1f" % (order.limit_price, newLimit))
                             order.limit_price = newLimit
                         changed = changed or order.amount != amount
-                        if changed:
+                        if changed and order.stop_price is not None and newEntry is not None:
                             self.logger.info("old amount: %.1f, new amount: %.1f" % (order.amount, amount))
                         order.amount = amount
                         if changed:

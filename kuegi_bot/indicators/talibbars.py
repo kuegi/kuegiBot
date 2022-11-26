@@ -4,9 +4,10 @@ from typing import List
 
 import numpy as np
 
-class TA(Indicator):
+
+class TAlibBars(Indicator):
     def __init__(self):
-        super().__init__("TAlib")
+        super().__init__("TAlibBars")
         self.close = List[float]
         self.high = List[float]
         self.low = List[float]

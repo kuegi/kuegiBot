@@ -299,6 +299,9 @@ class BackTest(OrderInterface):
             self.underwater = 0
         self.max_underwater = max(self.max_underwater, self.underwater)
 
+        if self.account.equity > 100:
+            test = True
+
     def do_funding(self):
         funding = 0
         bar = self.current_bars[0]
@@ -372,12 +375,17 @@ class BackTest(OrderInterface):
             total_days = (self.bars[0].tstamp - self.bars[-1].tstamp) / (60 * 60 * 24)
             rel = profit / (self.maxDD if self.maxDD > 0 else 1)
             rel_per_year = rel / (total_days / 365)
-            self.logger.info("finished | closed pos: " + str(len(self.bot.position_history))
-                             + " | open pos: " + str(len(self.bot.open_positions))
-                             + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
+            nmb = 0
+            for position in self.bot.open_positions.values():
+                if position.status == PositionStatus.OPEN:
+                    nmb += 1
+
+            self.logger.info("closed pos: " + str(len(self.bot.position_history))
+                             + " | open pos: " + str(nmb)
+                             + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity)) + "%"
                              + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
-                             + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
-                             + " | maxExp: " + ("%.2f" % (self.maxExposure / self.initialEquity))
+                             + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity)) + "%"
+                             + " | maxExp: " + ("%.2f" % (self.maxExposure / self.initialEquity)) + "%"
                              + " | rel: " + ("%.2f" % (rel_per_year))
                              + " | UW days: " + ("%.1f" % (self.max_underwater / uw_updates_per_day))
                              + " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays, daysInPos, maxDays))
@@ -385,7 +393,6 @@ class BackTest(OrderInterface):
         else:
             self.logger.info("finished with no trades")
 
-        # self.write_results_to_files()
         return self
 
     def prepare_plot(self):

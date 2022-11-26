@@ -209,8 +209,7 @@ class MultiStrategyBot(TradingBot):
 
     def consolidate_open_positions(self, bars: List[Bar], account: Account):
         for strat in self.strategies:
-            self.call_with_open_positions_for_strat(strat, lambda open_pos, all_open_pos:
-            strat.consolidate_positions(self.is_new_bar, bars, account, open_pos))
+            self.call_with_open_positions_for_strat(strat, lambda open_pos, all_open_pos: strat.consolidate_positions(self.is_new_bar, bars, account, open_pos))
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
         super().add_to_plot(fig, bars, time)
