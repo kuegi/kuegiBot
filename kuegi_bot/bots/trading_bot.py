@@ -759,6 +759,7 @@ class TradingBot:
                     1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
         else:
             startEquity = 100
+        #startEquity = 100
 
         stats_range = []
         # temporarily add filled exit to have position in the result
