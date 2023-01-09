@@ -232,10 +232,10 @@ class DegenIndicator(Indicator):
         self.rsi_low_limit = rsi_low_limit
         self.fastK_lim = fastK_lim
 
-    def on_tick(self, talibbars: TAlibBars()):
+    def on_tick(self, talibbars):
         self.calc_market_trend(talibbars)
 
-    def calc_market_trend(self, talibbars: TAlibBars()):
+    def calc_market_trend(self, talibbars):
         # Stoch RSI
         smoothK = 3
         smoothD = 3
