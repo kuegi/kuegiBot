@@ -4,7 +4,7 @@ from typing import List
 import plotly.graph_objects as go
 import talib
 
-from kuegi_bot.bots.strategies.trend_strategy import TrendStrategy, TAdataTrendStrategy, MarketTrend, BBands
+from kuegi_bot.bots.strategies.trend_strategy import TrendStrategy, TAdataTrendStrategy, MarketRegime, BBands
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.indicators.talibbars import TAlibBars
@@ -104,12 +104,12 @@ class TemplateStrategy(TrendStrategy):
             # Set mean reversion entries if no orders are found and the market conditions allow it
             # go LONG
             if not foundLong and directionFilter >= 0 and \
-                    (self.ta_data.marketTrend !=  MarketTrend.BEAR) and \
+                    (self.ta_data.marketRegime != MarketRegime.BEAR) and \
                     self.data_template_strat.longsAllowed and longAmount > 0:
                 self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry, longAmount)
             # go SHORT
             if not foundShort and directionFilter <= 0 and \
-                    (self.ta_data.marketTrend != MarketTrend.BULL) and \
+                    (self.ta_data.marketRegime != MarketRegime.BULL) and \
                     self.data_template_strat.shortsAllowed and shortAmount < 0:
                 self.open_new_position(PositionDirection.SHORT, bars, stopShort, open_positions, shortEntry, shortAmount)
 

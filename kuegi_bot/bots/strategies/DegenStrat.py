@@ -258,7 +258,7 @@ class DegenIndicator(Indicator):
 
 
     def get_line_names(self):
-        return ["MarketTrend",  "slowMA", "midMA", "fastMA", "verfastMA"]
+        return ["MarketRegime",  "slowMA", "midMA", "fastMA", "verfastMA"]
 
     def get_number_of_lines(self):
         return 1

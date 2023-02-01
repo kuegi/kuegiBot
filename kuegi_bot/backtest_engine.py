@@ -473,15 +473,11 @@ class BackTest(OrderInterface):
         }
 
         data_abs = []
-        #data_px =[]
         for key in sub_data.keys():
             data_abs.append(
                 go.Scatter(x=time, y=sub_data.get(key), name=(key + ': %.1f' % sub_data.get(key)[0]),
                            line=dict(color=colors[key], width=2))
             )
-            #data_px.append(
-            #    px.scatter(x=time, y=sub_data.get(key))
-            #)
         fig_abs = go.Figure(data = data_abs)
         fig_abs.show()
 
