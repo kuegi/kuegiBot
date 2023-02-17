@@ -60,20 +60,22 @@ class ExitModule:
             if len(jsonData[key].keys()) > 0:
                 bar.bot_data['modules'][key]= dotdict(jsonData[key])
 
+
 class SimpleBE(ExitModule):
     ''' trails the stop to "break even" when the price move a given factor of the entry-risk in the right direction
         "break even" includes a buffer (multiple of the entry-risk).
     '''
 
-    def __init__(self, factor, buffer, atrPeriod: int = 0):
+    def __init__(self, factor, bufferLongs, bufferShorts, atrPeriod: int = 0):
         super().__init__()
         self.factor = factor
-        self.buffer = buffer
+        self.bufferLongs = bufferLongs
+        self.bufferShorts = bufferShorts
         self.atrPeriod = atrPeriod
 
     def init(self, logger,symbol):
         super().init(logger,symbol)
-        self.logger.info("init BE %.2f %.2f %i" % (self.factor, self.buffer, self.atrPeriod))
+        self.logger.info("init BE %.2f %.2f %.2f %i" % (self.factor, self.bufferLongs, self.bufferShorts, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         if position is not None and self.factor > 0:
@@ -92,7 +94,8 @@ class SimpleBE(ExitModule):
 
             if refRange != 0:
                 ep = bars[0].high if position.amount > 0 else bars[0].low
-                be = position.wanted_entry + refRange * self.buffer
+                buffer = self.bufferLongs if position.amount > 0 else self.bufferShorts
+                be = position.wanted_entry + refRange * buffer
                 if newStop is not None:
                     if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
                             and (be - newStop) * position.amount > 0:

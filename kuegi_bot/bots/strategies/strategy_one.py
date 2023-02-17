@@ -27,14 +27,19 @@ class DataStrategyOne:
 class StrategyOne(TrendStrategy):
     def __init__(self,
                  # StrategyOne
+                 var_1: float = 1, var_2: float = 2,
+                 std_fac_sell_off: float = 1, std_fac_reclaim: float = 1, std_fac_sell_off_2: float = 1, std_fac_reclaim_2: float = 1,
+                 std_fac_sell_off_3: float = 1, std_fac_reclaim_3: float = 1,
                  h_highs_trail_period: int = 1, h_lows_trail_period: int = 1, nmb_bars_entry: int = 1, const_trail_period: int = 4,
                  longReversals: bool = False, shortReversals: bool = False, longBreakouts: bool = False, shortBreakouts: bool = False,
+                 longReclaimBBand: bool = False,
                  entry_upper_bb_std_fac: float = 2.0, entry_lower_bb_std_fac: float = 2.0,
                  # TrendStrategy
                  timeframe: int = 240, w_ema_period: int = 2, d_highs_trail_period: int = 1, d_lows_trail_period: int = 1,
                  trend_d_period: int = 2, trend_w_period: int = 0, atr_period: int = 10, natr_period_slow: int = 10,
                  bbands_period: int = 10,
                  plotIndicators: bool = False,
+                 trend_var_1: float = 1,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend: float = 1, risk_ranging: float = 1,
                  # SL
@@ -53,6 +58,7 @@ class StrategyOne(TrendStrategy):
             atr_period = atr_period, natr_period_slow= natr_period_slow,
             bbands_period = bbands_period,
             plotIndicators = plotIndicators,
+            trend_var_1 = trend_var_1,
             # Risk
             risk_with_trend = risk_with_trend, risk_counter_trend = risk_counter_trend, risk_ranging = risk_ranging,
             # SL
@@ -70,14 +76,29 @@ class StrategyOne(TrendStrategy):
         self.ta_strat_one = TAStrategyOne(timeframe = timeframe, h_highs_trail_period= h_highs_trail_period,
                                           h_lows_trail_period = h_lows_trail_period, ta_data_trend_strat = self.ta_data_trend_strat)
         # Entry variables
+        self.var_1 = var_1 # for backetsting
+        self.var_2 = var_2 # for backetsting,
         self.nmb_bars_entry = nmb_bars_entry
         self.const_trail_period = const_trail_period
         self.longReversals = longReversals
         self.shortReversals = shortReversals
         self.longBreakouts = longBreakouts
         self.shortBreakouts = shortBreakouts
+        self.longReclaimBBand = longReclaimBBand
         self.entry_upper_bb_std_fac = entry_upper_bb_std_fac
         self.entry_lower_bb_std_fac = entry_lower_bb_std_fac
+        self.sold_off_bband = False
+        self.reclaimed_bband = False
+        self.sold_off_bband_2 = False
+        self.reclaimed_bband_2 = False
+        self.sold_off_bband_3 = False
+        self.reclaimed_bband_3 = False
+        self.std_fac_sell_off = std_fac_sell_off
+        self.std_fac_reclaim = std_fac_reclaim
+        self.std_fac_sell_off_2 = std_fac_sell_off_2
+        self.std_fac_reclaim_2 = std_fac_reclaim_2
+        self.std_fac_sell_off_3 = std_fac_sell_off_3
+        self.std_fac_reclaim_3 = std_fac_reclaim_3
 
     def myId(self):
         return "strategyOne"
@@ -158,19 +179,19 @@ class StrategyOne(TrendStrategy):
         # Market orders after sweeping stops and reversing
         if self.longReversals and \
                 bars[1].low < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-2] < bars[1].close and \
-                (self.constant_h_trail(2, self.const_trail_period, self.ta_strat_one.taData_strat_one.h_lows_trail_vec) or
-                self.constant_h_trail(3, self.const_trail_period+1, self.ta_strat_one.taData_strat_one.h_lows_trail_vec) or
-                        self.constant_h_trail(4, self.const_trail_period+2, self.ta_strat_one.taData_strat_one.h_lows_trail_vec)):
+                (self.constant_trail(2, self.const_trail_period, self.ta_strat_one.taData_strat_one.h_lows_trail_vec) or
+                 self.constant_trail(3, self.const_trail_period + 1, self.ta_strat_one.taData_strat_one.h_lows_trail_vec) or
+                 self.constant_trail(4, self.const_trail_period + 2, self.ta_strat_one.taData_strat_one.h_lows_trail_vec)):
             self.entry_by_market_order(entry=bars[0].open,
-                                       stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low),
+                                       stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low, bars[1].low),
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.LONG)
 
         if self.shortReversals and \
             bars[1].high > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2] > bars[1].close and \
-                (self.constant_h_trail(2, self.const_trail_period, self.ta_strat_one.taData_strat_one.h_highs_trail_vec) or
-                 self.constant_h_trail(3, self.const_trail_period+1, self.ta_strat_one.taData_strat_one.h_highs_trail_vec)):
+                (self.constant_trail(2, self.const_trail_period, self.ta_strat_one.taData_strat_one.h_highs_trail_vec) or
+                 self.constant_trail(3, self.const_trail_period + 1, self.ta_strat_one.taData_strat_one.h_highs_trail_vec)):
             self.entry_by_market_order(entry=bars[0].open,
                                        stop=max(bars[0].open + self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].high, bars[1].high),
                                        open_positions=open_positions,
@@ -179,22 +200,94 @@ class StrategyOne(TrendStrategy):
 
         # Market orders after breakouts by close beyond the bollinger band
         if self.longBreakouts and \
-                bars[2].close < bars[1].close > (self.ta_data_trend_strat.bbands.middleband + self.ta_data_trend_strat.bbands.std * self.entry_upper_bb_std_fac) and \
-                self.ta_data_trend_strat.marketRegime != MarketRegime.BEAR and \
-                self.ta_data_trend_strat.marketRegime != MarketRegime.NONE:
+                bars[1].close > (self.ta_data_trend_strat.bbands.middleband + self.ta_data_trend_strat.bbands.std * self.entry_upper_bb_std_fac) and \
+                bars[1].close > bars[2].close and \
+                self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
             self.entry_by_market_order(entry=bars[0].open,
-                                       stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low),
+                                       stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low, bars[1].low),
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.LONG)
 
         if self.shortBreakouts and \
-                bars[1].close < (self.ta_data_trend_strat.bbands.middleband - self.ta_data_trend_strat.bbands.std * self.entry_lower_bb_std_fac):
+                bars[1].close < (self.ta_data_trend_strat.bbands.middleband - self.ta_data_trend_strat.bbands.std * self.entry_lower_bb_std_fac) and \
+                bars[1].close < bars[2].close < bars[3].open and \
+                self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
             self.entry_by_market_order(entry = bars[0].open,
-                                       stop= max(bars[0].open + self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].high),
+                                       stop= max(bars[0].open + self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].high, bars[1].high),
                                        open_positions = open_positions,
                                        bars = bars,
                                        direction = PositionDirection.SHORT)
+
+        shortTrailBreak = False # dont use it
+        if shortTrailBreak and \
+                bars[1].close < self.ta_strat_one.ta_data_trend_strat.d_lows_trail_vec[-2] and \
+                bars[1].close < bars[2].close < bars[3].open and \
+                self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
+                #bars[2].close < self.ta_strat_one.ta_data_trend_strat.d_lows_trail_vec[-3] and \
+            self.entry_by_market_order(entry=bars[0].open,
+                                       stop=max(bars[0].open + self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].high, bars[1].high),
+                                       open_positions=open_positions,
+                                       bars=bars,
+                                       direction=PositionDirection.SHORT)
+
+        # Long reclaimed BBands
+        if self.longReclaimBBand and \
+                self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
+            std = self.ta_data_trend_strat.bbands.std
+            sell_off_level = self.ta_data_trend_strat.bbands.middleband - std * self.std_fac_sell_off
+            reclaim_level = sell_off_level + std * self.std_fac_reclaim
+            if bars[1].low < sell_off_level:
+                self.sold_off_bband = True
+                self.reclaimed_bband = False
+            if bars[1].close > reclaim_level and self.sold_off_bband and not self.reclaimed_bband:
+                self.sold_off_bband = False
+                self.reclaimed_bband = True
+                # TODO: log to Telegram which trade is executed
+                self.entry_by_market_order(entry=bars[0].open,
+                                           stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low, bars[1].low),
+                                           open_positions=open_positions,
+                                           bars=bars,
+                                           direction=PositionDirection.LONG)
+
+        # Long reclaimed BBands
+        #secondReclaim = True
+        if self.longReclaimBBand and \
+                self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
+            std = self.ta_data_trend_strat.bbands.std
+            sell_off_level = self.ta_data_trend_strat.bbands.middleband - std * self.std_fac_sell_off_2
+            reclaim_level = sell_off_level + std * self.std_fac_reclaim_2
+            if bars[1].low < sell_off_level:
+                self.sold_off_bband_2 = True
+                self.reclaimed_bband_2 = False
+            if bars[1].close > reclaim_level and self.sold_off_bband_2 and not self.reclaimed_bband_2:
+                self.sold_off_bband_2 = False
+                self.reclaimed_bband_2 = True
+                # TODO: log to Telegram which trade is executed
+                self.entry_by_market_order(entry=bars[0].open,
+                                           stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low, bars[1].low),
+                                           open_positions=open_positions,
+                                           bars=bars,
+                                           direction=PositionDirection.LONG)
+
+        # Long reclaimed BBands
+        #thirdReclaim = True
+        if self.longReclaimBBand:
+            std = self.ta_data_trend_strat.bbands.std
+            sell_off_level = self.ta_data_trend_strat.bbands.middleband - std * self.std_fac_sell_off_3
+            reclaim_level = sell_off_level + std * self.std_fac_reclaim_3
+            if bars[1].low < sell_off_level:
+                self.sold_off_bband_3 = True
+                self.reclaimed_bband_3 = False
+            if bars[1].close > reclaim_level and self.sold_off_bband_3 and not self.reclaimed_bband_3:
+                self.sold_off_bband_3 = False
+                self.reclaimed_bband_3 = True
+                # TODO: log to Telegram which trade is executed
+                self.entry_by_market_order(entry=bars[0].open,
+                                           stop=min(bars[0].open - self.sl_atr_fac * self.ta_data_trend_strat.ATR, bars[2].low, bars[1].low),
+                                           open_positions=open_positions,
+                                           bars=bars,
+                                           direction=PositionDirection.LONG)
 
     def entry_by_market_order(self, entry, stop, open_positions, bars, direction):
         expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
@@ -235,7 +328,7 @@ class StrategyOne(TrendStrategy):
 
         return longEntry, shortEntry, stopLong, stopShort, longAmount, shortAmount
 
-    def constant_h_trail(self, periodStart, periodEnd, trail):
+    def constant_trail(self, periodStart, periodEnd, trail):
         is_constant = True
         for i in range(periodStart, periodEnd):
             if trail[-i] != trail[-(i + 1)]:
@@ -260,12 +353,12 @@ class StrategyOne(TrendStrategy):
         self.data_strat_one.shortsAllowed = True
         self.data_strat_one.longsAllowed = True
         for i in range(1, self.nmb_bars_entry):
-            if self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-i] != \
-                    self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-(i + 1)]:
+            if self.ta_data_trend_strat.d_lows_trail_vec[-i] != \
+                    self.ta_data_trend_strat.d_lows_trail_vec[-(i + 1)]:
                 self.data_strat_one.shortsAllowed = False
 
-            if self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-i] != \
-                    self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-(i + 1)]:
+            if self.ta_data_trend_strat.d_highs_trail_vec[-i] != \
+                    self.ta_data_trend_strat.d_highs_trail_vec[-(i + 1)]:
                 self.data_strat_one.longsAllowed = False
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
@@ -363,29 +456,11 @@ class TAStrategyOne(Indicator):
 
     def run_ta_analysis(self):
         # Trails
-        temp_h_highs = talib.MAX(self.ta_data_trend_strat.talibbars.high, self.h_highs_trail_period)
-        temp_h_lows = talib.MIN(self.ta_data_trend_strat.talibbars.low, self.h_lows_trail_period)
-        h_highs_vec = []
-        h_lows_vec = []
-        for value_high, value_low in zip(temp_h_highs, temp_h_lows):
-            if not np.isnan(value_high):
-                h_highs_vec.append(value_high)
-            if not np.isnan(value_low):
-                h_lows_vec.append(value_low)
-        self.taData_strat_one.h_highs_trail_vec = h_highs_vec
-        self.taData_strat_one.h_lows_trail_vec = h_lows_vec
+        self.taData_strat_one.h_highs_trail_vec = talib.MAX(self.ta_data_trend_strat.talibbars.high, self.h_highs_trail_period)
+        self.taData_strat_one.h_lows_trail_vec = talib.MIN(self.ta_data_trend_strat.talibbars.low, self.h_lows_trail_period)
 
-        if self.taData_strat_one.h_highs_trail_vec is not None and len(self.taData_strat_one.h_highs_trail_vec)>0:
-            if self.taData_strat_one.h_highs_trail_vec[-1] is not None:
-                self.taData_strat_one.h_highs_trail = self.taData_strat_one.h_highs_trail_vec[-1]
-            else:
-                self.taData_strat_one.h_highs_trail = None
-
-        if self.taData_strat_one.h_lows_trail_vec is not None and len(self.taData_strat_one.h_lows_trail_vec)>0:
-            if self.taData_strat_one.h_lows_trail_vec[-1] is not None:
-                self.taData_strat_one.h_lows_trail = self.taData_strat_one.h_lows_trail_vec[-1]
-            else:
-                self.taData_strat_one.h_lows_trail = None
+        self.taData_strat_one.h_highs_trail = self.taData_strat_one.h_highs_trail_vec[-1] if not np.isnan(self.taData_strat_one.h_highs_trail_vec[-1]) else None
+        self.taData_strat_one.h_lows_trail = self.taData_strat_one.h_lows_trail_vec[-1] if not np.isnan(self.taData_strat_one.h_lows_trail_vec[-1]) else None
 
     def write_data_for_plot(self, bars: List[Bar]):
         plot_data = [self.taData_strat_one.h_highs_trail,

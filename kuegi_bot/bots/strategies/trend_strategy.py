@@ -1,5 +1,5 @@
 from typing import List
-import math
+#import math
 
 from kuegi_bot.bots.strategies.strat_w_trade_man import StrategyWithTradeManagement
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Order, PositionStatus, Position
@@ -33,6 +33,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                  trend_d_period: int = 2, trend_w_period: int = 0, atr_period: int = 10, natr_period_slow: int = 10,
                  bbands_period: int = 10,
                  plotIndicators: bool = False,
+                 trend_var_1: float = 1,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend:float = 1, risk_ranging: float = 1,
                  sl_upper_bb_std_fac: float = 1, sl_lower_bb_std_fac: float = 1, sl_atr_fac: float = 2,
@@ -55,7 +56,7 @@ class TrendStrategy(StrategyWithTradeManagement):
             timeframe = timeframe, w_ema_period= w_ema_period, d_highs_trail_period = d_highs_trail_period,
             d_lows_trail_period = d_lows_trail_period, trend_d_period = trend_d_period, trend_w_period = trend_w_period,
             atr_period = atr_period, natr_period_slow= natr_period_slow, bbands_period = bbands_period, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
-            sl_lower_bb_std_fac = sl_lower_bb_std_fac
+            sl_lower_bb_std_fac = sl_lower_bb_std_fac, ta_trend_var_1 = trend_var_1,
         )
         self.plotIndicators = plotIndicators
         # Risk
@@ -71,7 +72,7 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.stop_at_new_entry = stop_at_new_entry
         self.trail_sl_with_bband = trail_sl_with_bband
         self.atr_buffer_fac = atr_buffer_fac
-        self.sl_atr_fac = sl_atr_fac
+        self.sl_atr_fac = sl_atr_fac # TODO remove this variable
         self.moving_sl_atr_fac = moving_sl_atr_fac
         self.sl_upper_bb_std_fac = sl_upper_bb_std_fac
         self.sl_lower_bb_std_fac = sl_lower_bb_std_fac
@@ -214,8 +215,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                 if order.amount > 0:  # SL for SHORTS
                     if bars[1].low < self.ta_trend_strat.taData_trend_strat.bbands.middleband and self.be_by_middleband:
                         new_stop_price = min(position.wanted_entry, new_stop_price)
-                    if bars[1].low < (
-                            lower_band + self.ta_trend_strat.taData_trend_strat.ATR * self.atr_buffer_fac) and self.be_by_opposite:
+                    if bars[1].low < (lower_band + self.ta_trend_strat.taData_trend_strat.ATR * self.atr_buffer_fac) and self.be_by_opposite:
                         new_stop_price = min(position.wanted_entry, new_stop_price)
                     if bars[1].low < self.ta_trend_strat.taData_trend_strat.bbands.middleband and self.stop_at_new_entry:
                         new_stop_price = min(upper_band, new_stop_price)
@@ -300,7 +300,8 @@ class TATrendStrategyIndicator(Indicator):
                  natr_period_slow: int = 10,
                  bbands_period: int = 10,
                  sl_upper_bb_std_fac: float = 2.0,
-                 sl_lower_bb_std_fac: float = 2.0):
+                 sl_lower_bb_std_fac: float = 2.0,
+                 ta_trend_var_1: float = 0):
         super().__init__('TAtrend')
         # local data
         self.taData_trend_strat = TAdataTrendStrategy()
@@ -320,6 +321,7 @@ class TATrendStrategyIndicator(Indicator):
         self.bbands_period = bbands_period
         self.sl_upper_bb_std_fac = sl_upper_bb_std_fac
         self.sl_lower_bb_std_fac = sl_lower_bb_std_fac
+        self.ta_trend_var_1 = ta_trend_var_1
 
     def on_tick(self, bars: List[Bar]):
         self.taData_trend_strat.talibbars.on_tick(bars)
@@ -332,42 +334,15 @@ class TATrendStrategyIndicator(Indicator):
 
     def run_ta_analysis(self):
         # W-EMA
-        temp_w_ema = talib.EMA(self.taData_trend_strat.talibbars.close, self.w_ema_period * self.bars_per_week)
-        w_ema_vec = []
-        for value in temp_w_ema:
-            if not np.isnan(value):
-                w_ema_vec.append(value)
-        self.taData_trend_strat.w_ema_vec = w_ema_vec
-        if self.taData_trend_strat.w_ema_vec is not None and len(self.taData_trend_strat.w_ema_vec)>0:
-            if self.taData_trend_strat.w_ema_vec[-1] is not None:
-                self.taData_trend_strat.w_ema = self.taData_trend_strat.w_ema_vec[-1]
-            else:
-                self.taData_trend_strat.w_ema = None
+        self.taData_trend_strat.w_ema_vec = talib.EMA(self.taData_trend_strat.talibbars.close, self.w_ema_period * self.bars_per_week)
+        self.taData_trend_strat.w_ema = self.taData_trend_strat.w_ema_vec[-1] if not np.isnan(self.taData_trend_strat.w_ema_vec[-1]) else None
 
         # Trails
-        temp_d_highs = talib.MAX(self.taData_trend_strat.talibbars.high, self.highs_trail_period * self.bars_per_day)
-        temp_d_lows = talib.MIN(self.taData_trend_strat.talibbars.low, self.lows_trail_period * self.bars_per_day)
-        d_highs_vec = []
-        d_lows_vec = []
-        for value_high, value_low in zip(temp_d_highs, temp_d_lows):
-            if not np.isnan(value_high):
-                d_highs_vec.append(value_high)
-            if not np.isnan(value_low):
-                d_lows_vec.append(value_low)
-        self.taData_trend_strat.d_highs_trail_vec = d_highs_vec
-        self.taData_trend_strat.d_lows_trail_vec = d_lows_vec
+        self.taData_trend_strat.d_highs_trail_vec = talib.MAX(self.taData_trend_strat.talibbars.high, self.highs_trail_period * self.bars_per_day)
+        self.taData_trend_strat.d_lows_trail_vec = talib.MIN(self.taData_trend_strat.talibbars.low, self.lows_trail_period * self.bars_per_day)
 
-        if self.taData_trend_strat.d_highs_trail_vec is not None and len(self.taData_trend_strat.d_highs_trail_vec)>0:
-            if self.taData_trend_strat.d_highs_trail_vec[-1] is not None:
-                self.taData_trend_strat.d_highs_trail = self.taData_trend_strat.d_highs_trail_vec[-1]
-            else:
-                self.taData_trend_strat.d_highs_trail = None
-
-        if self.taData_trend_strat.d_lows_trail_vec is not None and len(self.taData_trend_strat.d_lows_trail_vec)>0:
-            if self.taData_trend_strat.d_lows_trail_vec[-1] is not None:
-                self.taData_trend_strat.d_lows_trail = self.taData_trend_strat.d_lows_trail_vec[-1]
-            else:
-                self.taData_trend_strat.d_lows_trail = None
+        self.taData_trend_strat.d_highs_trail = self.taData_trend_strat.d_highs_trail_vec[-1] if not np.isnan(self.taData_trend_strat.d_highs_trail_vec[-1]) else None
+        self.taData_trend_strat.d_lows_trail = self.taData_trend_strat.d_lows_trail_vec[-1] if not np.isnan(self.taData_trend_strat.d_lows_trail_vec[-1]) else None
 
         if self.taData_trend_strat.d_lows_trail is not None and self.taData_trend_strat.d_highs_trail is not None:
             self.taData_trend_strat.d_mid_trail = (self.taData_trend_strat.d_highs_trail + self.taData_trend_strat.d_lows_trail) / 2
@@ -387,8 +362,8 @@ class TATrendStrategyIndicator(Indicator):
 
         # Bollinger Bands
         a, b, c = talib.BBANDS(self.taData_trend_strat.talibbars.close, timeperiod=self.bbands_period, nbdevup = 1, nbdevdn = 1)
-        upperband = a[-1] if not math.isnan(a[-1]) else None
-        self.taData_trend_strat.bbands.middleband = b[-1] if not math.isnan(b[-1]) else None
+        upperband = a[-1] if not np.isnan(a[-1]) else None
+        self.taData_trend_strat.bbands.middleband = b[-1] if not np.isnan(b[-1]) else None
         if upperband is not None:
             self.taData_trend_strat.bbands.std = upperband - self.taData_trend_strat.bbands.middleband
         else:
@@ -397,14 +372,14 @@ class TATrendStrategyIndicator(Indicator):
     def identify_trend(self):
         # Trend based on W-EMA and trails
         if self.taData_trend_strat.w_ema is not None:
-            if (self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.d_lows_trail_vec[-2] or \
-                    self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.w_ema):# and \
+            if (self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.d_lows_trail_vec[-2] or
+                    self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.w_ema):
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
 
                 nmb_required_candles_w = self.trend_w_period * self.bars_per_week
                 nmb_required_candles_d = self.trend_d_period * self.bars_per_day
                 self.bear_buffer = max(nmb_required_candles_w, nmb_required_candles_d)
-                self.ranging_buffer = 0
+                self.ranging_buffer = self.ta_trend_var_1 * self.bars_per_day
             elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.d_highs_trail_vec[-2] or \
                     self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.w_ema:
                 self.bear_buffer -= 1
@@ -466,9 +441,9 @@ class TATrendStrategyIndicator(Indicator):
                 "1ATR+Close",
                 "1NATR",
                 "1slowNATR",
-                "%.1fSTD_upperband" % self.sl_upper_bb_std_fac,         # Bollinger Bands
+                "%.1fSTD_upperband" % self.sl_upper_bb_std_fac,         # Bollinger Bands SL
                 "middleband",                                           # Bollinger Bands
-                "%.1fSTD_lowerband" % self.sl_lower_bb_std_fac          # Bollinger Bands
+                "%.1fSTD_lowerband" % self.sl_lower_bb_std_fac          # Bollinger Bands SL
                 ]
 
     def get_number_of_lines(self):
@@ -484,9 +459,9 @@ class TATrendStrategyIndicator(Indicator):
             {"width": 1, "color": "purple", "dash": "dot"},         # ATR+Close
             {"width": 1, "color": "black"},                         # NATR
             {"width": 1, "color": "blue"},                          # slowNATR
-            {"width": 1, "color": "dodgerblue"},                    # BBands
+            {"width": 1, "color": "dodgerblue"},                    # BBands SL
             {"width": 1, "color": "dodgerblue", "dash": "dot"},     # BBands
-            {"width": 1, "color": "dodgerblue"}                     # BBands
+            {"width": 1, "color": "dodgerblue"}                     # BBands SL
                ]
 
     def get_data_for_plot(self, bar: Bar):
