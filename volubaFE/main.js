@@ -119,23 +119,28 @@ function init() {
     volDeltaSeries = chart.addHistogramSeries({
         priceFormat: {type: 'volume'},
         priceScaleId: 'volume',
-        scaleMargins: {
-            top: 0.8,
-            bottom: 0,
-        },
         priceLineVisible:false,
         lastValueVisible: false
     });
+    volDeltaSeries.priceScale().applyOptions({
+        scaleMargins: {
+            top: 0.8,
+            bottom: 0,
+        }
+    })
     volumeSeries = chart.addHistogramSeries({
         priceFormat: {type: 'volume'},
         priceScaleId: 'volume',
-        scaleMargins: {
-            top: 0.8,
-            bottom: 0,
-        },
         priceLineVisible:false,
         lastValueVisible: false
     });
+
+    volumeSeries.priceScale().applyOptions({
+        scaleMargins: {
+            top: 0.8,
+            bottom: 0,
+        }
+    })
     initData();
     window.onresize= resize;
 }
