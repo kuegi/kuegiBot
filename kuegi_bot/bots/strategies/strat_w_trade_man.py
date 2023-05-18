@@ -334,7 +334,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
 
 
 class ATRrangeSL(ExitModule):
-    ''' trails the stop to "break even" when the price move a given factor of the entry-risk in the right direction
+    ''' trails the stop to "to a new position" when the price moves a given factor of the entry-risk in the right direction
         "break even" includes a buffer (multiple of the entry-risk).
     '''
 
@@ -362,9 +362,14 @@ class ATRrangeSL(ExitModule):
             atr = calc_atr(bars, offset=1, length= self.atrPeriod)
             Indicator.write_data_static(bars[1], atr, atrId)
         refRange = self.rangeATRfactor * atr
+        if self.rangeATRfactor > 0:
+            refRange = self.rangeATRfactor * atr
+        elif position.initial_stop is not None and position.wanted_entry is not None:
+            refRange = abs(position.initial_stop - position.wanted_entry)
+        else:
+            refRange = None
 
-        if refRange > 0 and newStop is not None:
-            #ep = bars[0].high if position.amount > 0 else bars[0].low
+        if newStop is not None and refRange is not None:
             rangeSLfac = self.longRangefacSL if position.amount > 0 else self.shortRangefacSL
             targetSL = position.wanted_entry + refRange * rangeSLfac * direction
             triggerPrice = position.wanted_entry + refRange * self.rangeFacTrigger * direction
@@ -373,6 +378,6 @@ class ATRrangeSL(ExitModule):
             elif ep > (position.wanted_entry + refRange * self.rangeFacTrigger) and position.amount > 0 and newStop < targetSL:
                 newStop = self.symbol.normalizePrice(targetSL, roundUp=position.amount < 0)
 
-        if newStop != order.stop_price:
-            order.stop_price = newStop
-            to_update.append(order)
+            if newStop > order.stop_price and position.amount > 0 or newStop < order.stop_price and position.amount < 0:
+                order.stop_price = newStop
+                to_update.append(order)

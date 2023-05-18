@@ -237,7 +237,7 @@ class TrendStrategy(StrategyWithTradeManagement):
 
                 elif order.amount < 0:  # SL for LONGs
                     if stop_at_trail:
-                        new_stop_price = max(self.ta_trend_strat.taData_trend_strat.lows_4h_trail, new_stop_price)
+                        new_stop_price = max(self.ta_trend_strat.taData_trend_strat.lows_trail_4h, new_stop_price)
                     if stop_at_lowerband:
                         new_stop_price = max(lower_band, new_stop_price)
                     if bars[1].high > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.be_by_middleband:
@@ -280,12 +280,12 @@ class TAdataTrendStrategy:
         self.natr_4h_vec = None
         self.natr_4h = None
         self.natr_slow_4h_vec = None
-        self.natr_4h_slow = None
+        self.natr_slow_4h = None
         self.highs_trail_4h_vec = None
         self.highs_trail_4h = None
         self.lows_trail_4h_vec = None
-        self.lows_4h_trail = None
-        self.mid_4h_trail = None
+        self.lows_trail_4h = None
+        self.mid_trail_4h = None
         self.rsi_4h_vec = None
         # daily arrays
         self.rsi_d_vec = None
@@ -422,6 +422,9 @@ class TATrendStrategyIndicator(Indicator):
         self.taData_trend_strat.lows_trail_4h_vec[last_index % self.lows_trail_4h_period] = lows_trail
         self.taData_trend_strat.highs_trail_4h = highs_trail
         self.taData_trend_strat.lows_trail_4h = lows_trail
+        if self.taData_trend_strat.highs_trail_4h is not None and self.taData_trend_strat.lows_trail_4h is not None and \
+                self.taData_trend_strat.lows_trail_4h != 0:
+            self.taData_trend_strat.mid_trail_4h = 0.5*(self.taData_trend_strat.highs_trail_4h - self.taData_trend_strat.lows_trail_4h) + self.taData_trend_strat.lows_trail_4h
 
         # Update Bollinger Bands arrays
         a, b, c = talib.BBANDS(close[-self.bbands_4h_period-1:], timeperiod=self.bbands_4h_period, nbdevup=1, nbdevdn=1)
@@ -437,8 +440,11 @@ class TATrendStrategyIndicator(Indicator):
         natr_4h = talib.NATR(high[-self.atr_4h_period-1:],low[-self.atr_4h_period-1:], close[-self.atr_4h_period-1:], self.atr_4h_period)[-1]
         natr_slow_4h = talib.NATR(high[- self.natr_4h_period_slow-1:],low[- self.natr_4h_period_slow-1:], close[- self.natr_4h_period_slow-1:], self.natr_4h_period_slow)[-1]
         self.taData_trend_strat.atr_4h_vec[last_index % self.atr_4h_period] = atr_4h
+        self.taData_trend_strat.atr_4h = atr_4h
         self.taData_trend_strat.natr_4h_vec[last_index % self.atr_4h_period] = natr_4h
+        self.taData_trend_strat.natr_4h = natr_4h
         self.taData_trend_strat.natr_slow_4h_vec[last_index % self.natr_4h_period_slow] = natr_slow_4h
+        self.taData_trend_strat.natr_slow_4h = natr_slow_4h
 
         # Update RSI for 4H timeframe
         rsi_4h = talib.RSI(close[-self.rsi_4h_period-1:], self.rsi_4h_period)[-1]
@@ -465,9 +471,9 @@ class TATrendStrategyIndicator(Indicator):
         if close is None or len(close) < self.max_w_period+1:
             return
         ema_w = talib.EMA(close[-self.ema_w_period:], timeperiod=self.ema_w_period)[-1]
-        self.taData_trend_strat.ema_w_vec[last_index % self.ema_w_period] = ema_w
-        self.taData_trend_strat.ema_w = self.taData_trend_strat.ema_w_vec.mean()
+        self.taData_trend_strat.ema_w_vec[last_index % self.ema_w_period] = self.taData_trend_strat.ema_w = ema_w
 
+        # Update RSI for weekly timeframe
         rsi_w = talib.RSI(close[-self.rsi_w_period-1:], timeperiod=self.rsi_w_period)[-1]
         self.taData_trend_strat.rsi_w_vec[last_index % self.rsi_w_period] = rsi_w
 
@@ -522,12 +528,12 @@ class TATrendStrategyIndicator(Indicator):
 
         plot_data = [self.taData_trend_strat.ema_w,
                      self.taData_trend_strat.highs_trail_4h,
-                     self.taData_trend_strat.lows_4h_trail,
+                     self.taData_trend_strat.lows_trail_4h,
                      trend,
-                     self.taData_trend_strat.mid_4h_trail,
+                     self.taData_trend_strat.mid_trail_4h,
                      atr_close,
                      self.taData_trend_strat.natr_4h,
-                     self.taData_trend_strat.natr_4h_slow,
+                     self.taData_trend_strat.natr_slow_4h,
                      upper_band,
                      self.taData_trend_strat.bbands_4h.middleband,
                      lower_band
