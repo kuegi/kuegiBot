@@ -83,7 +83,7 @@ class SimpleBE(ExitModule):
             newStop = order.stop_price
             refRange = 0
             if self.atrPeriod > 0:
-                atrId = "ATR" + str(self.atrPeriod)
+                atrId = "atr_4h" + str(self.atrPeriod)
                 refRange = Indicator.get_data_static(bars[1], atrId)
                 if refRange is None:
                     refRange = clean_range(bars, offset=1, length=self.atrPeriod)
@@ -142,7 +142,7 @@ class QuickBreakEven(ExitModule):
 
 
 class MaxSLDiff(ExitModule):
-    ''' trails the stop to a max dist in ATR from the extreme point
+    ''' trails the stop to a max dist in atr_4h from the extreme point
     '''
 
     def __init__(self, maxATRDiff: float , atrPeriod: int = 0):
@@ -158,7 +158,7 @@ class MaxSLDiff(ExitModule):
         if position is not None and self.maxATRDiff > 0 and self.atrPeriod > 0:
             # trail
             newStop = order.stop_price
-            atrId = "ATR" + str(self.atrPeriod)
+            atrId = "atr_4h" + str(self.atrPeriod)
             refRange = Indicator.get_data_static(bars[1], atrId)
             if refRange is None:
                 refRange = clean_range(bars, offset=1, length=self.atrPeriod)
@@ -176,7 +176,7 @@ class MaxSLDiff(ExitModule):
 
 
 class TimedExit(ExitModule):
-    ''' trails the stop to a max dist in ATR from the extreme point
+    ''' trails the stop to a max dist in atr_4h from the extreme point
     '''
 
     def __init__(self, minutes_till_exit:int= 240):
@@ -254,6 +254,7 @@ class FixedPercentage(ExitModule):
                 self.logger.info("changing SL. Previous Stop: " + str(order.stop_price) + "; New Stop: " + str(newStop))
                 order.stop_price = newStop
                 to_update.append(order)
+
 
 class ParaData:
     def __init__(self):

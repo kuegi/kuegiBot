@@ -85,8 +85,8 @@ class TemplateStrategy(TrendStrategy):
         result= super().got_data_for_position_sync(bars)
         return result and (self.ta_trend_strat.get_data(bars[1]) is not None)
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
-        if (not is_new_bar) or not self.entries_allowed(bars) or self.ta_data.ATR is None: # TODO revise min number of bars required
+    def open_new_trades(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
+        if (not is_new_bar) or not self.entries_allowed(bars) or self.ta_data.atr_4h is None: # TODO revise min number of bars required
             self.logger.info("new entries not allowed by filter")
             return  # only open orders on beginning of bar
 
@@ -143,9 +143,9 @@ class TemplateStrategy(TrendStrategy):
             expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
             expectedExitSlippagePer = 0.0015
             longAmount = self.calc_pos_size(risk=self.risk_factor, exitPrice=stopLong * (1 - expectedExitSlippagePer),
-                                            entry=longEntry * (1 + expectedEntrySlippagePer), atr = self.ta_data.ATR)
+                                            entry=longEntry * (1 + expectedEntrySlippagePer), atr = self.ta_data.atr_4h)
             shortAmount = self.calc_pos_size(risk=self.risk_factor, exitPrice=stopShort * (1 + expectedExitSlippagePer),
-                                             entry=shortEntry * (1 - expectedEntrySlippagePer), atr = self.ta_data.ATR)
+                                             entry=shortEntry * (1 - expectedEntrySlippagePer), atr = self.ta_data.atr_4h)
         else:
             return None, None, None, None, None, None
 

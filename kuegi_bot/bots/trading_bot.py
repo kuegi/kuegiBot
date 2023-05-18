@@ -678,8 +678,8 @@ class TradingBot:
             self.time_of_max_equity = time.time()
         self.prep_bars(bars)
         try:
-            self.manage_open_orders(bars, account)
-            self.open_orders(bars, account)
+            self.manage_active_trades(bars, account)
+            self.open_new_trades(bars, account)
             self.consolidate_open_positions(bars, account)
         except Exception as e:
             self.save_open_positions(bars)
@@ -693,10 +693,10 @@ class TradingBot:
     # Order Management
     ###
 
-    def manage_open_orders(self, bars: list, account: Account):
+    def manage_active_trades(self, bars: list, account: Account):
         pass
 
-    def open_orders(self, bars: list, account: Account):
+    def open_new_trades(self, bars: list, account: Account):
         pass
 
     def consolidate_open_positions(self, bars: list, account: Account):

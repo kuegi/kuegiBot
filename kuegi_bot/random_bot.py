@@ -7,7 +7,7 @@ class RandomBot(TradingBot):
     def __init__(self):
         super().__init__()
 
-    def open_orders(self, bars: list, account: Account):
+    def open_new_trades(self, bars: list, account: Account):
         if account.open_position.quantity != 0:
             if random.randint(0,100) > 80:
                 self.order_interface.send_order(Order(amount=-account.open_position.quantity))

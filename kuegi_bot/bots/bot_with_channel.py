@@ -73,7 +73,7 @@ class BotWithChannel(TradingBot):
         stopShort = int(min(data.longSwing, data.shortTrail) if data.longSwing is not None else data.shortTrail)
         return stopLong if amount > 0 else stopShort
 
-    def manage_open_orders(self, bars: List[Bar], account: Account):
+    def manage_active_trades(self, bars: List[Bar], account: Account):
         self.sync_executions(bars, account)
 
         # Trailing

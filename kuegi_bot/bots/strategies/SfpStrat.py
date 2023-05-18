@@ -47,7 +47,7 @@ class SfpStrategy(ChannelStrategy):
     def owns_signal_id(self, signalId: str):
         return signalId.startswith("sfp+")
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
+    def open_new_trades(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < 5:
             return  # only open orders on beginning of bar
 
