@@ -129,7 +129,7 @@ class StrategyOne(TrendStrategy):
         super().position_got_opened_or_changed(position, bars, account, open_positions)
 
         # calculate current exposure
-        unrealized_loss = 0
+        #unrealized_loss = 0
         """if account.equity != 0:
             for i in open_positions:
                 for k in open_positions[i].connectedOrders:
