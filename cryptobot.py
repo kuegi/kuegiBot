@@ -191,7 +191,9 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                              atr_factor=stratSettings.KB_RISK_ATR_FAC)
                 if "KB_BE_FACTOR" in stratSettings.keys():
                     strat.withExitModule(SimpleBE(factor=stratSettings.KB_BE_FACTOR,
-                                                  buffer=stratSettings.KB_BE_BUFFER))
+                                                  bufferLongs=stratSettings.KB_BE_BUFFERLONGS,
+                                                  bufferShorts=stratSettings.KB_BE_BUFFERSHORTS,
+                                                  atrPeriod=stratSettings.KB_BE_ATR))
                 for i in range(1,10):
                     factorKey= "KB_BE"+str(i)+"_FACTOR"
                     bufferLongsKey= "KB_BE"+str(i)+"_BUFFERLONGS"
