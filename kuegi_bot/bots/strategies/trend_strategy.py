@@ -82,7 +82,7 @@ class TrendStrategy(StrategyWithTradeManagement):
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
-        self.logger.info()
+        self.logger.info(vars(self))
 
     def myId(self):
         return "TrendStrategy"
