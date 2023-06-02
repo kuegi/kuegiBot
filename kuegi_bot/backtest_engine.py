@@ -415,7 +415,10 @@ class BackTest(OrderInterface):
             total_days = (self.bars[0].tstamp - self.bars[-1].tstamp) / (60 * 60 * 24)
             #average_daily_return = profit / total_days
             #rel = profit / (-self.maxDD_vec[-1] if profit > 0 else 0)
-            rel = self.hh_vec[-1] / (-self.maxDD_vec[-1] if (-self.maxDD_vec[-1]) != 0 else 1)
+            if -self.maxDD_vec[-1] != 0 and self.hh_vec[-1] != self.initialEquity:
+                rel = self.hh_vec[-1] / -self.maxDD_vec[-1]
+            else:
+                rel = 0
             rel_per_year = rel / (total_days / 365) if rel >0 else 0
             nmb = 0
             for position in self.bot.open_positions.values():
