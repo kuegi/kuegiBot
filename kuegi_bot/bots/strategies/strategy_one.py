@@ -210,6 +210,7 @@ class StrategyOne(TrendStrategy):
         atr = self.ta_data_trend_strat.atr_4h
         middleband = self.ta_data_trend_strat.bbands_4h.middleband
 
+        longed = False
         # Market orders after breakouts by close above the bollinger band
         if self.ta_data_trend_strat.rsi_w_vec is not None:
             if self.longBreakouts and \
@@ -217,15 +218,15 @@ class StrategyOne(TrendStrategy):
                     bars[1].close > bars[2].close and \
                     self.ta_data_trend_strat.rsi_w_vec[-1] < self.rsi_limit_breakout_long and \
                     self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
+                longed = True
                 self.entry_by_market_order(entry=bars[0].open,
-                                           stop=min(bars[0].open - self.sl_atr_fac * atr, bars[2].low, bars[1].low),
+                                           stop = bars[0].open - self.sl_atr_fac * atr,
                                            open_positions=open_positions,
                                            bars=bars,
                                            direction=PositionDirection.LONG)
 
         # Long reclaimed BBands 1
-        if self.longReclaimBBand and \
-                self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
+        if self.longReclaimBBand and not longed:
             sell_off_level = middleband - std * self.std_fac_sell_off
             reclaim_level = sell_off_level + std * self.std_fac_reclaim
             if bars[1].low < sell_off_level:
@@ -236,14 +237,13 @@ class StrategyOne(TrendStrategy):
                 self.reclaimed_bband = True
                 # TODO: log to Telegram which trade is executed
                 self.entry_by_market_order(entry=bars[0].open,
-                                           stop=min(bars[0].open - self.sl_atr_fac * atr, bars[2].low, bars[1].low),
+                                           stop = bars[0].open - self.sl_atr_fac * atr,
                                            open_positions=open_positions,
                                            bars=bars,
                                            direction=PositionDirection.LONG)
 
         # Long reclaimed BBands 2
-        if self.longReclaimBBand and \
-                self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
+        if self.longReclaimBBand and self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
             sell_off_level = middleband - std * self.std_fac_sell_off_2
             reclaim_level = sell_off_level + std * self.std_fac_reclaim_2
             if bars[1].low < sell_off_level:
@@ -260,8 +260,7 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.LONG)
 
         # Long reclaimed BBands 3
-        if self.longReclaimBBand and \
-                self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
+        if self.longReclaimBBand and self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
             sell_off_level = middleband - std * self.std_fac_sell_off_3
             reclaim_level = sell_off_level + std * self.std_fac_reclaim_3
             if bars[1].low < sell_off_level:
@@ -280,10 +279,9 @@ class StrategyOne(TrendStrategy):
         # short break down
         if self.ta_data_trend_strat.rsi_4h_vec is not None:
             if self.shortBreakdown and \
-                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and \
                     bars[1].close < (middleband - std * self.entry_lower_bb_std_fac) and \
                     bars[1].close < bars[2].close < bars[3].open and \
-                    15 < self.ta_data_trend_strat.rsi_4h_vec[-1] < 20:
+                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
                 self.entry_by_market_order(entry = bars[0].open,
                                            stop= max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
                                            open_positions = open_positions,
@@ -302,7 +300,7 @@ class StrategyOne(TrendStrategy):
                 self.reclaimed_bband_3 = True
                 # TODO: log to Telegram which trade is executed
                 self.entry_by_market_order(entry=bars[0].open,
-                                           stop=max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
+                                           stop=bars[0].open + self.sl_atr_fac * atr,
                                            open_positions=open_positions,
                                            bars=bars,
                                            direction=PositionDirection.SHORT)
@@ -323,8 +321,9 @@ class StrategyOne(TrendStrategy):
 
         # short revesal
         if self.shortReversals and \
-                (bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[-2] > bars[1].close and
-                 self.ta_data_trend_strat.highs_trail_4h < (middleband + std * self.entry_upper_bb_std_fac)):
+                bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] > bars[1].close and \
+                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
+                 #self.ta_data_trend_strat.highs_trail_4h < (middleband + std * self.entry_upper_bb_std_fac):
             self.entry_by_market_order(entry=bars[0].open,
                                        stop=max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
                                        open_positions=open_positions,
