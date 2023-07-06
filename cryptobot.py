@@ -9,11 +9,8 @@ from time import sleep, time
 from typing import List
 
 from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
-from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
 from kuegi_bot.bots.strategies.strategy_one import StrategyOne
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
-from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
-from kuegi_bot.bots.strategies.DegenStrat import DegenStrategy
 from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule, FixedPercentage
 from kuegi_bot.bots.strategies.strat_w_trade_man import ATRrangeSL
 from kuegi_bot.trade_engine import LiveTrading
@@ -21,7 +18,6 @@ from kuegi_bot.utils import log
 from kuegi_bot.utils.telegram import TelegramBot
 from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.helper import load_settings_from_args
-from kuegi_bot.bots.strategies.MACross import MACross
 
 
 def start_bot(botSettings,telegram:TelegramBot=None):
@@ -44,84 +40,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 logger.error("if you don't want to risk money, you shouldn't even run this bot!")
                 continue
 
-            if stratId == "macross":
-                strat = MACross(fastMA = stratSettings.MAC_FAST_MA,
-                                slowMA =stratSettings.MAC_SLOW_MA)
-            elif stratId == "kuegi":
-                strat = KuegiStrategy(min_channel_size_factor=stratSettings.KB_MIN_CHANNEL_SIZE_FACTOR,
-                                      max_channel_size_factor=stratSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
-                                      entry_tightening=stratSettings.KB_ENTRY_TIGHTENING,
-                                      bars_till_cancel_triggered=stratSettings.KB_BARS_TILL_CANCEL_TRIGGERED,
-                                      limit_entry_offset_perc=stratSettings.KB_LIMIT_OFFSET,
-                                      delayed_entry=stratSettings.KB_DELAYED_ENTRY,
-                                      delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
-                                      cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
-                                      tp_fac=stratSettings.KB_TP_FAC,
-                                      maxPositions = stratSettings.MAX_POSITIONS)\
-                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
-                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
-                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
-                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
-                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
-                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
-                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
-                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
-                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
-            elif stratId == "degen":
-                strat = DegenStrategy(trail_short_fac=stratSettings.TRAIL_SHORT_FAC,
-                                      trail_long_fac=stratSettings.TRAIL_LONG_FAC,
-                                      atr_period=stratSettings.ATR_PERIOD,
-                                      extreme_period=stratSettings.EXTREME_PERIOD,
-                                      entry_short_fac=stratSettings.ENTRY_SHORT_FAC,
-                                      entry_long_fac=stratSettings.ENTRY_LONG_FAC,
-                                      rsiPeriod=stratSettings.RSI_PERIOD,
-                                      periodStoch=stratSettings.PERIOD_STOCH,
-                                      fastMACD=stratSettings.FAST_MACD,
-                                      slowMACD=stratSettings.SLOW_MACD,
-                                      signal_period=stratSettings.SIGNAL_PERIOD,
-                                      rsi_high_limit=stratSettings.RSI_HIGH_LIMIT,
-                                      rsi_low_limit=stratSettings.RSI_LOW_LIMIT,
-                                      fastK_lim=stratSettings.FASTK_LIM,
-                                      trail_past=stratSettings.TRAIL_PAST,
-                                      close_on_opposite=stratSettings.CLOSE_ON_OPPOSITE,
-                                      bars_till_cancel_triggered=stratSettings.BARS_TILL_CANCEL,
-                                      cancel_on_filter=stratSettings.CANEL_ON_FILTER,
-                                      tp_fac = stratSettings.TP_FAC)\
-                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
-                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
-                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
-                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
-                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
-                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
-                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
-                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
-                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
-            elif stratId == "sfp":
-                strat = SfpStrategy(min_stop_diff_perc=stratSettings.SFP_MIN_STOP_DIFF,
-                                    init_stop_type=stratSettings.SFP_STOP_TYPE,
-                                    stop_buffer_fac=stratSettings.SFP_STOP_BUFFER_FAC,
-                                    tp_fac=stratSettings.SFP_TP_FAC,
-                                    min_wick_fac=stratSettings.SFP_MIN_WICK_FAC,
-                                    min_air_wick_fac=stratSettings.SFP_MIN_AIR_WICK_FAC,
-                                    min_wick_to_body=stratSettings.SFP_MIN_WICK_TO_BODY,
-                                    min_swing_length=stratSettings.SFP_MIN_SWING_LENGTH,
-                                    range_length=stratSettings.SFP_RANGE_LENGTH,
-                                    min_rej_length=stratSettings.SFP_MIN_REJ_LENGTH,
-                                    range_filter_fac=stratSettings.SFP_RANGE_FILTER_FAC,
-                                    close_on_opposite=stratSettings.SFP_CLOSE_ON_OPPOSITE,
-                                    tp_use_atr = stratSettings.SFP_USE_ATR,
-                                    ignore_on_tight_stop = stratSettings.SFP_IGNORE_TIGHT_STOP,
-                                    entries = stratSettings.SFP_ENTRIES) \
-                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
-                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
-                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
-                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
-                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
-                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
-                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
-                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
-                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
-            elif stratId == "strategyOne":
+            if stratId == "strategyOne":
                 strat = StrategyOne(# Strategy One
                                     std_fac_sell_off=stratSettings.STD_FAC_SELL_OFF,
                                     std_fac_reclaim=stratSettings.STD_FAC_RECLAIM,
