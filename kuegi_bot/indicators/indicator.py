@@ -154,3 +154,15 @@ def clean_range(bars: List[Bar], offset: int, length: int):
     ignored_count = int(length / 5)
     sum = reduce(lambda x1, x2: x1 + x2, ranges[ignored_count:])
     return sum / (len(ranges) - ignored_count)
+
+
+def calc_atr(bars: List[Bar], offset: int, length: int):
+    ranges = []
+    for idx in range(offset, offset + length):
+        if idx < len(bars):
+            ranges.append(bars[idx].high - bars[idx].low)
+
+    # ignore the biggest 10% of ranges
+    ignored_count = 0
+    sum = reduce(lambda x1, x2: x1 + x2, ranges)
+    return sum / len(ranges)

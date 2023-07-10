@@ -6,7 +6,7 @@ import time
 
 import plotly.graph_objects as go
 
-from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
+#from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
 from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
@@ -46,8 +46,8 @@ class LiveTrading(OrderInterface):
             self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
                                            on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
                                            on_execution_callback= trading_bot.on_execution)
-        elif settings.EXCHANGE == 'binance_future':
-            self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
+        #elif settings.EXCHANGE == 'binance_future':
+        #    self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         elif settings.EXCHANGE == 'phemex':
             self.exchange = PhemexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         else:

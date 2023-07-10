@@ -3,9 +3,9 @@ import math
 import plotly.graph_objects as go
 
 from kuegi_bot.bots.strategies.strat_with_exit_modules import StrategyWithExitModulesAndFilter
-from kuegi_bot.bots.trading_bot import TradingBot
+from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.kuegi_channel import KuegiChannel, Data
-from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType
+from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Order, PositionStatus, Position
 
 
 class ChannelStrategy(StrategyWithExitModulesAndFilter):
@@ -17,6 +17,7 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
         self.delayed_swing_trail = True
         self.trail_back = False
         self.trail_active = False
+        self.maxPositions = None
 
     def myId(self):
         return "ChannelStrategy"
@@ -26,7 +27,7 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
         return self
 
     def withTrail(self, trail_to_swing: bool = False, delayed_swing: bool = True, trail_back: bool = False):
-        self.trail_active = True
+        self.trail_active = False
         self.delayed_swing_trail = delayed_swing
         self.trail_to_swing = trail_to_swing
         self.trail_back = trail_back
@@ -90,11 +91,141 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
                             (self.trail_back and position.initial_stop is not None 
                                 and (trail - position.initial_stop) * position.amount > 0):
                         newStop = math.floor(trail) if not isLong else math.ceil(trail)
-                    
 
                 if newStop != order.stop_price:
                     order.stop_price = newStop
                     to_update.append(order)
+
+    def consolidate_positions(self, is_new_bar, bars, account, open_positions):
+        if (not is_new_bar) or len(bars) < 5 or self.maxPositions is None:
+            return
+
+        lowestSL = highestSL = secLowestSL = secHighestSL = None
+        secHighestSLPosID = highestSLPosID = secLowestSLPosID = lowestSLPosID = None
+        amountHighestSL = amountLowestSL = amountSecHighestSL = amountSecLowestSL = None
+        nmbShorts = nmbLongs = 0
+
+        # find two lowest and highest SLs
+        for order in account.open_orders:
+            orderType = TradingBot.order_type_from_order_id(order.id)
+            posId = TradingBot.position_id_from_order_id(order.id)
+
+            if orderType == OrderType.SL and posId in open_positions:
+                if open_positions[posId].status == PositionStatus.OPEN:
+                    if order.amount < 0:
+                        nmbLongs = nmbLongs + 1
+                        if lowestSL is None:
+                            lowestSL = order.stop_price
+                            secLowestSL = order.stop_price
+                            lowestSLPosID = posId
+                            amountLowestSL = order.amount
+                            amountSecLowestSL = order.amount
+                        elif order.stop_price < lowestSL:
+                            secLowestSL = lowestSL
+                            lowestSL = order.stop_price
+                            secLowestSLPosID = lowestSLPosID
+                            lowestSLPosID = posId
+                            amountSecLowestSL = amountLowestSL
+                            amountLowestSL = order.amount
+                    else:
+                        nmbShorts = nmbShorts + 1
+                        if highestSL is None:
+                            secHighestSL = order.stop_price
+                            highestSL = order.stop_price
+                            highestSLPosID = posId
+                            amountHighestSL = order.amount
+                            amountSecHighestSL = order.amount
+                        elif order.stop_price > highestSL:
+                            secHighestSL = highestSL
+                            highestSL = order.stop_price
+                            secHighestSLPosID = highestSLPosID
+                            highestSLPosID = posId
+                            amountSecHighestSL = amountHighestSL
+                            amountHighestSL = order.amount
+
+        if nmbShorts > self.maxPositions:
+            for order in account.open_orders:
+                orderType = TradingBot.order_type_from_order_id(order.id)
+                orderID = TradingBot.position_id_from_order_id(order.id)
+                self.logger.info("consolidating positions")
+                # Cancel two Shorts with the highest SLs
+                if orderType == OrderType.SL and orderID == highestSLPosID:
+                    order.limit_price = None
+                    order.stop_price = None
+                    self.logger.info("Closing position with highest SL")
+                    self.order_interface.update_order(order)
+
+                elif orderType == OrderType.SL and orderID == secHighestSLPosID:
+                    order.limit_price = None
+                    order.stop_price = None
+                    self.logger.info("Closing position with second highest SL")
+                    self.order_interface.update_order(order)
+
+            # Open new short as a combination of two previously cancelled shorts
+            x = amountHighestSL + amountSecHighestSL
+            x1 = amountHighestSL
+            y1 = highestSL
+            x2 = amountSecHighestSL
+            y2 = secHighestSL
+
+            # weighted average (y = new order.stop_price)
+            y = (x1 * y1 + x2 * y2) / (x1 + x2)
+
+            # send new short
+            signalId = self.get_signal_id(bars)
+            posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
+            orderId = TradingBot.generate_order_id(posId, OrderType.ENTRY)
+
+            self.logger.info("sending replacement position and SL")
+            self.order_interface.send_order(Order(orderId=orderId, amount=-x, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
+                                                  amount=x, stop=secHighestSL, limit=None))
+
+            pos = Position(id=posId, entry=bars[0].open, amount=-x, stop=y, tstamp=bars[0].last_tick_tstamp)
+            pos.status = PositionStatus.OPEN
+            open_positions[posId] = pos
+
+        if nmbLongs > self.maxPositions:
+            for order in account.open_orders:
+                orderType = TradingBot.order_type_from_order_id(order.id)
+                orderID = TradingBot.position_id_from_order_id(order.id)
+                self.logger.info("consolidating positions")
+                # Cancel two Longs with the lowest SLs
+                if orderType == OrderType.SL and orderID == lowestSLPosID:
+                    order.limit_price = None
+                    order.stop_price = None
+                    self.logger.info("Closing positions with lowest SL")
+                    self.order_interface.update_order(order)
+
+                elif orderType == OrderType.SL and orderID == secLowestSLPosID:
+                    order.limit_price = None
+                    order.stop_price = None
+                    self.logger.info("Closing positions with second lowest SL")
+                    self.order_interface.update_order(order)
+
+            # Open new long as a combination of two previously cancelled longs
+            x = amountLowestSL + amountSecLowestSL
+            x1 = amountLowestSL
+            y1 = lowestSL
+            x2 = amountSecLowestSL
+            y2 = secLowestSL
+
+            # weighted average (y = order.stop_price)
+            y = (x1 * y1 + x2 * y2) / (x1 + x2)
+
+            # send new long
+            signalId = self.get_signal_id(bars)
+            posId = TradingBot.full_pos_id(signalId, PositionDirection.LONG)
+            orderId = TradingBot.generate_order_id(posId, OrderType.ENTRY)
+
+            self.logger.info("sending replacement position and SL")
+            self.order_interface.send_order(Order(orderId=orderId, amount=-x, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
+                                                  amount=x, stop=secLowestSL, limit=None))
+
+            pos = Position(id=posId, entry=bars[0].open, amount=-x, stop=y, tstamp=bars[0].last_tick_tstamp)
+            pos.status = PositionStatus.OPEN
+            open_positions[posId] = pos
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
         super().add_to_plot(fig, bars, time)

@@ -9,16 +9,15 @@ from time import sleep, time
 from typing import List
 
 from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
-from kuegi_bot.bots.strategies.SfpStrat import SfpStrategy
+from kuegi_bot.bots.strategies.strategy_one import StrategyOne
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
-from kuegi_bot.bots.strategies.kuegi_strat import KuegiStrategy
-from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule
+from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule, FixedPercentage
+from kuegi_bot.bots.strategies.strat_w_trade_man import ATRrangeSL
 from kuegi_bot.trade_engine import LiveTrading
 from kuegi_bot.utils import log
 from kuegi_bot.utils.telegram import TelegramBot
 from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.helper import load_settings_from_args
-from kuegi_bot.bots.strategies.MACross import MACross
 
 
 def start_bot(botSettings,telegram:TelegramBot=None):
@@ -41,55 +40,65 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 logger.error("if you don't want to risk money, you shouldn't even run this bot!")
                 continue
 
-            if stratId == "macross":
-                strat = MACross(fastMA = stratSettings.MAC_FAST_MA,
-                                slowMA =stratSettings.MAC_SLOW_MA,
-                                swingBefore = stratSettings.MAC_SWING_BEFORE,
-                                swingAfter = stratSettings.MAC_SWING_AFTER)
-            elif stratId == "kuegi":
-                strat = KuegiStrategy(min_channel_size_factor=stratSettings.KB_MIN_CHANNEL_SIZE_FACTOR,
-                                      max_channel_size_factor=stratSettings.KB_MAX_CHANNEL_SIZE_FACTOR,
-                                      entry_tightening=stratSettings.KB_ENTRY_TIGHTENING,
-                                      bars_till_cancel_triggered=stratSettings.KB_BARS_TILL_CANCEL_TRIGGERED,
-                                      limit_entry_offset_perc=stratSettings.KB_LIMIT_OFFSET,
-                                      delayed_entry=stratSettings.KB_DELAYED_ENTRY,
-                                      delayed_cancel=stratSettings.KB_DELAYED_CANCEL,
-                                      cancel_on_filter=stratSettings.KB_CANCEL_ON_FILTER,
-                                      tp_fac=stratSettings.KB_TP_FAC) \
-                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
-                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
-                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
-                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
-                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
-                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
-                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
-                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
-                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
-            elif stratId == "sfp":
-                strat = SfpStrategy(min_stop_diff_perc=stratSettings.SFP_MIN_STOP_DIFF,
-                                    init_stop_type=stratSettings.SFP_STOP_TYPE,
-                                    stop_buffer_fac=stratSettings.SFP_STOP_BUFFER_FAC,
-                                    tp_fac=stratSettings.SFP_TP_FAC,
-                                    min_wick_fac=stratSettings.SFP_MIN_WICK_FAC,
-                                    min_air_wick_fac=stratSettings.SFP_MIN_AIR_WICK_FAC,
-                                    min_wick_to_body=stratSettings.SFP_MIN_WICK_TO_BODY,
-                                    min_swing_length=stratSettings.SFP_MIN_SWING_LENGTH,
-                                    range_length=stratSettings.SFP_RANGE_LENGTH,
-                                    min_rej_length=stratSettings.SFP_MIN_REJ_LENGTH,
-                                    range_filter_fac=stratSettings.SFP_RANGE_FILTER_FAC,
-                                    close_on_opposite=stratSettings.SFP_CLOSE_ON_OPPOSITE,
-                                    tp_use_atr = stratSettings.SFP_USE_ATR,
-                                    ignore_on_tight_stop = stratSettings.SFP_IGNORE_TIGHT_STOP,
-                                    entries = stratSettings.SFP_ENTRIES) \
-                    .withChannel(max_look_back=stratSettings.KB_MAX_LOOK_BACK,
-                                 threshold_factor=stratSettings.KB_THRESHOLD_FACTOR,
-                                 buffer_factor=stratSettings.KB_BUFFER_FACTOR,
-                                 max_dist_factor=stratSettings.KB_MAX_DIST_FACTOR,
-                                 max_swing_length=stratSettings.KB_MAX_SWING_LENGTH)
-                if "KB_TRAIL_TO_SWING" in stratSettings.keys():
-                    strat.withTrail(trail_to_swing=stratSettings.KB_TRAIL_TO_SWING,
-                                    delayed_swing=stratSettings.KB_DELAYED_ENTRY,
-                                    trail_back=stratSettings.KB_ALLOW_TRAIL_BACK)
+            if stratId == "strategyOne":
+                strat = StrategyOne(# Strategy One
+                                    std_fac_sell_off=stratSettings.STD_FAC_SELL_OFF,
+                                    std_fac_reclaim=stratSettings.STD_FAC_RECLAIM,
+                                    std_fac_sell_off_2=stratSettings.STD_FAC_SELL_OFF_2,
+                                    std_fac_reclaim_2=stratSettings.STD_FAC_RECLAIM_2,
+                                    std_fac_sell_off_3=stratSettings.STD_FAC_SELL_OFF_3,
+                                    std_fac_reclaim_3=stratSettings.STD_FAC_RECLAIM_3,
+                                    h_highs_trail_period=stratSettings.H_HIGHS_TRAIL_PERIOD,
+                                    h_lows_trail_period=stratSettings.H_LOWS_TRAIL_PERIOD,
+                                    nmb_bars_entry=stratSettings.NMB_BARS_ENTRY,
+                                    const_trail_period=stratSettings.CONST_TRAIL_PERIOD,
+                                    longBreakouts=stratSettings.LONGBREAKOUTS,
+                                    longReclaimBBand=stratSettings.LONGRECLAIMBBAND,
+                                    shortBreakdown=stratSettings.SHORTBREAKDOWN,
+                                    shortLostBBand=stratSettings.SHORTLOSTBBAND,
+                                    entry_upper_bb_std_fac=stratSettings.ENTRY_UPPER_BB_STD_FAC,
+                                    entry_lower_bb_std_fac=stratSettings.ENTRY_LOWER_BB_STD_FAC,
+                                    longReversals=stratSettings.LONGREVERSALS,
+                                    shortReversals=stratSettings.SHORTREVERSALS,
+                                    rsi_limit_breakout_long=stratSettings.RSI_LIMIT_BREAKOUT_LONG,
+                                    # TrendStrategy
+                                    timeframe=stratSettings.TIMEFRAME,
+                                    ema_w_period=stratSettings.EMA_W_PERIOD,
+                                    highs_trail_4h_period=stratSettings.HIGHS_TRAIL_4H_PERIOD,
+                                    lows_trail_4h_period=stratSettings.LOWS_TRAIL_4H_PERIOD,
+                                    trend_d_period=stratSettings.TREND_D_PERIOD,
+                                    trend_w_period=stratSettings.TREND_W_PERIOD,
+                                    atr_4h_period=stratSettings.ATR_4H_PERIOD,
+                                    natr_4h_period_slow=stratSettings.NATR_4H_PERIOD_SLOW,
+                                    bbands_4h_period=stratSettings.BBANDS_4H_PERIOD,
+                                    plotIndicators=stratSettings.PLOTINDICATORS,
+                                    trend_var_1=stratSettings.TREND_VAR_1,
+                                    # Risk
+                                    risk_with_trend=stratSettings.RISK_WITH_TREND,
+                                    # SL
+                                    risk_counter_trend=stratSettings.RISK_COUNTER_TREND,
+                                    risk_ranging=stratSettings.RISK_RANGING,
+                                    sl_atr_fac=stratSettings.SL_ATR_FAC,
+                                    be_by_middleband=stratSettings.BE_BY_MIDDLEBAND,
+                                    be_by_opposite=stratSettings.BE_BY_OPPOSITE,
+                                    stop_at_middleband=stratSettings.STOP_AT_MIDDLEBAND,
+                                    tp_at_middleband=stratSettings.TP_AT_MIDDLEBAND,
+                                    atr_buffer_fac=stratSettings.ATR_BUFFER_FAC,
+                                    tp_on_opposite=stratSettings.TP_ON_OPPOSITE,
+                                    stop_at_new_entry=stratSettings.STOP_AT_NEW_ENTRY,
+                                    trail_sl_with_bband=stratSettings.TRAIL_SL_WITH_BBAND,
+                                    stop_short_at_middleband=stratSettings.STOP_SHORT_AT_MIDDLEBAND,
+                                    moving_sl_atr_fac=stratSettings.MOVING_SL_ATR_FAC,
+                                    sl_upper_bb_std_fac=stratSettings.SL_UPPER_BB_STD_FAC,
+                                    sl_lower_bb_std_fac=stratSettings.SL_LOWER_BB_STD_FAC,
+                                    # StrategyWithTradeManagement
+                                    maxPositions=stratSettings.MAXPOSITIONS,
+                                    close_on_opposite=stratSettings.CLOSE_ON_OPPOSITE,
+                                    bars_till_cancel_triggered=stratSettings.BARS_TILL_CANCEL_TRIGGERED,
+                                    limit_entry_offset_perc=stratSettings.LIMIT_ENTRY_OFFSET_PERC,
+                                    delayed_cancel=stratSettings.DELAYED_CANCEL,
+                                    cancel_on_filter=stratSettings.CANCEL_ON_FILTER
+                                    )
             else:
                 strat = None
                 logger.warning("unkown strategy: " + stratId)
@@ -101,13 +110,32 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                              atr_factor=stratSettings.KB_RISK_ATR_FAC)
                 if "KB_BE_FACTOR" in stratSettings.keys():
                     strat.withExitModule(SimpleBE(factor=stratSettings.KB_BE_FACTOR,
-                                                  buffer=stratSettings.KB_BE_BUFFER))
-                for i in range(1,8):
+                                                  bufferLongs=stratSettings.KB_BE_BUFFERLONGS,
+                                                  bufferShorts=stratSettings.KB_BE_BUFFERSHORTS,
+                                                  atrPeriod=stratSettings.KB_BE_ATR))
+                for i in range(1,10):
                     factorKey= "KB_BE"+str(i)+"_FACTOR"
-                    bufferKey= "KB_BE"+str(i)+"_BUFFER"
+                    bufferLongsKey= "KB_BE"+str(i)+"_BUFFERLONGS"
+                    bufferShortsKey = "KB_BE" + str(i) + "_BUFFERSHORTS"
+                    atrKey = "KB_BE" + str(i) + "_ATR"
                     if factorKey in stratSettings.keys():
                         strat.withExitModule(SimpleBE(factor=stratSettings[factorKey],
-                                                      buffer=stratSettings[bufferKey]))
+                                                      bufferLongs=stratSettings[bufferLongsKey],
+                                                      bufferShorts=stratSettings[bufferShortsKey],
+                                                      atrPeriod=stratSettings[atrKey]))
+                for i in range(1,10):
+                    rangeFacTriggerKey= "RANGE_FAC_TRIGGER_"+str(i)
+                    longRangefacSLKey = "LONG_RANGE_FAC_SL_" + str(i)
+                    shortRangefacSLKey = "SHORT_RANGE_FAC_SL_" + str(i)
+                    rangeATRfactorKey = "RANGE_ATR_FAC_" + str(i)
+                    atrPeriodKey = "ATR_PERIOD_" + str(i)
+                    if rangeFacTriggerKey in stratSettings.keys():
+                        strat.withExitModule(ATRrangeSL(rangeFacTrigger=stratSettings[rangeFacTriggerKey],
+                                                        longRangefacSL=stratSettings[longRangefacSLKey],
+                                                        shortRangefacSL=stratSettings[shortRangefacSLKey],
+                                                        rangeATRfactor=stratSettings[rangeATRfactorKey],
+                                                        atrPeriod=stratSettings[atrPeriodKey]
+                                                        ))
                 if "EM_PARA_INIT" in stratSettings.keys():
                     resetToCurrent= False
                     if "EM_PARA_RESET" in stratSettings.keys():
@@ -116,6 +144,10 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                                    accInc=stratSettings.EM_PARA_INC,
                                                    accMax=stratSettings.EM_PARA_MAX,
                                                    resetToCurrent=resetToCurrent))
+                if "SL_PERC" in stratSettings.keys():
+                    strat.withExitModule(FixedPercentage(slPercentage = stratSettings.SL_PERC,
+                                                         useInitialSLRange= stratSettings.USE_INIT_SL,
+                                                         rangeFactor =stratSettings.RANGE_FAC))
                 if "FILTER_DAYWEEK" in stratSettings.keys():
                     strat.withEntryFilter(DayOfWeekFilter(stratSettings.FILTER_DAYWEEK))
                 bot.add_strategy(strat)

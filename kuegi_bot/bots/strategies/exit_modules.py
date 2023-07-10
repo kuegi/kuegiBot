@@ -60,20 +60,22 @@ class ExitModule:
             if len(jsonData[key].keys()) > 0:
                 bar.bot_data['modules'][key]= dotdict(jsonData[key])
 
+
 class SimpleBE(ExitModule):
     ''' trails the stop to "break even" when the price move a given factor of the entry-risk in the right direction
         "break even" includes a buffer (multiple of the entry-risk).
     '''
 
-    def __init__(self, factor, buffer, atrPeriod: int = 0):
+    def __init__(self, factor, bufferLongs, bufferShorts, atrPeriod: int = 0):
         super().__init__()
         self.factor = factor
-        self.buffer = buffer
+        self.bufferLongs = bufferLongs
+        self.bufferShorts = bufferShorts
         self.atrPeriod = atrPeriod
 
     def init(self, logger,symbol):
         super().init(logger,symbol)
-        self.logger.info("init BE %.2f %.2f %i" % (self.factor, self.buffer, self.atrPeriod))
+        self.logger.info("init BE %.2f %.2f %.2f %i" % (self.factor, self.bufferLongs, self.bufferShorts, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         if position is not None and self.factor > 0:
@@ -81,7 +83,7 @@ class SimpleBE(ExitModule):
             newStop = order.stop_price
             refRange = 0
             if self.atrPeriod > 0:
-                atrId = "ATR" + str(self.atrPeriod)
+                atrId = "atr_4h" + str(self.atrPeriod)
                 refRange = Indicator.get_data_static(bars[1], atrId)
                 if refRange is None:
                     refRange = clean_range(bars, offset=1, length=self.atrPeriod)
@@ -92,10 +94,47 @@ class SimpleBE(ExitModule):
 
             if refRange != 0:
                 ep = bars[0].high if position.amount > 0 else bars[0].low
-                be = position.wanted_entry + refRange * self.buffer
-                if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
-                        and (be - newStop) * position.amount > 0:
-                    newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
+                buffer = self.bufferLongs if position.amount > 0 else self.bufferShorts
+                be = position.wanted_entry + refRange * buffer
+                if newStop is not None:
+                    if (ep - (position.wanted_entry + refRange * self.factor)) * position.amount > 0 \
+                            and (be - newStop) * position.amount > 0:
+                        newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
+
+            if newStop != order.stop_price:
+                order.stop_price = newStop
+                to_update.append(order)
+
+
+class QuickBreakEven(ExitModule):
+    ''' trails the stop to "break even" within the provided time period as long as the stop is not in profit '''
+    def __init__(self, seconds_to_BE: int = 999999, factor: float = 1.0):
+        super().__init__()
+        self.seconds_to_BE = seconds_to_BE
+        self.factor = factor
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info("init QuickBreakEven %i" % (self.seconds_to_BE))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        newStop = order.stop_price
+        current_tstamp = bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
+
+        refRange = abs(position.wanted_entry - position.initial_stop)
+        seconds_since_entry = current_tstamp - position.entry_tstamp
+
+        if self.seconds_to_BE is not None and self.seconds_to_BE != 0:
+            equity_per_second = refRange / self.seconds_to_BE
+
+            if (newStop < (position.wanted_entry + self.factor * refRange) and position.amount > 0) or \
+                    (newStop > max((position.wanted_entry - refRange * self.factor),0) and position.amount < 0):
+                if position.amount > 0:
+                    newStop = position.initial_stop + equity_per_second * seconds_since_entry
+                else:
+                    newStop = position.initial_stop - equity_per_second * seconds_since_entry
+
+                newStop = self.symbol.normalizePrice(newStop, roundUp=position.amount < 0)
 
             if newStop != order.stop_price:
                 order.stop_price = newStop
@@ -103,7 +142,7 @@ class SimpleBE(ExitModule):
 
 
 class MaxSLDiff(ExitModule):
-    ''' trails the stop to a max dist in ATR from the extreme point
+    ''' trails the stop to a max dist in atr_4h from the extreme point
     '''
 
     def __init__(self, maxATRDiff: float , atrPeriod: int = 0):
@@ -119,7 +158,7 @@ class MaxSLDiff(ExitModule):
         if position is not None and self.maxATRDiff > 0 and self.atrPeriod > 0:
             # trail
             newStop = order.stop_price
-            atrId = "ATR" + str(self.atrPeriod)
+            atrId = "atr_4h" + str(self.atrPeriod)
             refRange = Indicator.get_data_static(bars[1], atrId)
             if refRange is None:
                 refRange = clean_range(bars, offset=1, length=self.atrPeriod)
@@ -137,7 +176,7 @@ class MaxSLDiff(ExitModule):
 
 
 class TimedExit(ExitModule):
-    ''' trails the stop to a max dist in ATR from the extreme point
+    ''' trails the stop to a max dist in atr_4h from the extreme point
     '''
 
     def __init__(self, minutes_till_exit:int= 240):
@@ -155,6 +194,66 @@ class TimedExit(ExitModule):
             order.stop_price= None # make it market
             order.limit_price= None
             to_update.append(order)
+
+
+class RsiExit(ExitModule):
+    """ closes positions at oversold and overbougt RSI """
+    def __init__(self, rsi_high_lim: float = 100, rsi_low_lim: int = 0):
+        super().__init__()
+        self.rsi_high_lim = rsi_high_lim
+        self.rsi_low_lim = rsi_low_lim
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info("init RSI TP at high: %i and low %i" % (self.rsi_high_lim, self.rsi_low_lim))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        test = 1
+
+
+class FixedPercentage(ExitModule):
+    """ trails the stop to a specified percentage from the highest high reached """
+    def __init__(self, slPercentage: float= 0.0, useInitialSLRange: bool = False, rangeFactor: float = 1):
+        super().__init__()
+        self.slPercentage = min(slPercentage,1)     # trailing stop in fixed percentage
+        self.useInitialSLRange = useInitialSLRange  # use initials SL range
+        self.rangeFactor = abs(rangeFactor)         # SL range factor
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info("init Percentage Trail %.1f %s %.1f" % (self.slPercentage, self.useInitialSLRange, self.rangeFactor))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        if order.stop_price is None:
+            return
+
+        if position is not None:
+            extremePoint = bars[0].high if position.amount > 0 else bars[0].low     # new highest/lowest price
+            currentStop = sl_perc = sl_range= order.stop_price                      # current SL price
+            refRange = abs(position.wanted_entry - position.initial_stop)           # initial SL range in $
+            refRangePercent = refRange/position.wanted_entry                        # initial SL range in %
+
+            if position.amount > 0:
+                sl1 = extremePoint * (1-self.slPercentage)                                      # SL in fixed percentage from extreme point
+                sl2 = max(extremePoint * (1 - refRangePercent * self.rangeFactor),currentStop)  # SL in initial SL range percentage from extreme point
+                if currentStop < sl1 and self.slPercentage > 0:
+                    sl_perc = self.symbol.normalizePrice(sl1, roundUp=position.amount < 0)
+                if currentStop < sl2 and self.useInitialSLRange:
+                    sl_range = self.symbol.normalizePrice(sl2, roundUp=position.amount < 0)
+                newStop = max(sl_perc,sl_range,currentStop)
+            else:
+                sl1 = extremePoint * (1 + self.slPercentage)
+                sl2 = min(extremePoint * (1 + refRangePercent * self.rangeFactor),currentStop)
+                if currentStop > sl1 and self.slPercentage > 0:
+                    sl_perc = self.symbol.normalizePrice(sl1,roundUp=position.amount < 0)
+                if currentStop > sl2 and self.useInitialSLRange:
+                    sl_range = self.symbol.normalizePrice(sl2, roundUp=position.amount < 0)
+                newStop = min(sl_perc, sl_range, currentStop)
+
+            if newStop != order.stop_price:
+                self.logger.info("changing SL. Previous Stop: " + str(order.stop_price) + "; New Stop: " + str(newStop))
+                order.stop_price = newStop
+                to_update.append(order)
 
 
 class ParaData:

@@ -200,7 +200,7 @@ class TradingBot:
             # completly closed
             if abs(position.current_open_amount + amount) < self.symbol.lotSize / 2:
                 position.status = PositionStatus.CLOSED
-            if position.filled_exit is not None:
+            if position.filled_exit is not None and (position.max_filled_amount - position.current_open_amount - amount) != 0:
                 position.filled_exit = (position.filled_exit * (
                         position.max_filled_amount - position.current_open_amount) + executed_price * (-amount)) \
                                        / (position.max_filled_amount - position.current_open_amount - amount)
@@ -678,8 +678,9 @@ class TradingBot:
             self.time_of_max_equity = time.time()
         self.prep_bars(bars)
         try:
-            self.manage_open_orders(bars, account)
-            self.open_orders(bars, account)
+            self.manage_active_trades(bars, account)
+            self.open_new_trades(bars, account)
+            self.consolidate_open_positions(bars, account)
         except Exception as e:
             self.save_open_positions(bars)
             raise e
@@ -692,10 +693,13 @@ class TradingBot:
     # Order Management
     ###
 
-    def manage_open_orders(self, bars: list, account: Account):
+    def manage_active_trades(self, bars: list, account: Account):
         pass
 
-    def open_orders(self, bars: list, account: Account):
+    def open_new_trades(self, bars: list, account: Account):
+        pass
+
+    def consolidate_open_positions(self, bars: list, account: Account):
         pass
 
     def update_new_bar(self, bars: List[Bar]):
@@ -755,6 +759,7 @@ class TradingBot:
                     1 / firstPos.filled_entry - 1 / firstPos.filled_exit)
         else:
             startEquity = 100
+        #startEquity = 100
 
         stats_range = []
         # temporarily add filled exit to have position in the result

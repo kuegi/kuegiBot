@@ -62,7 +62,10 @@ class Strategy:
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         pass
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions_of_strat: dict, all_open_pos: dict):
+    def open_new_trades(self, is_new_bar, directionFilter, bars, account, open_positions_of_strat: dict, all_open_pos: dict):
+        pass
+
+    def consolidate_positions(self, is_new_bar, bars, account, open_positions_of_strat: dict):
         pass
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
@@ -123,8 +126,8 @@ class MultiStrategyBot(TradingBot):
 
     def prep_bars(self, bars: list):
         newbar = self.is_new_bar
-        if not self.got_data_for_position_sync(bars):
-            newbar = True
+        #if not self.got_data_for_position_sync(bars):
+        #    newbar = True
         for strategy in self.strategies:
             strategy.prep_bars(newbar, bars)
 
@@ -161,7 +164,7 @@ class MultiStrategyBot(TradingBot):
         for canceled_id in pos_ids:
             del self.open_positions[canceled_id]
 
-    def manage_open_orders(self, bars: List[Bar], account: Account):
+    def manage_active_trades(self, bars: List[Bar], account: Account):
         self.sync_executions(bars, account)
 
         to_cancel = []
@@ -198,11 +201,14 @@ class MultiStrategyBot(TradingBot):
             self.cancel_all_orders_for_position(posId, account)
             del self.open_positions[posId]
 
-    def open_orders(self, bars: List[Bar], account: Account):
+    def open_new_trades(self, bars: List[Bar], account: Account):
         for strat in self.strategies:
             self.call_with_open_positions_for_strat(strat, lambda open_pos,all_open_pos:
-            strat.open_orders(self.is_new_bar,
-                              self.directionFilter, bars, account, open_pos,all_open_pos))
+            strat.open_new_trades(self.is_new_bar, self.directionFilter, bars, account, open_pos,all_open_pos))
+
+    def consolidate_open_positions(self, bars: List[Bar], account: Account):
+        for strat in self.strategies:
+            self.call_with_open_positions_for_strat(strat, lambda open_pos, all_open_pos: strat.consolidate_positions(self.is_new_bar, bars, account, open_pos))
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
         super().add_to_plot(fig, bars, time)

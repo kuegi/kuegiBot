@@ -47,7 +47,7 @@ class SfpStrategy(ChannelStrategy):
     def owns_signal_id(self, signalId: str):
         return signalId.startswith("sfp+")
 
-    def open_orders(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
+    def open_new_trades(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if (not is_new_bar) or len(bars) < 5:
             return  # only open orders on beginning of bar
 
@@ -181,7 +181,7 @@ class SfpStrategy(ChannelStrategy):
             pos = Position(id=posId, entry=entry, amount=amount, stop=stop,
                            tstamp=bars[0].tstamp)
             open_positions[posId] = pos
-            all_open_pos[posId] = pos # need to add to the bots open pos too, so the execution of the market is not missed
+            #all_open_pos[posId] = pos # need to add to the bots open pos too, so the execution of the market is not missed
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
                                                   amount=amount, stop=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),

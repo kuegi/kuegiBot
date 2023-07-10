@@ -1,10 +1,12 @@
 import logging
 import math
+#import statistics
 import os
 import csv
 
 import plotly.graph_objects as go
 
+#import plotly.express as px
 from typing import List
 from datetime import datetime
 
@@ -67,6 +69,14 @@ class BackTest(OrderInterface):
         self.lastHHPosition = 0
 
         self.current_bars: List[Bar] = []
+        self.unrealized_equity = 0
+        self.total_equity_vec = []
+        self.equity_vec = []
+        self.unrealized_equity_vec = []
+        self.hh_vec = []
+        self.ll_vec = []
+        self.dd_vec = []
+        self.maxDD_vec = []
 
         self.reset()
 
@@ -82,6 +92,14 @@ class BackTest(OrderInterface):
         self.lastHHPosition = 0
         self.underwater = 0
         self.maxExposure = 0
+        self.unrealized_equity=0
+        self.total_equity_vec = []
+        self.equity_vec = []
+        self.unrealized_equity_vec = []
+        self.hh_vec = []
+        self.ll_vec = []
+        self.dd_vec = []
+
         self.bot.reset()
 
         self.current_bars = []
@@ -277,18 +295,19 @@ class BackTest(OrderInterface):
             posValue = 0
         self.account.equity = self.account.open_position.walletBalance  # + posValue # for backtest: ignore equity for better charts
         self.account.usd_equity = self.account.equity * intrabarToCheck.close
+        self.unrealized_equity = posValue
 
         self.update_stats()
 
     def update_stats(self):
 
-        if math.fabs(
+        if math.fabs( # TODO: why?
                 self.account.open_position.quantity) < 1 or self.lastHHPosition * self.account.open_position.quantity < 0:
             self.hh = max(self.hh, self.account.equity)  # only update HH on closed positions, no open equity
             self.lastHHPosition = self.account.open_position.quantity
         dd = self.hh - self.account.equity
         if dd > self.maxDD:
-            self.maxDD = max(self.maxDD, dd)
+            self.maxDD = dd
 
         exposure = abs(self.account.open_position.quantity) * (
             1 / self.current_bars[0].close if self.symbol.isInverse else self.current_bars[0].close)
@@ -298,6 +317,26 @@ class BackTest(OrderInterface):
         else:
             self.underwater = 0
         self.max_underwater = max(self.max_underwater, self.underwater)
+
+    def write_plot_data(self):
+        avgEntry = self.account.open_position.avgEntryPrice
+        if avgEntry != 0:
+            unrealized_equity = self.account.open_position.quantity * (
+                (self.current_bars[0].close - avgEntry) if not self.symbol.isInverse else (
+                        -1 / self.current_bars[0].close + 1 / avgEntry))
+        else:
+            unrealized_equity = 0
+
+        self.equity_vec.append(self.account.equity)
+        self.unrealized_equity_vec.append(unrealized_equity)
+        self.total_equity_vec.append(self.account.equity + unrealized_equity)
+        self.hh_vec.append(self.equity_vec[0] if len(self.hh_vec) == 0 else
+                           (self.equity_vec[-1] if self.equity_vec[-1] > self.hh_vec[-1] else self.hh_vec[-1]))
+        self.ll_vec.append(self.equity_vec[0] if len(self.ll_vec) == 0 else
+                           (self.equity_vec[-1] if self.equity_vec[-1] < self.ll_vec[-1] else self.ll_vec[-1]))
+        self.dd_vec.append(-(self.hh_vec[-1] - self.equity_vec[-1]))
+        self.maxDD_vec.append(self.dd_vec[0] if len(self.maxDD_vec) == 0 else
+                              (self.dd_vec[-1] if self.dd_vec[-1] < self.maxDD_vec[-1] else self.maxDD_vec[-1]))
 
     def do_funding(self):
         funding = 0
@@ -317,8 +356,11 @@ class BackTest(OrderInterface):
         self.reset()
         self.logger.info(
             "starting backtest with " + str(len(self.bars)) + " bars and " + str(self.account.equity) + " equity")
+        for i in range(0, self.bot.min_bars_needed()):
+            self.write_plot_data()
         for i in range(self.bot.min_bars_needed(), len(self.bars)):
-            if i == len(self.bars) - 1 or i < self.bot.min_bars_needed():
+            if i == len(self.bars) - 1:# or i < self.bot.min_bars_needed():
+                self.write_plot_data()
                 continue  # ignore last bar and first x
 
             # slice bars. TODO: also slice intrabar to simulate tick
@@ -334,6 +376,7 @@ class BackTest(OrderInterface):
 
             self.do_funding()
             self.bot.on_tick(self.current_bars, self.account)  # tick on new bar open cause many strats act on that
+            self.write_plot_data()
             for subbar in reversed(next_bar.subbars):
                 # check open orders & update account
                 # ensure correct last tick (must not be the same as tstamp)
@@ -370,23 +413,76 @@ class BackTest(OrderInterface):
             profit = self.account.equity - self.initialEquity
             uw_updates_per_day = 1440  # every minute
             total_days = (self.bars[0].tstamp - self.bars[-1].tstamp) / (60 * 60 * 24)
-            rel = profit / (self.maxDD if self.maxDD > 0 else 1)
-            rel_per_year = rel / (total_days / 365)
-            self.logger.info("finished | closed pos: " + str(len(self.bot.position_history))
-                             + " | open pos: " + str(len(self.bot.open_positions))
-                             + " | profit: " + ("%.2f" % (100 * profit / self.initialEquity))
-                             + " | HH: " + ("%.2f" % (100 * (self.hh / self.initialEquity - 1)))
-                             + " | maxDD: " + ("%.2f" % (100 * self.maxDD / self.initialEquity))
-                             + " | maxExp: " + ("%.2f" % (self.maxExposure / self.initialEquity))
+            #average_daily_return = profit / total_days
+            #rel = profit / (-self.maxDD_vec[-1] if profit > 0 else 0)
+            if -self.maxDD_vec[-1] != 0 and self.hh_vec[-1] != self.initialEquity:
+                rel = self.hh_vec[-1] / -self.maxDD_vec[-1]
+            else:
+                rel = 0
+            rel_per_year = rel / (total_days / 365) if rel >0 else 0
+            nmb = 0
+            for position in self.bot.open_positions.values():
+                if position.status == PositionStatus.OPEN:
+                    nmb += 1
+            #std_eq = statistics.stdev(self.equity_vec)
+
+            self.logger.info("trades: " + str(len(self.bot.position_history))
+                             + " | open pos: " + str(nmb)
+                             + " | profit: " + ("%.1f" % (100 * profit / self.initialEquity)) + "%"
+                             + " | unreal.: " + ("%.1f"% (100 * self.unrealized_equity_vec[-1] / self.initialEquity)) + "%"
+                             #+ " | HH: " + ("%.1f" % (100 * (self.hh_vec[-1] / self.initialEquity - 1))) + "%"
+                             + " | maxDD: " + ("%.1f" % (100 * self.maxDD_vec[-1] / self.initialEquity)) + "%"
+                             + " | maxExp: " + ("%.1f" % (self.maxExposure / self.initialEquity)) + "%"
                              + " | rel: " + ("%.2f" % (rel_per_year))
                              + " | UW days: " + ("%.1f" % (self.max_underwater / uw_updates_per_day))
-                             + " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays, daysInPos, maxDays))
+                             #+ " | pos days: " + ("%.1f/%.1f/%.1f" % (minDays, daysInPos, maxDays))
                              )
         else:
             self.logger.info("finished with no trades")
 
-        # self.write_results_to_files()
         return self
+
+    def plot_statistics_abs(self):
+        self.logger.info("creating statistics plot with absolut number")
+        barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
+        time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
+
+        #self.unrealized_equity_vec.reverse()
+        self.total_equity_vec.reverse()
+        #self.hh_vec.reverse()
+        #self.ll_vec.reverse()
+        self.equity_vec.reverse()
+        self.maxDD_vec.reverse()
+        self.dd_vec.reverse()
+
+        sub_data ={
+            #'unrealized equity':self.unrealized_equity_vec,
+            'total equity':self.total_equity_vec,
+            #'HH':self.hh_vec,
+            #'LL':self.ll_vec,
+            'realized equity':self.equity_vec,
+            'maxDD':self.maxDD_vec,
+            'DD':self.dd_vec,
+        }
+
+        colors = {
+            # "unrealized equity": 'black',
+            "total equity": 'lightblue',
+            #"HH": 'lightgreen',
+            # "LL": 'magenta',
+            "realized equity": 'blue',
+            "maxDD": 'red',
+            "DD": 'orange'
+        }
+
+        data_abs = []
+        for key in sub_data.keys():
+            data_abs.append(
+                go.Scatter(x=time, y=sub_data.get(key), name=(key + ': %.1f' % sub_data.get(key)[0]),
+                           line=dict(color=colors[key], width=2))
+            )
+        fig_abs = go.Figure(data = data_abs)
+        fig_abs.show()
 
     def prepare_plot(self):
         barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
