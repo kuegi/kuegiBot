@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List
 
 import pybit
-from pybit import HTTP
+from pybit.unified_trading import HTTP
 
 from kuegi_bot.exchanges.bybit.bybit_websocket import BybitWebsocket
 from kuegi_bot.utils.trading_classes import Order, Bar, TickerData, AccountPosition, \
