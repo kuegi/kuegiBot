@@ -11,11 +11,13 @@ class BybitWebsocket(KuegiWebsocket):
     MAX_DATA_CAPACITY = 200
     PRIVATE_TOPIC = ['position', 'execution', 'order']
 
-    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
+    def __init__(self, publicURL, privateURL, api_key, api_secret, logger, callback,symbol, minutesPerBar):
         self.data = {}
         self.symbol= symbol
         self.minutesPerBar= minutesPerBar
-        super().__init__(wsURLs, api_key, api_secret, logger, callback)
+        super().__init__([privateURL],  api_key, api_secret, logger, callback)
+        self.public= KuegiWebsocket([publicURL], None, None, logger, callback) #no auth for public
+        self.public.on_message= self.on_message
 
     def generate_signature(self, expires):
         """Generate a request signature."""
@@ -30,19 +32,20 @@ class BybitWebsocket(KuegiWebsocket):
 
     def subscribe_realtime_data(self):
         self.subscribe_order()
-        self.subscribe_stop_order()
         self.subscribe_execution()
         self.subscribe_position()
         subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
-        self.subscribe_klineV2(subbarsIntervall, self.symbol)
+        self.subscribe_kline(subbarsIntervall, self.symbol)
         self.subscribe_instrument_info(self.symbol)
+        self.subscribe_wallet_data()
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
+        #self.logger.debug("WS got message "+message)
         message = json.loads(message)
         if 'success' in message:
             if message["success"]:
-                if 'request' in message and message["request"]["op"] == 'auth':
+                if 'op' in message and message["op"] == 'auth':
                     self.auth = True
                     self.logger.info("Authentication success.")
                 if 'ret_msg' in message and message["ret_msg"] == 'pong':
@@ -57,77 +60,41 @@ class BybitWebsocket(KuegiWebsocket):
             if self.callback is not None:
                 self.callback(message['topic'])
 
-    def subscribe_kline(self, symbol: str, interval: str):
-        param = {'op': 'subscribe',
-                 'args': ['kline.' + symbol + '.' + interval]
-                 }
-        self.ws.send(json.dumps(param))
-        if 'kline.' + symbol + '.' + interval not in self.data:
-            self.data['kline.' + symbol + '.' + interval] = []
-
-    def subscribe_klineV2(self, interval: str, symbol: str):
-        args = 'klineV2.' + interval + '.' + symbol
+    def subscribe(self,topic:str, ws):
         param = dict(
             op='subscribe',
-            args=[args]
+            args=[topic]
         )
-        self.ws.send(json.dumps(param))
-        if args not in self.data:
-            self.data[args] = []
+        ws.send(json.dumps(param))
+        if topic not in self.data:
+            self.data[topic] = []
 
-    def subscribe_trade(self):
-        self.ws.send('{"op":"subscribe","args":["trade"]}')
-        if "trade.BTCUSD" not in self.data:
-            self.data["trade.BTCUSD"] = []
-            self.data["trade.ETHUSD"] = []
-            self.data["trade.EOSUSD"] = []
-            self.data["trade.XRPUSD"] = []
-
-    def subscribe_insurance(self):
-        self.ws.send('{"op":"subscribe","args":["insurance"]}')
-        if 'insurance.BTC' not in self.data:
-            self.data['insurance.BTC'] = []
-            self.data['insurance.XRP'] = []
-            self.data['insurance.EOS'] = []
-            self.data['insurance.ETH'] = []
+    def subscribe_kline(self, interval: str, symbol: str):
+        self.subscribe('kline.' + interval + '.' + symbol,self.public.ws)
 
     def subscribe_orderBookL2(self, symbol):
-        param = {
-            'op': 'subscribe',
-            'args': ['orderBookL2_25.' + symbol]
-        }
-        self.ws.send(json.dumps(param))
-        if 'orderBookL2_25.' + symbol not in self.data:
-            self.data['orderBookL2_25.' + symbol] = []
+        self.subscribe("orderbook.50."+symbol,self.public.ws)
 
     def subscribe_instrument_info(self, symbol):
-        param = {
-            'op': 'subscribe',
-            'args': ['instrument_info.100ms.' + symbol]
-        }
-        self.ws.send(json.dumps(param))
-        if 'instrument_info.100ms.' + symbol not in self.data:
-            self.data['instrument_info.100ms.' + symbol] = []
+        self.subscribe("tickers."+symbol,self.public.ws)
+
+
+    def subscribe_trade(self, symbol):
+        self.subscribe("publicTrade."+symbol,self.public.ws)
+
+# privates -------------------
+
+    def subscribe_wallet_data(self):
+        self.subscribe("wallet",self.ws)
 
     def subscribe_position(self):
-        self.ws.send('{"op":"subscribe","args":["position"]}')
-        if 'position' not in self.data:
-            self.data['position'] = []
+        self.subscribe("position",self.ws)
 
     def subscribe_execution(self):
-        self.ws.send('{"op":"subscribe","args":["execution"]}')
-        if 'execution' not in self.data:
-            self.data['execution'] = []
+        self.subscribe("execution",self.ws)
 
     def subscribe_order(self):
-        self.ws.send('{"op":"subscribe","args":["order"]}')
-        if 'order' not in self.data:
-            self.data['order'] = []
-
-    def subscribe_stop_order(self):
-        self.ws.send('{"op":"subscribe","args":["stop_order"]}')
-        if 'stop_order' not in self.data:
-            self.data['stop_order'] = []
+        self.subscribe("order",self.ws)
 
     def get_data(self, topic):
         if topic not in self.data:

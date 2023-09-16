@@ -81,7 +81,7 @@ class Account:
 
 
 class Symbol:
-    def __init__(self, symbol: str, isInverse, lotSize, tickSize, makerFee, takerFee, pricePrecision=2,
+    def __init__(self, symbol: str, isInverse, lotSize, tickSize, makerFee, takerFee, basecoin, pricePrecision=2,
                  quantityPrecision=2):
         self.symbol: str = symbol
         self.isInverse = isInverse
@@ -89,6 +89,7 @@ class Symbol:
         self.tickSize = tickSize
         self.makerFee = makerFee
         self.takerFee = takerFee
+        self.basecoin= basecoin
         self.pricePrecision = pricePrecision
         self.quantityPrecision = quantityPrecision
 

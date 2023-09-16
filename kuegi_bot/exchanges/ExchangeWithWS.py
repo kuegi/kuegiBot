@@ -54,7 +54,7 @@ class KuegiWebsocket(object):
                                          keep_running=True)
 
 
-        self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=5))
+        self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=10))
         self.wst.daemon = True
         self.wst.start()
         self.logger.debug("Started thread")
