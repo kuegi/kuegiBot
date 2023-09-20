@@ -43,6 +43,9 @@ class ByBitInterface(ExchangeWithWS):
                          on_execution_callback= on_execution_callback)
         self.handles_executions= True
 
+    def is_open(self):
+        # ws is always a BybitLinearWebsocket which has a publicWS
+        return not self.ws.exited and not self.ws.public.exited
 
     def initOrders(self):
         apiOrders =  self.handle_result(lambda:self.pybit.get_open_orders(category="inverse",symbol=self.symbol))
@@ -79,39 +82,39 @@ class ByBitInterface(ExchangeWithWS):
             order_type = "Limit"
         if order.stop_price is not None and (self.last - order.stop_price) * order.amount >= 0:
             order.stop_price = None  # already triggered
-        triggerPrice= None
-        triggerDirection= None
-        if order.stop_price is not None:
-            triggerPrice= self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
-            triggerDirection= 1 if order.amount > 0 else 2 # 1= triggered when price goes above (=STOP BUY),2 = trigger when below
 
-        result =  self.handle_result(lambda:self.pybit.place_order(side=("Buy" if order.amount > 0 else "Sell"),
-                                                          symbol=self.symbol,
-                                                          orderType=order_type,
-                                                          triggerPrice= triggerPrice,
-                                                          triggerDirection=triggerDirection,
-                                                          qty=strOrNone(int(abs(order.amount))),
-                                                          price=strOrNone(
-                                                              self.symbol_info.normalizePrice(order.limit_price,
-                                                                                              order.amount < 0)),
-                                                          orderLinkId=order.id,
-                                                          timeInForce="GTC"))
+        args= {
+            "side": ("Buy" if order.amount > 0 else "Sell"),
+        "category" : "inverse",
+        "symbol" : self.symbol,
+        "orderType" : order_type,
+        "qty" : strOrNone(int(abs(order.amount))),
+        "orderLinkId" : order.id,
+        "timeInForce" : "GTC"
+        }
+        if order.stop_price is not None:
+            args["triggerPrice"]= self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
+            args["triggerDirection"]= 1 if order.amount > 0 else 2 # 1= triggered when price goes above (=STOP BUY),2 = trigger when below
+
+        if order.limit_price is not None:
+            args["price"] = strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))
+
+        result =  self.handle_result(lambda:self.pybit.place_order(**args))
         if result is not None:
             order.exchange_id = result['orderId']
 
     def internal_update_order(self, order: Order):
-        triggerPrice= None
+        args = {
+            "category": "inverse",
+            "orderId": order.exchange_id,
+            "symbol": self.symbol,
+            "qty": strOrNone(int(abs(order.amount)))
+        }
         if order.stop_price is not None:
-            triggerPrice= strOrNone(self.symbol_info.normalizePrice(order.stop_price, order.amount > 0))
-        self.handle_result(lambda:self.pybit.amend_order(category="inverse",
-                                                              orderId=order.exchange_id,
-                                                         symbol=self.symbol,
-                                                         qty=strOrNone(int(abs(order.amount))),
-                                                         price=strOrNone(
-                                                             self.symbol_info.normalizePrice(order.limit_price,
-                                                                                             order.amount < 0)),
-                                                         triggerPrice= triggerPrice
-                           ))
+            args["triggerPrice"] = strOrNone(self.symbol_info.normalizePrice(order.stop_price, order.amount > 0))
+        if order.limit_price is not None:
+            args["price"]= strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))
+        self.handle_result(lambda: self.pybit.amend_order(**args))
 
     def get_current_liquidity(self) -> tuple:
         book =  self.handle_result(lambda:self.pybit.get_orderbook(category="inverse",symbol=self.symbol))
@@ -136,9 +139,6 @@ class ByBitInterface(ExchangeWithWS):
                 **{'categoriy':'inverse','symbol': self.symbol, 'interval': str(tf), 'end': str(end), 'limit': '1000'}))
             apibars = apibars +bars1
 
-        return self._aggregate_bars(apibars, timeframe_minutes, start_offset_minutes)
-
-    def _aggregate_bars(self, apibars, timeframe_minutes, start_offset_minutes) -> List[Bar]:
         subbars = []
         for b in apibars:
             if b[1] is None:
@@ -163,7 +163,7 @@ class ByBitInterface(ExchangeWithWS):
                               makerFee=float(fees['makerFeeRate']),
                               takerFee=float(fees['takerFeeRate']),
                               basecoin=entry['baseCoin'],
-                              pricePrecision=float(entry['priceScale']),
+                              pricePrecision=int(entry['priceScale']),
                               quantityPrecision=0)  # hardcoded full dollars
         return None
 
@@ -305,7 +305,7 @@ class ByBitInterface(ExchangeWithWS):
                 elif topic == 'tickers.' + self.symbol:
                     obj = msgs
                     if obj['symbol'] == self.symbol and 'lastPrice' in obj.keys():
-                        self.last = obj['lastPrice']
+                        self.last = float(obj['lastPrice'])
                 else:
                     self.logger.error('got unkown topic in callback: ' + topic)
                 msgs = self.ws.get_data(topic)

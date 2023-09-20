@@ -5,6 +5,32 @@ import time
 
 from kuegi_bot.exchanges.ExchangeWithWS import KuegiWebsocket
 
+class PublicBybitWebSocket(KuegiWebsocket):
+    def __init__(self, publicURL, logger, mainSocket,symbol, minutesPerBar):
+        self.data = {}
+        self.symbol= symbol
+        self.minutesPerBar= minutesPerBar
+        self.initial_subscribe_done = False
+        super().__init__([publicURL],  None, None, logger, None)
+        self.mainSocket= mainSocket
+
+    def on_message(self, message):
+        self.mainSocket.on_message(message)
+
+    def subscribe(self,topic:str, ws):
+        param = dict(
+            op='subscribe',
+            args=[topic]
+        )
+        ws.send(json.dumps(param))
+        if topic not in self.mainSocket.data:
+            self.mainSocket.data[topic] = []
+    def subscribe_realtime_data(self):
+        subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
+        self.subscribe('kline.' + subbarsIntervall + '.' + self.symbol,self.ws)
+        self.subscribe("tickers."+self.symbol,self.ws)
+        self.initial_subscribe_done = True
+
 
 class BybitWebsocket(KuegiWebsocket):
     # User can ues MAX_DATA_CAPACITY to control memory usage.
@@ -16,13 +42,18 @@ class BybitWebsocket(KuegiWebsocket):
         self.symbol= symbol
         self.minutesPerBar= minutesPerBar
         super().__init__([privateURL],  api_key, api_secret, logger, callback)
-        self.public= KuegiWebsocket([publicURL], None, None, logger, callback) #no auth for public
-        self.public.on_message= self.on_message
+        self.public= PublicBybitWebSocket(publicURL, logger, self,symbol, minutesPerBar) #no auth for public
+
 
     def generate_signature(self, expires):
         """Generate a request signature."""
         _val = 'GET/realtime' + expires
         return str(hmac.new(bytes(self.api_secret, "utf-8"), bytes(_val, "utf-8"), digestmod="sha256").hexdigest())
+
+    def exit(self):
+        if self.public:
+            self.public.exit()
+        super().exit()
 
     def do_auth(self):
         expires = str(int(round(time.time()) + 5)) + "000"
@@ -30,14 +61,14 @@ class BybitWebsocket(KuegiWebsocket):
         auth = {"op": "auth", "args": [self.api_key, expires, signature]}
         self.ws.send(json.dumps(auth))
 
+
     def subscribe_realtime_data(self):
         self.subscribe_order()
         self.subscribe_execution()
         self.subscribe_position()
-        subbarsIntervall = '1' if self.minutesPerBar <= 60 else '60'
-        self.subscribe_kline(subbarsIntervall, self.symbol)
-        self.subscribe_instrument_info(self.symbol)
         self.subscribe_wallet_data()
+        if not self.public.initial_subscribe_done:
+            self.public.subscribe_realtime_data()
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
@@ -68,19 +99,6 @@ class BybitWebsocket(KuegiWebsocket):
         ws.send(json.dumps(param))
         if topic not in self.data:
             self.data[topic] = []
-
-    def subscribe_kline(self, interval: str, symbol: str):
-        self.subscribe('kline.' + interval + '.' + symbol,self.public.ws)
-
-    def subscribe_orderBookL2(self, symbol):
-        self.subscribe("orderbook.50."+symbol,self.public.ws)
-
-    def subscribe_instrument_info(self, symbol):
-        self.subscribe("tickers."+symbol,self.public.ws)
-
-
-    def subscribe_trade(self, symbol):
-        self.subscribe("publicTrade."+symbol,self.public.ws)
 
 # privates -------------------
 
