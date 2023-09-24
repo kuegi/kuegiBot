@@ -228,6 +228,8 @@ class ByBitInterface(ExchangeWithWS):
                     # 'order_qty': 1, 'exec_type': 'Trade', 'exec_qty': 1, 'exec_fee': '0.00000011', 'leaves_qty': 0,
                     # 'is_maker': False, 'trade_time': '2019-12-26T20:02:19.576Z'}
                     for execution in msgs:
+                        if "execType" in execution and execution['execType'] == "Funding":
+                            continue # ignore funding
                         if execution['orderId'] in self.orders.keys():
                             sideMulti = 1 if execution['side'] == "Buy" else -1
                             order = self.orders[execution['orderId']]
@@ -239,14 +241,15 @@ class ByBitInterface(ExchangeWithWS):
                                                        amount=float(execution['execQty']) * sideMulti,
                                                        tstamp= int(execution['execTime'])/1000)
 
-                            self.logger.info("got order execution: %s %.1f @ %.1f " % (
+                            self.logger.info("got order execution: %s %.1f @ %.1f at %s" % (
                                 execution['orderLinkId'], float(execution['execQty']) * sideMulti,
-                                float(execution['execPrice'])))
+                                float(execution['execPrice']),str(datetime.fromtimestamp(int(execution['execTime'])/1000))))
+
                         else:
                             sideMulti = 1 if execution['side'] == "Buy" else -1
-                            self.logger.info("got unkown order execution: %s/%s %.1f @ %.1f " % (
+                            self.logger.info("got unkown order execution: %s/%s %.1f @ %.1f at %s\n message:%s" % (
                                 execution['orderId'], execution['orderLinkId'], float(execution['execQty']) * sideMulti,
-                                float(execution['execPrice'])))
+                                float(execution['execPrice']),datetime.fromtimestamp(int(execution['execTime'])/1000),str(msgs)))
                 elif topic == 'wallet':
                     for wallet in msgs:
                         for coin in wallet['coin']:

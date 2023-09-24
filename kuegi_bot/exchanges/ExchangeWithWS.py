@@ -51,6 +51,7 @@ class KuegiWebsocket(object):
                                          on_close=self.__on_close,
                                          on_open=self.__on_open,
                                          on_error=self.on_error,
+                                         on_pong=lambda ws, *args: self.on_pong(),
                                          keep_running=True)
 
 
@@ -96,6 +97,9 @@ class KuegiWebsocket(object):
         """Handler for parsing WS messages."""
         pass
 
+    def on_pong(self):
+        pass
+
     def try_restart(self):
         self.restarting = True
         self.ws.close()
@@ -131,7 +135,7 @@ class KuegiWebsocket(object):
             self.on_error("error during restart: "+str(e))
 
 
-    def on_error(self, error):
+    def on_error(self, ws, error):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited and not self.restarting:
             self.logger.error("Error : %s" % error)

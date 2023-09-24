@@ -17,6 +17,9 @@ class PublicBybitWebSocket(KuegiWebsocket):
     def on_message(self, message):
         self.mainSocket.on_message(message)
 
+    def on_pong(self):
+        self.ws.send(json.dumps({"op": "ping"}))
+
     def subscribe(self,topic:str, ws):
         param = dict(
             op='subscribe',
@@ -44,6 +47,8 @@ class BybitWebsocket(KuegiWebsocket):
         super().__init__([privateURL],  api_key, api_secret, logger, callback)
         self.public= PublicBybitWebSocket(publicURL, logger, self,symbol, minutesPerBar) #no auth for public
 
+    def on_pong(self):
+        self.ws.send(json.dumps({"op": "ping"}))
 
     def generate_signature(self, expires):
         """Generate a request signature."""
