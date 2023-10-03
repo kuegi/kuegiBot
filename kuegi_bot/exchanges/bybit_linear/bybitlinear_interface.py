@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 
 import pybit
-from pybit import HTTP
+from pybit.unified_trading import HTTP
 
 from kuegi_bot.utils.trading_classes import Order, Bar, TickerData, AccountPosition, \
     Symbol, process_low_tf_bars, parse_utc_timestamp, OrderType

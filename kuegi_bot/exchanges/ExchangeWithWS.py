@@ -51,6 +51,7 @@ class KuegiWebsocket(object):
                                          on_close=self.__on_close,
                                          on_open=self.__on_open,
                                          on_error=self.on_error,
+                                         on_pong=lambda ws, *args: self.on_pong(),
                                          keep_running=True)
 
 
@@ -94,6 +95,9 @@ class KuegiWebsocket(object):
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
+        pass
+
+    def on_pong(self):
         pass
 
     def try_restart(self):
