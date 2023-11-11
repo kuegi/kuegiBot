@@ -1,40 +1,17 @@
 # Kuegi Bot
-
-a simple tradingbot for BTCUSD with connectors for [bybit](https://bit.ly/2rxuv8l "Bybit Homepage"), [bitmex](https://bit.ly/2G4gSB2 "Bitmex Homepage"), [binance futures](https://www.binance.com/en/futures/ref/kuegi) and [phemex](https://phemex.com/register?referralCode=F6YFL).
-It just implements my manual tradingstrategy and therefore helps me to stick to the system. 
-No financial advice. Don't use it if you don't understand what it does. You probably will loose money.
-
-I only use the bybit connector myself right now. The other connectors are still there, but might have problems due to API changes in the last months which i am not aware of yet. Feel free to make a Pull Request if you find any.
+a bot for trading cryptocurrencies futures (currently only on bybit). Initially based on this repository:
+https://github.com/kuegi/kuegiBot
 
 ## ref links
 
-if you like it and wanna start a trading account, feel free to use the ref links:
-
-[bybit](https://www.bybit.com/en/register?affiliate_id=4555&language=en&group_id=0&group_type=1)
-
-[binance (saves you 10% of fees)](https://www.binance.com/en/register?ref=NV9XQ2JE)
-
-[binance futures (saves you 10% of fees)](https://www.binance.com/en/futures/ref/kuegi)
-
-[DigitalOcean](https://m.do.co/c/1767a7ee58ea) The cloud service provider i use for the bot. If you use the reflink you also get a 100$ credit for the first 2 months to try the service risk-free.
 ## disclaimer
 
 right now this is a pure expert tool for my personal use. if you find the code useful thats nice, but don't expect it to be easy to understand or work with it.
 It also comes with no warranty whatsoever and is for educational purposes only!
 
-## roots
-
-started with code from https://github.com/BitMEX/sample-market-maker (connector to bitmex mainly but got to change a lot)
-
 ## donations
 
-if this helps you in any way, donations are welcome: 
-
-BTC: bc1qfdm2z0xpe7lg70try8x3n3qytrjqzq5y2v6d5n
-
 ## story time
-
-i write twitter threads about my journey and the bot. you can either follow me there @mkuegi or read them [here](docs/aboutCodingABot/readme.md)
 
 # Getting started
 
@@ -51,9 +28,6 @@ currently the only way to  execute the bot is by running the included scripts.
 
 Currently there are specific bots for the kuegi-strategy and a simpler SFP strategy.
 Since those two work nicely together, i also created a MultiStrategyBot which can execute multiple strategies within one account and exchange.
-
-## Kuegi Strategy
-Here i will explain my strategy once i find the time
 
 ## SFP
 a simple swing-failure pattern strategy. I will provide more information when the time is right.

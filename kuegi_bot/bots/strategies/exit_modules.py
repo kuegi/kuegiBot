@@ -142,8 +142,7 @@ class QuickBreakEven(ExitModule):
 
 
 class MaxSLDiff(ExitModule):
-    ''' trails the stop to a max dist in atr_4h from the extreme point
-    '''
+    ''' trails the stop to a max dist in atr_4h from the extreme point '''
 
     def __init__(self, maxATRDiff: float , atrPeriod: int = 0):
         super().__init__()

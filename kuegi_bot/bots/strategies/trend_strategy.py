@@ -37,19 +37,20 @@ class TrendStrategy(StrategyWithTradeManagement):
                  trend_var_1: float = 1,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend:float = 1, risk_ranging: float = 1,
-                 sl_upper_bb_std_fac: float = 1, sl_lower_bb_std_fac: float = 1, sl_atr_fac: float = 2,
+                 sl_upper_bb_std_fac: float = 1, sl_lower_bb_std_fac: float = 1,
                  # SL input parameters
                  be_by_middleband: bool = True, be_by_opposite: bool = True, stop_at_middleband: bool = True,
                  tp_at_middleband: bool = True, tp_on_opposite: bool = True, stop_at_new_entry: bool = False,
-                 trail_sl_with_bband: bool = False, stop_short_at_middleband: bool = True, atr_buffer_fac: float = 0,
-                 moving_sl_atr_fac: float = 5,
+                 trail_sl_with_bband: bool = False, stop_short_at_middleband: bool = True, stop_at_trail: bool = False,
+                 stop_at_lowerband: bool = False,
+                 atr_buffer_fac: float = 0, moving_sl_atr_fac: float = 5,
                  # StrategyWithTradeManagement
-                 maxPositions: int = 100, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
+                 maxPositions: int = 100, consolidate: bool = False, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
                  limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True
                  ):
         super().__init__(
             # StrategyWithTradeManagement
-            maxPositions = maxPositions, close_on_opposite = close_on_opposite, bars_till_cancel_triggered = bars_till_cancel_triggered,
+            maxPositions = maxPositions, consolidate = consolidate, close_on_opposite = close_on_opposite, bars_till_cancel_triggered = bars_till_cancel_triggered,
             limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter)
 
         # local variables
@@ -58,7 +59,7 @@ class TrendStrategy(StrategyWithTradeManagement):
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
             lows_trail_4h_period = lows_trail_4h_period, trend_d_period = trend_d_period, trend_w_period = trend_w_period,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, bbands_4h_period= bbands_4h_period, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
-            sl_lower_bb_std_fac = sl_lower_bb_std_fac, ta_trend_var_1 = trend_var_1,
+            sl_lower_bb_std_fac = sl_lower_bb_std_fac, ta_trend_var_1 = trend_var_1, oversold_limit_w_rsi = 30, reset_level_of_oversold_rsi = 50
         )
         self.plotIndicators = plotIndicators
         # Risk
@@ -74,11 +75,12 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.stop_at_new_entry = stop_at_new_entry
         self.trail_sl_with_bband = trail_sl_with_bband
         self.atr_buffer_fac = atr_buffer_fac
-        self.sl_atr_fac = sl_atr_fac # TODO remove this variable
         self.moving_sl_atr_fac = moving_sl_atr_fac
         self.sl_upper_bb_std_fac = sl_upper_bb_std_fac
         self.sl_lower_bb_std_fac = sl_lower_bb_std_fac
         self.stop_short_at_middleband = stop_short_at_middleband
+        self.stop_at_trail = stop_at_trail
+        self.stop_at_lowerband = stop_at_lowerband
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
@@ -180,7 +182,11 @@ class TrendStrategy(StrategyWithTradeManagement):
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[10], bars))
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[10],
                             name=self.ta_trend_strat.id + "_" + names[10])
-        # Plot strategy-generated data
+
+        '''plotBBandsTalib = True
+        if plotBBandsTalib and self.plotIndicators:
+            styles.extend(self.ta_trend_strat.taData_trend_strat.bbands_talib.get_line_styles())
+            names.extend(self.ta_trend_strat.taData_trend_strat.bbands_talib.get_line_names())'''
 
     def calc_pos_size(self, risk, entry, exitPrice, atr: float = 0):
         delta = entry - exitPrice
@@ -205,8 +211,6 @@ class TrendStrategy(StrategyWithTradeManagement):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
 
-        stop_at_trail = True
-        stop_at_lowerband = False
         # Update SLs based on BBs
         orderType = TradingBot.order_type_from_order_id(order.id)
         if orderType == OrderType.SL:  # Manage Stop Losses
@@ -217,18 +221,23 @@ class TrendStrategy(StrategyWithTradeManagement):
                 upper_band = self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband + self.ta_trend_strat.taData_trend_strat.bbands_4h.std * self.sl_upper_bb_std_fac
                 lower_band = self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband - self.ta_trend_strat.taData_trend_strat.bbands_4h.std * self.sl_lower_bb_std_fac
                 if order.amount > 0:  # SL for SHORTS
-                    if bars[1].low < self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.be_by_middleband:
+                    if self.be_by_middleband and \
+                            bars[1].low < self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband:
                         new_stop_price = min(position.wanted_entry, new_stop_price)
-                    if bars[1].low < (lower_band + self.ta_trend_strat.taData_trend_strat.atr_4h * self.atr_buffer_fac) and self.be_by_opposite:
+                    if self.be_by_opposite and \
+                            bars[1].low < (lower_band + self.ta_trend_strat.taData_trend_strat.atr_4h * self.atr_buffer_fac):
                         new_stop_price = min(position.wanted_entry, new_stop_price)
-                    if bars[1].low < self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.stop_at_new_entry:
+                    if self.stop_at_new_entry and \
+                            bars[1].low < self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband:
                         new_stop_price = min(upper_band, new_stop_price)
-                    if bars[1].low < lower_band and self.stop_short_at_middleband:
-                        new_stop_price = min(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband - self.ta_trend_strat.taData_trend_strat.atr_4h,
-                                             new_stop_price)
-                    if bars[1].low < lower_band and self.tp_on_opposite:
+                    if self.stop_short_at_middleband and \
+                            bars[1].low < lower_band:
+                        new_stop_price = min(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband - self.ta_trend_strat.taData_trend_strat.atr_4h, new_stop_price)
+                    if self.tp_on_opposite and \
+                            bars[1].low < lower_band:
                         new_stop_price = min(bars[0].open, new_stop_price)
-                    if bars[0].open < self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.tp_at_middleband:
+                    if self.tp_at_middleband and \
+                            bars[0].open < self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband:
                         new_stop_price = min(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband, new_stop_price)
                     if self.trail_sl_with_bband:
                         new_stop_price = min(upper_band, new_stop_price)
@@ -236,23 +245,27 @@ class TrendStrategy(StrategyWithTradeManagement):
                         new_stop_price = bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac
 
                 elif order.amount < 0:  # SL for LONGs
-                    if stop_at_trail:
-                        new_stop_price = max(self.ta_trend_strat.taData_trend_strat.lows_trail_4h, new_stop_price)
-                    if stop_at_lowerband:
+                    if self.stop_at_trail:
+                        new_stop_price = max(self.ta_trend_strat.taData_trend_strat.lows_trail_4h - self.ta_trend_strat.taData_trend_strat.atr_4h*2, new_stop_price)
+                    if self.stop_at_lowerband:
                         new_stop_price = max(lower_band, new_stop_price)
-                    if bars[1].high > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.be_by_middleband:
+                    if self.be_by_middleband and \
+                            bars[1].high > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband:
                         new_stop_price = max(position.wanted_entry, new_stop_price)
-                    if bars[1].high > (
-                            upper_band - self.ta_trend_strat.taData_trend_strat.atr_4h * self.atr_buffer_fac) and self.be_by_opposite:
+                    if self.be_by_opposite and \
+                            bars[1].high > (upper_band - self.ta_trend_strat.taData_trend_strat.atr_4h * self.atr_buffer_fac):
                         new_stop_price = max(position.wanted_entry, new_stop_price)
-                    if bars[1].high > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.stop_at_new_entry:
+                    if self.stop_at_new_entry and \
+                            bars[1].high > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband:
                         new_stop_price = max(lower_band, new_stop_price)
-                    if bars[1].high > (
-                            upper_band - self.ta_trend_strat.taData_trend_strat.atr_4h * self.atr_buffer_fac) and self.stop_at_middleband:
+                    if self.stop_at_middleband and \
+                            bars[1].high > (upper_band - self.ta_trend_strat.taData_trend_strat.atr_4h * self.atr_buffer_fac):
                         new_stop_price = max(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband, new_stop_price)
-                    if bars[1].high > upper_band and self.tp_on_opposite:
+                    if self.tp_on_opposite and \
+                            bars[1].high > upper_band:
                         new_stop_price = max(bars[0].open, new_stop_price)
-                    if bars[0].open > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband and self.tp_at_middleband:
+                    if self.tp_at_middleband and \
+                            bars[0].open > self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband:
                         new_stop_price = max(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband, new_stop_price)
                     if self.trail_sl_with_bband:
                         new_stop_price = max(lower_band, new_stop_price)
@@ -268,6 +281,34 @@ class BBands:
         self.std = std
 
 
+'''class Talib_BBANDS(Indicator):
+    def __init__(self, period: int = None, middleband:float = None, std:float = None):
+        super().__init__("BBands" + str(period))
+        self.period = period
+        self.middleband = middleband
+        self.std = std
+
+    def on_tick(self, bars: List[Bar]):
+        pass
+
+    def on_tick_talib(self, close: np.array, period: int):
+        # Update Bollinger Bands arrays
+        a, b, c = talib.BBANDS(close[-period - 1:], timeperiod=period, nbdevup=1,
+                               nbdevdn=1)
+        upperband = a[-1]
+        self.middleband = b[-1]
+        if not np.isnan(upperband) and not np.isnan(self.middleband):
+            self.std = upperband - self.middleband
+        else:
+            self.std = np.nan
+
+    def get_line_names(self):
+        return ["bbands_talib" + str(self.period)]
+
+    def get_line_styles(self):
+        return [{"width": 1, "color": "purple"}]'''
+
+
 class TAdataTrendStrategy:
     def __init__(self):
         ''' TA-data of the Trend Strategy '''
@@ -275,6 +316,7 @@ class TAdataTrendStrategy:
         self.marketRegime = MarketRegime.NONE
         # 4h arrays
         self.bbands_4h = BBands(None, None)
+        #self.bbands_talib = Talib_BBANDS(None, None, None)
         self.atr_4h_vec = None
         self.atr_4h = None
         self.natr_4h_vec = None
@@ -319,6 +361,8 @@ class TATrendStrategyIndicator(Indicator):
                  # weekly periods
                  ema_w_period: int = 10,
                  rsi_w_period: int = 14,
+                 oversold_limit_w_rsi: int = 10,
+                 reset_level_of_oversold_rsi: int = 90,
                  # stop loss bband factors
                  sl_upper_bb_std_fac: float = 2.0,
                  sl_lower_bb_std_fac: float = 2.0,
@@ -330,9 +374,13 @@ class TATrendStrategyIndicator(Indicator):
         # debug variables
         self.ta_trend_var_1 = ta_trend_var_1
         # Trend identification parameters
+        self.bull_buffer = 0
+        self.bull_rsi_locked = False
         self.ranging_buffer = 0
         self.bear_buffer = 0
         self.bullish_reversal = False
+        self.oversold_limit_w_rsi = oversold_limit_w_rsi
+        self.reset_level_of_oversold_rsi = reset_level_of_oversold_rsi
         # Constant enabler parametersbb
         self.bars_per_week = int(60 * 24 * 7 / timeframe)
         self.bars_per_day = int(60 * 24 / timeframe)
@@ -480,9 +528,25 @@ class TATrendStrategyIndicator(Indicator):
 
     def identify_trend(self):
         # Trend based on W-EMA and trails
-        if self.taData_trend_strat.ema_w is not None:
-            if (self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.lows_trail_4h_vec[-2] or
-                    self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w):
+        if self.taData_trend_strat.rsi_w_vec[-1] is not None and self.taData_trend_strat.ema_w is not None:
+            #if self.taData_trend_strat.rsi_w_vec[-1] > self.reset_level_of_oversold_rsi and self.bull_rsi_locked:
+            #    self.bull_rsi_locked = False
+
+            #if self.taData_trend_strat.rsi_w_vec[-1] <= self.oversold_limit_w_rsi:
+            #    self.bull_rsi_locked = True
+
+            #if self.bull_rsi_locked and False:
+            #    self.taData_trend_strat.marketRegime = MarketRegime.BULL
+            #    self.ranging_buffer = 0
+            #    self.bear_buffer = 0
+            #if self.taData_trend_strat.talibbars.high[-1] > self.taData_trend_strat.lows_trail_4h_vec[-2] or \
+            #        self.taData_trend_strat.talibbars.high[-1] > self.taData_trend_strat.ema_w:
+            #    self.taData_trend_strat.marketRegime = MarketRegime.BULL
+            #    self.ranging_buffer = 0
+            #    self.bear_buffer = 0
+            #else:
+            if self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.lows_trail_4h_vec[-2] or \
+                    self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w:
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
 
                 nmb_required_candles_w = self.trend_w_period * self.bars_per_week

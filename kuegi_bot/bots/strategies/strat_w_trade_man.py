@@ -10,9 +10,11 @@ from kuegi_bot.bots.strategies.exit_modules import ExitModule
 
 class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
     def __init__(self, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3, delayed_cancel: bool = False,
-                 cancel_on_filter:bool = False, tp_fac: float = 0, maxPositions: int = 100, limit_entry_offset_perc: float = -0.1):
+                 cancel_on_filter:bool = False, tp_fac: float = 0, maxPositions: int = 100, consolidate: bool = False,
+                 limit_entry_offset_perc: float = -0.1):
         super().__init__()
         self.maxPositions = maxPositions
+        self.consolidate = consolidate
         self.close_on_opposite = close_on_opposite
         self.bars_till_cancel_triggered = bars_till_cancel_triggered
         self.delayed_cancel = delayed_cancel
@@ -70,7 +72,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
             del open_positions[position.id]
 
     def consolidate_positions(self, is_new_bar, bars, account, open_positions):
-        if (not is_new_bar) or self.maxPositions is None:
+        if (not is_new_bar) or self.maxPositions is None or self.consolidate is False:
             return
 
         lowestSL = highestSL = secLowestSL = secHighestSL = None
@@ -361,7 +363,6 @@ class ATRrangeSL(ExitModule):
         if atr is None:
             atr = calc_atr(bars, offset=1, length= self.atrPeriod)
             Indicator.write_data_static(bars[1], atr, atrId)
-        refRange = self.rangeATRfactor * atr
         if self.rangeATRfactor > 0:
             refRange = self.rangeATRfactor * atr
         elif position.initial_stop is not None and position.wanted_entry is not None:
