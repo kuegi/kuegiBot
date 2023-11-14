@@ -340,7 +340,7 @@ class ATRrangeSL(ExitModule):
         "break even" includes a buffer (multiple of the entry-risk).
     '''
 
-    def __init__(self, rangeFacTrigger, longRangefacSL, shortRangefacSL, rangeATRfactor: int = 0, atrPeriod: int = 10):
+    def __init__(self, rangeFacTrigger, longRangefacSL, shortRangefacSL, rangeATRfactor: float = 0, atrPeriod: int = 10):
         super().__init__()
         self.rangeFacTrigger = rangeFacTrigger
         self.longRangefacSL = longRangefacSL

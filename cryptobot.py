@@ -42,6 +42,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
 
             if stratId == "strategyOne":
                 strat = StrategyOne(# Strategy One
+                                    # entry indicators
                                     std_fac_sell_off=stratSettings.STD_FAC_SELL_OFF,
                                     std_fac_reclaim=stratSettings.STD_FAC_RECLAIM,
                                     std_fac_sell_off_2=stratSettings.STD_FAC_SELL_OFF_2,
@@ -52,15 +53,20 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     h_lows_trail_period=stratSettings.H_LOWS_TRAIL_PERIOD,
                                     nmb_bars_entry=stratSettings.NMB_BARS_ENTRY,
                                     const_trail_period=stratSettings.CONST_TRAIL_PERIOD,
-                                    longBreakouts=stratSettings.LONGBREAKOUTS,
-                                    longReclaimBBand=stratSettings.LONGRECLAIMBBAND,
-                                    shortBreakdown=stratSettings.SHORTBREAKDOWN,
-                                    shortLostBBand=stratSettings.SHORTLOSTBBAND,
                                     entry_upper_bb_std_fac=stratSettings.ENTRY_UPPER_BB_STD_FAC,
                                     entry_lower_bb_std_fac=stratSettings.ENTRY_LOWER_BB_STD_FAC,
-                                    longReversals=stratSettings.LONGREVERSALS,
-                                    shortReversals=stratSettings.SHORTREVERSALS,
                                     rsi_limit_breakout_long=stratSettings.RSI_LIMIT_BREAKOUT_LONG,
+                                    # long entries
+                                    longReclaimBBand=stratSettings.LONGRECLAIMBBAND,
+                                    longTrailBreakout=stratSettings.LONG_TRAIL_BREAKOUT,
+                                    longTrailReversal=stratSettings.LONG_TRAIL_REVERSAL,
+                                    longBBandBreakouts=stratSettings.LONG_BBAND_BREAKOUT,
+                                    tradeSwinBreakouts=stratSettings.TRADE_SWING_BREAKOUT,
+                                    # short entries
+                                    shortLostBBand=stratSettings.SHORT_LOST_BBAND,
+                                    shortTrailBreakdown=stratSettings.SHORT_TRAIL_BREAKDOWN,
+                                    shortBBandBreakdown=stratSettings.SHORT_BBAND_BREAKDOWN,
+                                    shortReversals=stratSettings.SHORT_REVERSALS,
                                     # TrendStrategy
                                     timeframe=stratSettings.TIMEFRAME,
                                     ema_w_period=stratSettings.EMA_W_PERIOD,
@@ -75,9 +81,9 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     trend_var_1=stratSettings.TREND_VAR_1,
                                     # Risk
                                     risk_with_trend=stratSettings.RISK_WITH_TREND,
-                                    # SL
                                     risk_counter_trend=stratSettings.RISK_COUNTER_TREND,
                                     risk_ranging=stratSettings.RISK_RANGING,
+                                    # SL
                                     sl_atr_fac=stratSettings.SL_ATR_FAC,
                                     be_by_middleband=stratSettings.BE_BY_MIDDLEBAND,
                                     be_by_opposite=stratSettings.BE_BY_OPPOSITE,
@@ -88,11 +94,14 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     stop_at_new_entry=stratSettings.STOP_AT_NEW_ENTRY,
                                     trail_sl_with_bband=stratSettings.TRAIL_SL_WITH_BBAND,
                                     stop_short_at_middleband=stratSettings.STOP_SHORT_AT_MIDDLEBAND,
+                                    stop_at_trail=stratSettings.STOP_TRAIL,
+                                    stop_at_lowerband=stratSettings.STOP_LOWERBAND,
                                     moving_sl_atr_fac=stratSettings.MOVING_SL_ATR_FAC,
                                     sl_upper_bb_std_fac=stratSettings.SL_UPPER_BB_STD_FAC,
                                     sl_lower_bb_std_fac=stratSettings.SL_LOWER_BB_STD_FAC,
                                     # StrategyWithTradeManagement
                                     maxPositions=stratSettings.MAXPOSITIONS,
+                                    consolidate=stratSettings.CONSOLIDATE,
                                     close_on_opposite=stratSettings.CLOSE_ON_OPPOSITE,
                                     bars_till_cancel_triggered=stratSettings.BARS_TILL_CANCEL_TRIGGERED,
                                     limit_entry_offset_perc=stratSettings.LIMIT_ENTRY_OFFSET_PERC,
@@ -149,7 +158,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                                          useInitialSLRange= stratSettings.USE_INIT_SL,
                                                          rangeFactor =stratSettings.RANGE_FAC))
                 if "FILTER_DAYWEEK" in stratSettings.keys():
-                    strat.withEntryFilter(DayOfWeekFilter(stratSettings.FILTER_DAYWEEK))
+                    strat.withEntryFilter(DayOfWeekFilter(allowedDaysMask=stratSettings.FILTER_DAYWEEK))
                 bot.add_strategy(strat)
     else:
         logger.error("only multistrat bot supported")
