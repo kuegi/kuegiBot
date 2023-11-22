@@ -37,7 +37,8 @@ class StrategyOne(TrendStrategy):
                  std_fac_sell_off_3: float = 1, std_fac_reclaim_3: float = 1,
                  h_highs_trail_period: int = 1, h_lows_trail_period: int = 1, nmb_bars_entry: int = 1, const_trail_period: int = 4,
                  shortReversals: bool = False, longBBandBreakouts: bool = False, shortBBandBreakdown: bool = False, shortTrailBreakdown: bool = False,
-                 longReclaimBBand: bool = False, longTrailReversal: bool = False, longTrailBreakout: bool = False, shortLostBBand: bool = False, tradeSwinBreakouts: bool = False,
+                 longReclaimBBand: bool = False, longTrailReversal: bool = False, longTrailBreakout: bool = False, shortLostBBand: bool = False,
+                 shorthigherBBand: bool = False, tradeSwinBreakouts: bool = False, tradeWithLimitOrders: bool = False,
                  entry_upper_bb_std_fac: float = 2.0, entry_lower_bb_std_fac: float = 2.0,
                  rsi_limit_breakout_long: int = 100,
                  # TrendStrategy
@@ -88,6 +89,7 @@ class StrategyOne(TrendStrategy):
         self.var_2 = var_2 # for backetsting,
         self.nmb_bars_entry = nmb_bars_entry
         self.const_trail_period = const_trail_period
+        self.tradeWithLimitOrders = tradeWithLimitOrders
         self.shortReversals = shortReversals
         self.longBBandBreakouts = longBBandBreakouts
         self.shortBBandBreakdown = shortBBandBreakdown
@@ -96,6 +98,7 @@ class StrategyOne(TrendStrategy):
         self.longTrailBreakout = longTrailBreakout
         self.shortLostBBand = shortLostBBand
         self.shortTrailBreakdown = shortTrailBreakdown
+        self.shorthigherBBand = shorthigherBBand
         self.tradeSwinBreakouts = tradeSwinBreakouts
         self.entry_upper_bb_std_fac = entry_upper_bb_std_fac
         self.entry_lower_bb_std_fac = entry_lower_bb_std_fac
@@ -174,15 +177,16 @@ class StrategyOne(TrendStrategy):
         if (not is_new_bar) or not self.entries_allowed(bars) or \
                 self.ta_data_trend_strat.atr_4h is None or \
                 self.ta_data_trend_strat.marketRegime == MarketRegime.NONE or \
-                (len(all_open_pos) >= self.maxPositions and self.consolidate is False): # TODO revise min number of bars required
-            self.logger.info("new entries not allowed by filter")
+                (len(all_open_pos) >= (self.maxPositions-2) and self.consolidate is False): # TODO revise min number of bars required
+            self.logger.info("new entries not allowed")
             return  # only open orders on beginning of bar
 
         # Limit Orders
-        tradeWithLimitOrders = False
-        if tradeWithLimitOrders:
+        if self.tradeWithLimitOrders:
             # Calculate potential trade entries
             longEntry, shortEntry, stopLong, stopShort, longAmount, shortAmount = self.calc_entry_and_exit(bars)
+            longAmount=longAmount/2
+            shortAmount=shortAmount/2
 
             if longEntry is not None and shortEntry is not None and stopLong is not None and stopShort is not None and \
                     longAmount is not None and shortAmount is not None:
@@ -196,11 +200,13 @@ class StrategyOne(TrendStrategy):
                 # Set entries if no orders are found and the market conditions allow it
                 # go LONG
                 if not foundLong and directionFilter >= 0 and \
-                        self.data_strat_one.longsAllowed and longAmount > 0:#(self.ta_data_trend_strat.marketTrend != MarketRegime.BEAR) and \
+                        self.data_strat_one.longsAllowed and longAmount > 0 and \
+                    self.ta_data_trend_strat.natr_4h < 0.5:#(self.ta_data_trend_strat.marketTrend != MarketRegime.BEAR) and \
                     self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry, longAmount)
                 # go SHORT
                 if not foundShort and directionFilter <= 0 and \
-                        self.data_strat_one.shortsAllowed and shortAmount < 0:#(self.ta_data_trend_strat.marketTrend != MarketRegime.BULL) and \
+                        self.data_strat_one.shortsAllowed and shortAmount < 0and \
+                    self.ta_data_trend_strat.natr_4h < 0.5:#(self.ta_data_trend_strat.marketTrend != MarketRegime.BULL) and \
                     self.open_new_position(PositionDirection.SHORT, bars, stopShort, open_positions, shortEntry, shortAmount)
 
                 # Save parameters
@@ -214,7 +220,7 @@ class StrategyOne(TrendStrategy):
                              self.data_strat_one.shortEntry, self.data_strat_one.stopShort]
                 Indicator.write_data_static(bars[0], plot_data, self.myId())
 
-        # Market Orders
+        # Entries by Market Orders
         std = self.ta_data_trend_strat.bbands_4h.std
         atr = self.ta_data_trend_strat.atr_4h
         middleband = self.ta_data_trend_strat.bbands_4h.middleband
@@ -223,8 +229,7 @@ class StrategyOne(TrendStrategy):
         # Long trail breakout
         if self.longTrailBreakout and not longed:
             if bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] and \
-                    self.ta_data_trend_strat.natr_4h < 1:# != self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2] and \
-                #    bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]:
+                    self.ta_data_trend_strat.natr_4h < 1:
                 longed = True
                 self.entry_by_market_order(entry=bars[0].open,
                                            stop=bars[0].open - self.sl_atr_fac * atr,
@@ -305,10 +310,9 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.LONG)
 
         # long trail reversal
-        if self.longTrailReversal and \
+        if self.longTrailReversal and not longed and \
                 bars[1].low < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-2] < bars[1].close and \
-                self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] < 30 and \
-                not longed:
+                self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] < 30:
             longed = True
             self.entry_by_market_order(entry=bars[0].open,
                                        stop=bars[0].open - self.sl_atr_fac * atr,
@@ -318,31 +322,33 @@ class StrategyOne(TrendStrategy):
 
         shorted = False
         # short break down from bband
-        if self.ta_data_trend_strat.rsi_4h_vec is not None:
-            if self.shortBBandBreakdown and \
-                    bars[1].close < (middleband - std * self.entry_lower_bb_std_fac) and \
-                    bars[1].close < bars[2].close < bars[3].open and \
-                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and not shorted:
-                #shorted = True
+        if (self.shortBBandBreakdown and \
+                bars[1].close < (middleband - std * self.entry_lower_bb_std_fac) and
+                self.ta_data_trend_strat.natr_4h < 3.5 and
+                bars[1].close < bars[2].close < bars[3].open and
+                bars[1].low > self.ta_data_trend_strat.lows_trail_4h_vec[self.ta_data_trend_strat.last_4h_index - 2] and
+                self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and
+                not shorted):#
+            shorted = True
+            self.entry_by_market_order(entry = bars[0].open,
+                                       stop= max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
+                                       open_positions = open_positions,
+                                       bars = bars,
+                                       direction = PositionDirection.SHORT)
+        # short higherBBand
+        if self.shorthigherBBand and not shorted:
+            if (bars[1].close > (middleband + std * 1.5) and self.ta_data_trend_strat.natr_4h > 2.5 and
+                    bars[1].close > bars[1].open and
+                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR):
+                shorted = True
                 self.entry_by_market_order(entry = bars[0].open,
                                            stop= max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
                                            open_positions = open_positions,
                                            bars = bars,
                                            direction = PositionDirection.SHORT)
 
-        if False and bars[1].high > (middleband + std * 2.5) and \
-                (middleband - std * 2.5) > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2] and \
-            bars[1].high > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2] \
-                and not shorted:
-            #shorted = True
-            self.entry_by_market_order(entry = bars[0].open,
-                                       stop= max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
-                                       open_positions = open_positions,
-                                       bars = bars,
-                                       direction = PositionDirection.SHORT)
-
         # short break down from trail
-        if self.shortTrailBreakdown and \
+        if self.shortTrailBreakdown and not shorted and \
                 bars[1].close < self.ta_data_trend_strat.lows_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] < bars[2].close and \
                 self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] > 45:
             self.entry_by_market_order(entry=bars[0].open,
@@ -360,8 +366,8 @@ class StrategyOne(TrendStrategy):
         #                               bars=bars,
         #                               direction=PositionDirection.SHORT)
 
-        # Short lost BBands
-        if self.shortLostBBand:
+        # Short lost BBand
+        if self.shortLostBBand and not shorted:
             self.overboughtBB = middleband + std * 4
             self.overboughtBB_entry = middleband - std * 1
             if bars[1].high > self.overboughtBB:
@@ -370,7 +376,7 @@ class StrategyOne(TrendStrategy):
             if bars[1].close < self.overboughtBB_entry and self.sold_off_bband_3 and not self.reclaimed_bband_3 and not shorted:
                 self.sold_off_bband_3 = False
                 self.reclaimed_bband_3 = True
-                #shorted = True
+                shorted = True
                 # TODO: log to Telegram which trade is executed
                 self.entry_by_market_order(entry=bars[0].open,
                                            stop=bars[0].open + self.sl_atr_fac * atr,
@@ -379,9 +385,9 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.SHORT)
 
         # short revesal
-        if self.shortReversals and \
+        if self.shortReversals and not shorted and \
                 bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] > bars[1].close and \
-                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and not shorted:
+                    self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
                  #self.ta_data_trend_strat.highs_trail_4h < (middleband + std * self.entry_upper_bb_std_fac):
             #shorted = True
             self.entry_by_market_order(entry=bars[0].open,
@@ -409,17 +415,19 @@ class StrategyOne(TrendStrategy):
                 break
         if foundSwingLow:
             self.data_strat_one.swingLow = bars[shift].close
+
         if self.tradeSwinBreakouts:
-            if self.data_strat_one.swingLow is not None:
-                if middleband - std * 3 < bars[1].close < self.data_strat_one.swingLow and \
-                        self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
+            if self.data_strat_one.swingLow is not None and not shorted:
+                if bars[1].close < self.data_strat_one.swingLow and \
+                        self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and \
+                        self.ta_data_trend_strat.natr_4h < 1:#middleband - std * 3 <
                     self.data_strat_one.swingLow = None
                     self.entry_by_market_order(entry=bars[0].open,
                                                stop=bars[0].open + self.sl_atr_fac * atr,
                                                open_positions=open_positions,
                                                bars=bars,
                                                direction=PositionDirection.SHORT)
-            if self.data_strat_one.swingHigh is not None:
+            if False and self.data_strat_one.swingHigh is not None and not longed:
                 if self.data_strat_one.swingHigh < middleband + std * 1.5 and \
                         self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
                     self.data_strat_one.swingHigh = None

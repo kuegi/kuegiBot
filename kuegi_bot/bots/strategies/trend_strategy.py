@@ -241,7 +241,8 @@ class TrendStrategy(StrategyWithTradeManagement):
                         new_stop_price = min(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband, new_stop_price)
                     if self.trail_sl_with_bband:
                         new_stop_price = min(upper_band, new_stop_price)
-                    if bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac < new_stop_price and self.moving_sl_atr_fac > 0:
+                    if self.moving_sl_atr_fac > 0 and \
+                        bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac < new_stop_price:
                         new_stop_price = bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac
 
                 elif order.amount < 0:  # SL for LONGs

@@ -57,6 +57,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     entry_lower_bb_std_fac=stratSettings.ENTRY_LOWER_BB_STD_FAC,
                                     rsi_limit_breakout_long=stratSettings.RSI_LIMIT_BREAKOUT_LONG,
                                     # long entries
+                                    tradeWithLimitOrders=stratSettings.TRADE_LIMIT_ORDERS,
                                     longReclaimBBand=stratSettings.LONGRECLAIMBBAND,
                                     longTrailBreakout=stratSettings.LONG_TRAIL_BREAKOUT,
                                     longTrailReversal=stratSettings.LONG_TRAIL_REVERSAL,
@@ -64,6 +65,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     tradeSwinBreakouts=stratSettings.TRADE_SWING_BREAKOUT,
                                     # short entries
                                     shortLostBBand=stratSettings.SHORT_LOST_BBAND,
+                                    shorthigherBBand=stratSettings.SHORT_HIGHER_BBAND,
                                     shortTrailBreakdown=stratSettings.SHORT_TRAIL_BREAKDOWN,
                                     shortBBandBreakdown=stratSettings.SHORT_BBAND_BREAKDOWN,
                                     shortReversals=stratSettings.SHORT_REVERSALS,
