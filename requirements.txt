@@ -5,5 +5,5 @@ future==0.18.3
 websocket-client==1.6.4
 pybit==5.6.2
 bybit==0.2.12
-urllib3==1.24.2
-numpy==1.24.2
+urllib3==2.0.7
+numpy==1.26.0
