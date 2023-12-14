@@ -2,7 +2,7 @@
 
 a simple tradingbot for BTCUSD with connectors for [bybit](https://bit.ly/2rxuv8l "Bybit Homepage"), [bitmex](https://bit.ly/2G4gSB2 "Bitmex Homepage"), [binance futures](https://www.binance.com/en/futures/ref/kuegi) and [phemex](https://phemex.com/register?referralCode=F6YFL).
 It just implements my manual tradingstrategy and therefore helps me to stick to the system. 
-No financial advice. Don't use it if you don't understand what it does. You probably will loose money.
+No financial advice. Don't use it if you don't understand what it does. You probably will lose money.
 
 I only use the bybit connector myself right now. The other connectors are still there, but might have problems due to API changes in the last months which i am not aware of yet. Feel free to make a Pull Request if you find any.
 
