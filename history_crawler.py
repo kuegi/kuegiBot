@@ -22,8 +22,10 @@ batchsize = 50000
 
 urls = {
     "bitmex": "https://www.bitmex.com/api/v1/trade/bucketed?binSize=1m&partial=false&symbol=##symbol##&count=1000&reverse=false",
-    "bybit": "https://api.bybit.com/v2/public/kline/list?symbol=##symbol##&interval=1",
-    "bybit-linear": "https://api.bybit.com/public/linear/kline?symbol=##symbol##&interval=1",
+    #"bybit": "https://api.bybit.com/v5/market/index-price-kline?category=inverse&symbol=##symbol##&interval=1",    # trading price on bybit
+    #"bybit": "https://api.bybit.com/v5/market/kline?category=inverse&symbol=##symbol##&interval=1",                # average weighted price across exchanges
+    "bybit": "https://api.bybit.com/v5/market/mark-price-kline?category=inverse&symbol=##symbol##&interval=1",      # price used for liquidation triggers
+    "bybit-linear": "https://api.bybit.com/v5/market/mark-price-kline?category=linear&symbol=##symbol##&interval=1",
     "binance_future": "https://fapi.binance.com/fapi/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "binanceSpot": "https://api.binance.com/api/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "phemex":"https://api.phemex.com/phemex-user/public/md/kline?resolution=60&symbol=##symbol##",
@@ -36,6 +38,16 @@ result = []
 start = 1 if exchange in ['bybit', 'bybit-linear'] else 0
 if exchange == 'phemex':
     start= 1574726400 # start of phemex
+elif exchange == 'bybit':
+    if symbol == 'ETHUSD':
+        start = 1548633600000
+    elif symbol == 'BTCUSD':
+        start = 1542502800000
+elif exchange == 'bybit-linear':
+    if symbol == 'ETHUSDT':
+        start = 1615986009000
+    elif symbol == 'BTCUSDT':
+        start = 1585314009000
 elif exchange == 'bitstamp':
     if symbol == "btceur":
         start= 1313670000
@@ -66,7 +78,7 @@ if lastknown >= 0:
             if exchange == 'bitmex':
                 start = lastknown * batchsize + len(result)
             elif exchange in ['bybit','bybit-linear']:
-                start = int(result[-1]['open_time']) + 1
+                start = int(result[-1][0])+1
             elif exchange in ['phemex']:
                 start = int(result[-1][0]) + 1
             elif exchange in ['binance_future','binanceSpot']:
@@ -84,7 +96,7 @@ while True:
     # sending get request and saving the response as response object
     url= URL+"&start="+str(start)
     if exchange in ['bybit','bybit-linear']:
-        url = URL + "&from=" + str(start)
+        url = URL + "&start=" + str(start) + "&end=" + str(start+200*60000)
     elif exchange in ['binance_future','binanceSpot']:
         url= URL + "&startTime="+str(start)
     elif exchange == 'phemex':
@@ -95,8 +107,9 @@ while True:
     # extracting data in json format
     jsonData= r.json()
     data=jsonData
-    if  exchange in ['bybit','bybit-linear']:
-        data = jsonData["result"]
+    if exchange in ['bybit','bybit-linear']:
+        data = jsonData["result"]['list']
+        data.reverse()
     elif exchange == 'phemex':
         if jsonData['msg'] == 'OK':
             data = jsonData['data']['rows']
@@ -105,24 +118,32 @@ while True:
     elif exchange == "bitstamp":
         data= jsonData['data']['ohlc']
 
+    #
     wasOk= len(data) >= 200
-    if not wasOk:
-        print(str(data)[:100])
+    if not wasOk: # check amount of data received
+        print('Less data than expected: ' + str(len(data)) + ' entries')
+        if exchange in ['bybit', 'bybit-linear']:
+            start = int(data[-1][0]) # close time of last bar
         if exchange == "bitstamp" and len(result) == 0:
+            print(str(data)[:100])
             start+= 1000*60
-    else:
+    else: # Aggregate data before writing to a file
         wroteData= False
         if exchange == 'bitmex':
             for b in data:
                 b['tstamp'] = parse_utc_timestamp(b['timestamp'])
             result += data
         else:
+            # aggregate
             result += data
         lastSync += len(data)
+        lastTime = datetime.fromtimestamp(int(int(data[-1][0])/1000))
+        print(lastTime)
         if exchange == 'bitmex':
             start= start +len(data)
         elif exchange in ['bybit','bybit-linear']:
-            start = int(data[-1]['open_time'])+1
+            start = int(data[-1][0])# close time of last bar
+
         elif exchange == 'phemex':
             if len(data) == 0:
                 start += 2000*60
@@ -132,6 +153,8 @@ while True:
             start= data[-1][6] # closeTime of last bar
         elif exchange == 'bitstamp':
             start= data[-1]['timestamp']
+
+    # Write to file
     if lastSync > 15000 or (len(data) < 200 and not wroteData):
         wroteData= True
         lastSync= 0
@@ -141,11 +164,11 @@ while True:
             if idx*batchsize-offset >= 0:
                 with open(history_file_name(idx,exchange,symbol),'w') as file:
                     json.dump(result[idx*batchsize-offset:(idx+1)*batchsize-offset],file)
-                    print("wrote file "+str(idx))
+                    print("wrote to file "+str(idx))
             idx += 1
 
     if not wasOk:
-        sleep(10)
+        sleep(5)
 
 #########################################
 # live tests
