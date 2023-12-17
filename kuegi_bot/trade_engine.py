@@ -5,8 +5,6 @@ from typing import List
 import time
 
 import plotly.graph_objects as go
-
-#from kuegi_bot.exchanges.binance_future.binancef_interface import BinanceFuturesInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bybit.bybit_interface import ByBitInterface
 from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearInterface
@@ -46,10 +44,6 @@ class LiveTrading(OrderInterface):
             self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
                                            on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
                                            on_execution_callback= trading_bot.on_execution)
-        #elif settings.EXCHANGE == 'binance_future':
-        #    self.exchange = BinanceFuturesInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
-        elif settings.EXCHANGE == 'phemex':
-            self.exchange = PhemexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
         else:
             self.logger.error("unkown exchange: " + settings.EXCHANGE)
             self.alive = False
@@ -75,8 +69,8 @@ class LiveTrading(OrderInterface):
                 if self.account.open_position is not None and self.account.open_position.avgEntryPrice is not None:
                     pos = "%.2f @ %.2f" % (
                     self.account.open_position.quantity, self.account.open_position.avgEntryPrice)
-                self.telegram_bot.send_log("%s loaded, ready to go with %.2f in wallet and pos %s" %
-                                           (self.id, self.account.equity, pos))
+                self.telegram_bot.send_log("%s loaded, ready to go with %.2f %s in wallet and pos %s" %
+                                           (self.id, self.account.equity, self.exchange.baseCurrency, pos))
         else:
             self.alive = False
 
@@ -162,6 +156,7 @@ class LiveTrading(OrderInterface):
         """get data from exchange"""
         if len(self.bars) < self.bot.min_bars_needed():
             self.bars = self.exchange.get_bars(self.settings.MINUTES_PER_BAR, 0,self.bot.min_bars_needed())
+            #print(self.bars[0])
         else:
             new_bars = self.exchange.recent_bars(self.settings.MINUTES_PER_BAR, 0)
             for b in reversed(new_bars):
@@ -225,6 +220,7 @@ class LiveTrading(OrderInterface):
             self.bot.on_tick(self.bars, self.account)
             for bar in self.bars:
                 bar.did_change = False
+            #print("tick", time.time())
         except Exception as e:
             self.logger.error("Exception in handle_tick: " + traceback.format_exc())
             raise e
