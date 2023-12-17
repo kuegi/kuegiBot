@@ -47,13 +47,14 @@ class KuegiWebsocket(object):
         self.auth = False
 
         self.ws = websocket.WebSocketApp(usedUrl,
-                                         on_message=self.on_message,
+                                         on_message=lambda ws, message:self.on_message(message),
                                          on_close=self.__on_close,
                                          on_open=self.__on_open,
                                          on_error=self.on_error,
+                                         on_pong=lambda ws, *args: self.on_pong(),
                                          keep_running=True)
 
-        self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=5))
+        self.wst = threading.Thread(target=lambda: self.ws.run_forever(ping_interval=10))
         self.wst.daemon = True
         self.wst.start()
         self.logger.debug("Started thread")
@@ -86,13 +87,16 @@ class KuegiWebsocket(object):
         else:
             self.logger.error("couldn't auth the socket, exiting")
             self.exit()
-            raise Exception('Error！Couldn not auth the WebSocket!.')
+            raise Exception('Error！Could not auth the WebSocket!')
 
     def subscribe_realtime_data(self):
         pass
 
     def on_message(self, message):
         """Handler for parsing WS messages."""
+        pass
+
+    def on_pong(self):
         pass
 
     def try_restart(self):
@@ -129,8 +133,7 @@ class KuegiWebsocket(object):
             self.restarting= False
             self.on_error("error during restart: "+str(e))
 
-
-    def on_error(self, error):
+    def on_error(self, ws, error):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited and not self.restarting:
             self.logger.error("Error : %s" % error)
@@ -138,16 +141,16 @@ class KuegiWebsocket(object):
                                " delta: "+str(self.ws.last_pong_tm-self.ws.last_ping_tm))
             self.try_restart()
 
-
-    def __on_open(self):
+    def __on_open(self,ws):
         """
         Called when the WS opens.
         """
         self.logger.debug("Websocket Opened.")
 
-    def __on_close(self):
+    def __on_close(self,ws,close_msg):
         """Called on websocket close."""
-        self.logger.info('Websocket Closed '+str(self.exited)+" "+str(self.restarting))
+        #self.logger.info('Websocket Closed '+str(self.exited)+" "+str(self.restarting) + " with message: " + close_msg)
+        self.logger.info('Websocket closed')
         if not self.exited and not self.restarting:
             self.exit()
 
@@ -186,7 +189,8 @@ class ExchangeWithWS(ExchangeInterface):
 
         if self.hasAuth():
             self.logger.info(
-                "starting with %.2f in wallet, %i orders, pos %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
+                "starting with %.2f%s in wallet, %i orders, pos %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
+                                                                                self.baseCurrency,
                                                                                len(self.orders),
                                                                                self.positions[self.symbol].quantity,
                                                                                self.positions[self.symbol].avgEntryPrice))
@@ -288,4 +292,4 @@ class ExchangeWithWS(ExchangeInterface):
         pos = self.positions[self.symbol]
         account.open_position = pos
         account.equity = pos.walletBalance
-        account.usd_equity = account.equity * self.last
+        account.usd_equity = account.equity * float(self.last)

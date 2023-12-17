@@ -97,15 +97,15 @@ def onTick(fromAccountAction):
 
 
 interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
-b= interface.bybit
+p= interface.pybit
 
 walletData = []
 gotone = True
 page = 1
 while gotone:
-    data = b.Wallet.Wallet_getRecords(start_date="2020-01-01", end_date="2021-01-01", limit="50",
-                                      page=str(page)).response().result['result']['data']
-    gotone = len(data) > 0
+    data = p.wallet_fund_records(start_date="2020-01-01", end_date="2021-01-01", limit="50",
+                                      page=str(page))['result']['data']
+    gotone = data is not None and len(data) > 0
     walletData = walletData + data
     page = page + 1
 
@@ -132,7 +132,7 @@ with open("exports/bybitHistory"+coin+".csv", 'w', newline='') as file:
 print("done writing wallet history to file bybitHistory"+coin+".csv")
 
 
-#'''
+'''
 
 #'''
 

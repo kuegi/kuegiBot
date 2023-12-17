@@ -1,4 +1,4 @@
-from kuegi_bot.exchanges.binance_spot.binance_spot_interface import BinanceSpotInterface
+#from kuegi_bot.exchanges.binance_spot.binance_spot_interface import BinanceSpotInterface
 from kuegi_bot.exchanges.bitfinex.bitfinex_interface import BitfinexInterface
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
 from kuegi_bot.exchanges.bitstamp.bitstmap_interface import BitstampInterface
@@ -24,6 +24,14 @@ logger = log.setup_custom_logger("cryptobot",
 
 def onTick(fromAccountAction):
     logger.info("got Tick "+str(fromAccountAction))
+
+
+def onExecution(order_id,
+                executed_price,
+                amount,
+                tstamp):
+    logger.info(f"got execution {order_id} {amount:.2f}@{executed_price:.2f} at {tstamp}")
+
 
 '''bitfinex
 
@@ -132,13 +140,13 @@ result = request_client.close_user_data_stream()
 
 #'''
 if settings.EXCHANGE == 'bybit':
-    interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick)
-    b= interface.bybit
+    interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick, on_execution_callback=onExecution)
+    b= interface.pybit
     w= interface.ws
 elif settings.EXCHANGE == 'bybit-linear':
-        interface = ByBitLinearInterface(settings=settings, logger=logger, on_tick_callback=onTick)
-        b = interface.bybit
-        w = interface.ws
+    interface = ByBitLinearInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+    b = interface.pybit
+    w = interface.ws
 else:
     interface= BitmexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 

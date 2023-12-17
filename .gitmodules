@@ -1,4 +1,1 @@
 
-[submodule "Binance_Futures_python"]
-	path = Binance_Futures_python
-	url = https://github.com/kuegi/Binance_Futures_python.git

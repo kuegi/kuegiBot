@@ -15,3 +15,8 @@ volubaFE/*.json
 volubaFE/data/
 exports/
 ta-lib/
+settings/cryptobot.json
+settings/defaults.json
+pybit.log
+.DS_store
+backtest_v2.py

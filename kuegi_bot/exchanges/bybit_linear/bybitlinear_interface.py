@@ -412,9 +412,17 @@ class ByBitLinearInterface(ExchangeWithWS):
 
     @staticmethod
     def barDictToBar(b):
-        tstamp = int(b['open_time'] if 'open_time' in b.keys() else b['start'])
-        bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
-                  low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        if 'open_time' in b:
+            tstamp = int(b['open_time'])
+            bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+                      low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        elif 'start' in b:
+            tstamp = int(b['start'])
+            bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+                      low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        else:  # bybit
+            bar = Bar(tstamp=int(int(b[0]) / 1000), open=float(b[1]), high=float(b[2]),
+                      low=float(b[3]), close=float(b[4]), volume=0)
         if 'timestamp' in b:
-            bar.last_tick_tstamp = b['timestamp'] / 1000000.0
+            bar.last_tick_tstamp = b['timestamp'] / 1000.0
         return bar

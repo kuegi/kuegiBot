@@ -24,11 +24,13 @@ class ByBitInterface(ExchangeWithWS):
 
     def __init__(self, settings, logger, on_tick_callback=None, on_api_error=None, on_execution_callback=None):
         self.on_api_error = on_api_error
-        self.pybit= HTTP(endpoint= 'https://api-testnet.bybit.com' if settings.IS_TEST else 'https://api.bybit.com',
-                                 api_key=settings.API_KEY,
-                                 api_secret=settings.API_SECRET,
-                                logging_level=settings.LOG_LEVEL)
-        logging.root.handlers= [] # needed cause pybit adds to rootlogger
+        self.pybit = HTTP(testnet = settings.IS_TEST, api_key=settings.API_KEY, api_secret=settings.API_SECRET)
+        #self.pybit = HTTP(endpoint= 'https://api-testnet.bybit.com' if settings.IS_TEST else 'https://api.bybit.com',
+        #                         api_key=settings.API_KEY,
+        #                         api_secret=settings.API_SECRET,
+        #                        logging_level=settings.LOG_LEVEL)
+        #logging.root.handlers= [] # needed cause pybit adds to rootlogger
+        logging.basicConfig(filename="pybit.log", level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
         hosts = ["wss://stream-testnet.bybit.com/realtime"] if settings.IS_TEST \
             else ["wss://stream.bybit.com/realtime", "wss://stream.bytick.com/realtime"]
         super().__init__(settings, logger,
@@ -43,43 +45,45 @@ class ByBitInterface(ExchangeWithWS):
                          on_execution_callback= on_execution_callback)
         self.handles_executions= True
 
+    def is_open(self):
+        # ws is always a BybitLinearWebsocket which has a publicWS
+        return not self.ws.exited and not self.ws.public.exited
 
     def initOrders(self):
-        apiOrders =  self.handle_result(lambda:self.pybit.query_active_order(symbol=self.symbol))
-        apiOrders +=  self.handle_result(lambda:self.pybit.query_conditional_order(symbol=self.symbol))
+        apiOrders = self.handle_result(lambda:self.pybit.get_open_orders(category = 'inverse', symbol=self.symbol, orderFilter = 'Order')).get("list")
+        conditionalOrders = self.handle_result(lambda:self.pybit.get_open_orders(category = 'inverse', symbol=self.symbol, orderFilter = 'StopOrder')).get("list")
+        apiOrders += conditionalOrders
         self.processOrders(apiOrders)
 
         for order in self.orders.values():
             self.logger.debug(str(order))
 
     def initPositions(self):
-        api_positions= self.handle_result(lambda: self.pybit.my_position(symbol=self.symbol))
+        api_positions= self.handle_result(lambda: self.pybit.get_positions(category = 'inverse', symbol=self.symbol)).get("list")
+        #wallet_balance = float(self.handle_result(lambda: self.pybit.get_wallet_balance(accountType='CONTRACT', coin=self.baseCurrency)).get("list")[0]['coin'][0]['walletBalance'])
+        wallet_balance = self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="CONTRACT", coin=self.baseCurrency)).get("list")
+        for coin in wallet_balance[0]['coin']:
+            if coin['coin'] == self.baseCurrency:
+                balance = float(coin['walletBalance'])
+                break
         self.positions[self.symbol] = AccountPosition(self.symbol, 0, 0, 0)
         if api_positions is not None:
-            if "symbol" in api_positions: # single reply
-                posdata = api_positions
-                sizefac = -1 if posdata["side"] == "Sell" else 1
-                self.positions[posdata['symbol']] = AccountPosition(posdata['symbol'],
-                                                                    avgEntryPrice=float(posdata["entry_price"]),
-                                                                    quantity=posdata["size"] * sizefac,
-                                                                    walletBalance=float(posdata['wallet_balance']))
-            else:
-                for pos in api_positions:
-                    if pos['is_valid']:
-                        posdata = pos['data']
-                        sizefac = -1 if posdata["side"] == "Sell" else 1
-                        self.positions[posdata['symbol']] = AccountPosition(posdata['symbol'],
-                                                                        avgEntryPrice=float(posdata["entry_price"]),
-                                                                        quantity=posdata["size"] * sizefac,
-                                                                        walletBalance=float(posdata['wallet_balance']))
+            for pos in api_positions:
+                if pos['positionValue']!=0:
+                    sizefac = -1 if pos["side"] == "Sell" else 1
+                    quantity = float(pos["size"]) * sizefac
+                    self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
+                                                                    avgEntryPrice=float(pos["avgPrice"]),
+                                                                    quantity=quantity,
+                                                                    walletBalance=balance)
 
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
-        if order.stop_price is not None:
-            self.handle_result(lambda:self.pybit.cancel_conditional_order(stop_order_id=order.exchange_id, symbol=self.symbol))
-        else:
-            self.handle_result(lambda:self.pybit.cancel_active_order(order_id=order.exchange_id, symbol=self.symbol))
+        #if order.stop_price is not None:
+        self.handle_result(lambda:self.pybit.cancel_order(category='inverse',order_id=order.exchange_id, symbol=self.symbol)).get("list")
+        #else:
+            #self.handle_result(lambda:self.pybit.cancel_active_order(order_id=order.exchange_id, symbol=self.symbol)).get("list")
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
@@ -94,56 +98,52 @@ class ByBitInterface(ExchangeWithWS):
                 1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
             normalizedStop = self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
-            result =  self.handle_result(lambda:self.pybit.place_conditional_order(side=("Buy" if order.amount > 0 else "Sell"),
-                                                                          symbol=self.symbol,
-                                                                          order_type=order_type,
-                                                                          qty=strOrNone(int(abs(order.amount))),
-                                                                          price=strOrNone(
-                                                                              self.symbol_info.normalizePrice(
-                                                                                  order.limit_price, order.amount < 0)),
-                                                                          stop_px=strOrNone(normalizedStop),
-                                                                          order_link_id=order.id,
-                                                                          base_price=strOrNone(round(
-                                                                              normalizedStop + base_side,
-                                                                              self.symbol_info.pricePrecision)),
-                                                                          time_in_force="GoodTillCancel"))
+            result = self.handle_result(lambda:self.pybit.place_order(
+                side=("Buy" if order.amount > 0 else "Sell"),
+                category="inverse",
+                symbol=self.symbol,
+                order_type=order_type,
+                qty=strOrNone(int(abs(order.amount))),
+                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0)),
+                stop_px=strOrNone(normalizedStop),
+                order_link_id=order.id,
+                base_price=strOrNone(round(normalizedStop + base_side, self.symbol_info.pricePrecision)),
+                time_in_force="GoodTillCancel").get("list"))#,# #trigger_by="LastPrice")
             if result is not None:
-                order.exchange_id = result['stop_order_id']
+                order.exchange_id = result['stopOrderId']
 
         else:
-            result =  self.handle_result(lambda:self.pybit.place_active_order(side=("Buy" if order.amount > 0 else "Sell"),
-                                                              symbol=self.symbol,
-                                                              order_type=order_type,
-                                                              qty=strOrNone(int(abs(order.amount))),
-                                                              price=strOrNone(
-                                                                  self.symbol_info.normalizePrice(order.limit_price,
-                                                                                                  order.amount < 0)),
-                                                              order_link_id=order.id,
-                                                              time_in_force="GoodTillCancel"))
+            result =  self.handle_result(lambda:self.pybit.place_order(
+                side=("Buy" if order.amount > 0 else "Sell"),
+                symbol=self.symbol,
+                category = "inverse",
+                order_type=order_type,
+                qty=strOrNone(int(abs(order.amount))),
+                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0)),
+                order_link_id=order.id,
+                time_in_force="GoodTillCancel").get("list"))
             if result is not None:
-                order.exchange_id = result['order_id']
+                order.exchange_id = result['orderId']
 
     def internal_update_order(self, order: Order):
         if order.stop_price is not None:
-             self.handle_result(lambda:self.pybit.replace_conditional_order(stop_order_id=order.exchange_id,
-                                                                     symbol=self.symbol,
-                                                                     p_r_qty=strOrNone(int(abs(order.amount))),
-                                                                     p_r_trigger_price=strOrNone(
-                                                                         self.symbol_info.normalizePrice(
-                                                                             order.stop_price, order.amount > 0)),
-                                                                     p_r_price=strOrNone(
-                                                                         self.symbol_info.normalizePrice(
-                                                                             order.limit_price, order.amount < 0))))
+            self.handle_result(lambda:self.pybit.amend_order(
+                stop_order_id=order.exchange_id,
+                category = "inverse",
+                symbol=self.symbol,
+                p_r_qty=strOrNone(int(abs(order.amount))),
+                p_r_trigger_price=strOrNone(self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)),
+                p_r_price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))).get("list"))
         else:
-             self.handle_result(lambda:self.pybit.replace_active_order(order_id=order.exchange_id,
-                                                         symbol=self.symbol,
-                                                         p_r_qty=strOrNone(int(abs(order.amount))),
-                                                         p_r_price=strOrNone(
-                                                             self.symbol_info.normalizePrice(order.limit_price,
-                                                                                             order.amount < 0))))
+            self.handle_result(lambda:self.pybit.amend_order(
+                order_id=order.exchange_id,
+                category = "inverse",
+                symbol=self.symbol,
+                p_r_qty=strOrNone(int(abs(order.amount))),
+                p_r_price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,order.amount < 0))).get("list"))
 
     def get_current_liquidity(self) -> tuple:
-        book =  self.handle_result(lambda:self.pybit.orderbook(symbol=self.symbol))
+        book =  self.handle_result(lambda:self.pybit.get_orderbook(symbol=self.symbol)).get("list")
         buy = 0
         sell = 0
         for entry in book:
@@ -155,15 +155,22 @@ class ByBitInterface(ExchangeWithWS):
         return buy, sell
 
     def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed=600) -> List[Bar]:
+        limit= 200
         tf = 1 if timeframe_minutes <= 60 else 60
-        start = int(datetime.now().timestamp() - tf * 60 * 199)
-        apibars =  self.handle_result(lambda:self.pybit.query_kline(
-            **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
-        # get more history to fill enough (currently 200 H4 bars.
+        time_now = int(datetime.now().timestamp()*1000)
+        start = (int(time_now - tf * 60 * 199*1000))
+        apibars =  self.handle_result(lambda:self.pybit.get_kline(category = 'inverse', symbol = self.symbol, interval = str(tf),
+                                                                  start = start, limit = limit)).get("list")
+        #for bar in apibars:
+        #    bar[0]= int(int(bar[0])/1000)
+        # get more history to fill enough (currently 200 H4 bars).
         for idx in range(1+ math.ceil((min_bars_needed*timeframe_minutes)/(tf*200))):
-            start = int(apibars[0]['open_time']) - tf * 60 * 200
-            bars1 =  self.handle_result(lambda:self.pybit.query_kline(
-                **{'symbol': self.symbol, 'interval': str(tf), 'from': str(start), 'limit': '200'}))
+            start = int(apibars[0][0]) - tf * 60 * 200*1000
+            #start = int(apibars[0][0]) - tf * 60 * 200
+            bars1 =  self.handle_result(lambda:self.pybit.get_kline(category = 'inverse', symbol = self.symbol, interval = str(tf),
+                                                                  start = start, limit = limit)).get("list")
+            #for bar1 in bars1:
+            #    bar1[0] = int(int(bar1[0]) / 1000)
             apibars = bars1 + apibars
 
         return self._aggregate_bars(reversed(apibars), timeframe_minutes, start_offset_minutes)
@@ -171,35 +178,45 @@ class ByBitInterface(ExchangeWithWS):
     def _aggregate_bars(self, apibars, timeframe_minutes, start_offset_minutes) -> List[Bar]:
         subbars = []
         for b in apibars:
-            if b['open'] is None:
+            if 'open' in b:#b['open'] is None:
                 continue
+
+            #if 'open' in b:
+            #        if b['open'] is None:
+            #            continue
             subbars.append(self.barDictToBar(b))
         return process_low_tf_bars(subbars, timeframe_minutes, start_offset_minutes)
 
     def get_instrument(self, symbol=None):
         if symbol is None:
             symbol = self.symbol
-        instr =  self.handle_result(lambda:self.pybit.query_symbol())
-        for entry in instr:
-            if entry['name'] == symbol:
-                return Symbol(symbol=entry['name'],
+        fees = self.handle_result(lambda:self.pybit.get_fee_rates(symbol =symbol)).get("list")
+        makerFeeRate = fees[0].get("makerFeeRate")
+        takerFeeRate = fees[0].get("takerFeeRate")
+        instr = self.handle_result(lambda:self.pybit.get_instruments_info(category = 'inverse'))
+        for entry in instr['list']:
+            if entry['symbol'] == symbol:
+                return Symbol(symbol=entry['symbol'],
+                              basecoin=self.baseCurrency,
                               isInverse=True,  # all bybit is inverse
-                              lotSize=float(entry['lot_size_filter']['qty_step']),
-                              tickSize=float(entry['price_filter']['tick_size']),
-                              makerFee=float(entry['maker_fee']),
-                              takerFee=float(entry['taker_fee']),
-                              pricePrecision=entry['price_scale'],
+                              lotSize=float(entry['lotSizeFilter']['qtyStep']),
+                              tickSize=float(entry['priceFilter']['tickSize']),
+                              makerFee=makerFeeRate,
+                              takerFee=takerFeeRate,
+                              pricePrecision=entry['priceScale'],
                               quantityPrecision=0)  # hardcoded full dollars
         return None
 
     def get_ticker(self, symbol=None):
         if symbol is None:
             symbol = self.symbol
-        symbolData =  self.handle_result(lambda:self.pybit.latest_information_for_symbol(symbol= symbol))
-        for data in symbolData:
-            if data["symbol"] == symbol:
-                return TickerData(bid=float(data["bid_price"]), ask=float(data["ask_price"]),
-                                  last=float(data["last_price"]))
+        symbolData = self.handle_result(lambda:self.pybit.get_orderbook(category = "inverse", symbol= symbol, limit = 1))
+        tickerData = self.handle_result(lambda: self.pybit.get_tickers(category="inverse", symbol=symbol))
+        lastPrice = tickerData['list'][0]['lastPrice']
+        bid = symbolData['b'][0][0]
+        ask = symbolData['a'][0][0]
+        if bid is not None and ask is not None and lastPrice is not None:
+            return TickerData(bid=bid, ask=ask, last=lastPrice)
         return None
 
     # internal methods
@@ -216,13 +233,18 @@ class ByBitInterface(ExchangeWithWS):
             gotTick = False
             msgs = self.ws.get_data(topic)
             while len(msgs) > 0:
-                if topic == 'order' or topic == 'stop_order':
-                    # {'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951', 'order_link_id': '', 'symbol': 'BTCUSD',
-                    # 'side': 'Buy', 'order_type': 'Limit', 'price': '7325.5', 'qty': 1, 'time_in_force':
-                    # 'GoodTillCancel', 'order_status': 'Filled', 'leaves_qty': 0, 'cum_exec_qty': 1,
-                    # 'cum_exec_value': '0.00013684', 'cum_exec_fee': '0.00000011', 'timestamp':
-                    # '2019-12-26T20:02:19.576Z', 'take_profit': '0', 'stop_loss': '0', 'trailing_stop': '0',
-                    # 'last_exec_price': '7307.5'}
+                if topic == 'order' or topic == 'stopOrder':
+                    print('order msg arrived:')
+                    # {'orderId': 'c9cc56cb-164c-4978-811e-2d2e4ef6153a', 'orderLinkId': '', 'blockTradeId': '',
+                    # 'symbol': 'BTCUSD', 'price': '0.00', 'qty': '10', 'side': 'Buy', 'isLeverage': '', 'positionIdx': 0,
+                    # 'orderStatus': 'Untriggered', 'cancelType': 'UNKNOWN', 'rejectReason': 'EC_NoError', 'avgPrice': '0',
+                    # 'leavesQty': '10', 'leavesValue': '0', 'cumExecQty': '0', 'cumExecValue': '0', 'cumExecFee': '0',
+                    # 'timeInForce': 'IOC', 'orderType': 'Market', 'stopOrderType': 'StopLoss', 'orderIv': '',
+                    # 'triggerPrice': '38000.00', 'takeProfit': '0.00', 'stopLoss': '0.00', 'tpTriggerBy': 'UNKNOWN',
+                    # 'slTriggerBy': 'UNKNOWN', 'triggerDirection': 1, 'triggerBy': 'LastPrice',
+                    # 'lastPriceOnCreated': '36972.00', 'reduceOnly': True, 'closeOnTrigger': True, 'smpType': 'None',
+                    # 'smpGroup': 0, 'smpOrderId': '', 'tpslMode': 'Full', 'tpLimitPrice': '', 'slLimitPrice': '',
+                    # 'placeType': '', 'createdTime': '1701099868909', 'updatedTime': '1701099868909'}
                     for o in msgs:
                         if o['symbol'] != self.symbol:
                             continue  # ignore orders not of my symbol
@@ -248,34 +270,39 @@ class ByBitInterface(ExchangeWithWS):
 
                         self.logger.info("received order update: %s" % (str(order)))
                 elif topic == 'execution':
+                    print('execution msg arrived')
                     # {'symbol': 'BTCUSD', 'side': 'Buy', 'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951',
                     # 'exec_id': '22add7a8-bb15-585f-b068-3a8648f6baff', 'order_link_id': '', 'price': '7307.5',
                     # 'order_qty': 1, 'exec_type': 'Trade', 'exec_qty': 1, 'exec_fee': '0.00000011', 'leaves_qty': 0,
                     # 'is_maker': False, 'trade_time': '2019-12-26T20:02:19.576Z'}
                     for execution in msgs:
-                        if execution['order_id'] in self.orders.keys():
+                        if execution['orderId'] in self.orders.keys():
                             sideMulti = 1 if execution['side'] == "Buy" else -1
-                            order = self.orders[execution['order_id']]
-                            order.executed_amount = (execution['order_qty'] - execution['leaves_qty']) * sideMulti
+                            order = self.orders[execution['orderId']]
+                            order.executed_amount = (execution['orderQty'] - execution['leavesQty']) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
                             self.on_execution_callback(order_id=order.id,
                                                        executed_price= float(execution['price']),
-                                                       amount=execution['exec_qty'] * sideMulti,
-                                                       tstamp= parse_utc_timestamp(execution['trade_time']))
+                                                       amount=execution['execQty'] * sideMulti,
+                                                       tstamp=int(execution['tradeTime']))#/1000))
+                                                       #tstamp= parse_utc_timestamp(execution['tradeTime']))
 
                             self.logger.info("got order execution: %s %.1f @ %.1f " % (
-                                execution['order_link_id'], execution['exec_qty'] * sideMulti,
+                                execution['orderLinkId'], execution['execQty'] * sideMulti,
                                 float(execution['price'])))
 
                 elif topic == 'position':
-                    # {'user_id': 712961, 'symbol': 'BTCUSD', 'size': 1, 'side': 'Buy', 'position_value':
-                    # '0.00013684', 'entry_price': '7307.80473546', 'liq_price': '6674', 'bust_price': '6643.5',
-                    # 'leverage': '10', 'order_margin': '0', 'position_margin': '0.00001369', 'available_balance':
-                    # '0.17655005', 'take_profit': '0', 'stop_loss': '0', 'realised_pnl': '-0.00000011',
-                    # 'trailing_stop': '0', 'wallet_balance': '0.17656386', 'risk_id': 1, 'occ_closing_fee':
-                    # '0.00000012', 'occ_funding_fee': '0', 'auto_add_margin': 0, 'cum_realised_pnl': '0.00175533',
-                    # 'position_status': 'Normal', 'position_seq': 505770784}
+                    print('position msg arrived')
+                    # {'bustPrice': '0.00', 'category': 'inverse', 'createdTime': '1627542388255',
+                    # 'cumRealisedPnl': '0.04030169', 'entryPrice': '0', 'leverage': '100', 'liqPrice': '',
+                    # 'markPrice': '41835.00', 'positionBalance': '0', 'positionIdx': 0, 'positionMM': '0',
+                    # 'positionIM': '0', 'positionStatus': 'Normal', 'positionValue': '0', 'riskId': 1,
+                    # 'riskLimitValue': '150', 'side': 'None', 'size': '0', 'stopLoss': '0.00', 'symbol': 'BTCUSD',
+                    # 'takeProfit': '0.00', 'tpslMode': 'Full', 'tradeMode': 0, 'autoAddMargin': 1,
+                    # 'trailingStop': '0.00', 'unrealisedPnl': '0', 'updatedTime': '1702819920894',
+                    # 'adlRankIndicator': 0, 'seq': 31244873358, 'isReduceOnly': False, 'mmrSysUpdateTime': '',
+                    # 'leverageSysUpdatedTime': ''}
                     for pos in msgs:
                         sizefac = -1 if pos["side"] == "Sell" else 1
                         if pos['symbol'] == self.symbol and \
@@ -284,15 +311,19 @@ class ByBitInterface(ExchangeWithWS):
                                 self.positions[pos['symbol']].quantity, pos["size"] * sizefac))
                         if pos['symbol'] not in self.positions.keys():
                             self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
-                                                                            avgEntryPrice=float(pos["entry_price"]),
+                                                                            avgEntryPrice=float(pos["entryPrice"]),
                                                                             quantity=pos["size"] * sizefac,
-                                                                            walletBalance=float(pos['wallet_balance']))
+                                                                            walletBalance=float(pos['walletBalance']))
                         else:
                             accountPos = self.positions[pos['symbol']]
                             accountPos.quantity = pos["size"] * sizefac
-                            accountPos.avgEntryPrice = float(pos["entry_price"])
-                            accountPos.walletBalance = float(pos['wallet_balance'])
-                elif topic.startswith('klineV2.') and topic.endswith('.' + self.symbol):
+                            accountPos.avgEntryPrice = float(pos["entryPrice"])
+                            accountPos.walletBalance = float(pos['walletBalance'])
+                elif topic.startswith('kline.') and topic.endswith('.' + self.symbol):
+                    for entry in msgs:
+                        entry['start'] = entry['start']/1000
+                        entry['end'] = entry['end'] / 1000
+                        entry['timestamp'] = entry['timestamp'] / 1000
                     msgs.sort(key=lambda temp: temp['start'], reverse=True)
                     if len(self.bars) > 0:
                         for b in reversed(msgs):
@@ -315,18 +346,21 @@ class ByBitInterface(ExchangeWithWS):
                     if 'update' in obj.keys():
                         obj = obj['update'][0]
                     if obj['symbol'] == self.symbol and 'last_price_e4' in obj.keys():
-                        self.last = obj['last_price_e4'] / 10000
+                        self.last = obj['last_price_e4']# / 10000
+                elif topic == 'tickers.'+self.symbol:
+                    #print(msgs)
+                    pass
                 else:
                     self.logger.error('got unkown topic in callback: ' + topic)
                 msgs = self.ws.get_data(topic)
 
-            # new bars is handling directly in the messagecause we get a new one on each tick
-            if topic in ["order", "stop_order", "execution"]:
+            # new bars is handling directly in the message, because we get a new one on each tick
+            if topic in ["order", "stopOrder", "execution"]:
                 gotTick = True
                 self.reset_order_sync_timer() # only when something with orders changed
             if gotTick and self.on_tick_callback is not None:
                 self.on_tick_callback(
-                    fromAccountAction=topic in ["order", "stop_order", "execution"])  # got something new
+                    fromAccountAction=topic in ["order", "stopOrder", "execution"])  # got something new
         except Exception as e:
             self.logger.error("error in socket data(%s): %s " % (topic, str(e)))
 
@@ -339,45 +373,69 @@ class ByBitInterface(ExchangeWithWS):
                 self.logger.error(f"empty result: {result}")
                 self.on_api_error(f"problem in request: {str(call)}")
                 return None
-        except pybit.exceptions.InvalidRequestError as e:
+        except pybit.exceptions.InvalidRequestError as e:#pybit.unified_trading.InvalidChannelTypeError.
             self.logger.error(str(e))
             self.on_api_error(f"problem in request: {e.message}")
             return None
 
     @staticmethod
     def orderDictToOrder(o):
+        print('translating order')
+        # {'orderId': 'c9cc56cb-164c-4978-811e-2d2e4ef6153a', 'orderLinkId': '', 'blockTradeId': '',
+        # 'symbol': 'BTCUSD', 'price': '0.00', 'qty': '10', 'side': 'Buy', 'isLeverage': '', 'positionIdx': 0,
+        # 'orderStatus': 'Untriggered', 'cancelType': 'UNKNOWN', 'rejectReason': 'EC_NoError', 'avgPrice': '0',
+        # 'leavesQty': '10', 'leavesValue': '0', 'cumExecQty': '0', 'cumExecValue': '0', 'cumExecFee': '0',
+        # 'timeInForce': 'IOC', 'orderType': 'Market', 'stopOrderType': 'StopLoss', 'orderIv': '',
+        # 'triggerPrice': '38000.00', 'takeProfit': '0.00', 'stopLoss': '0.00', 'tpTriggerBy': 'UNKNOWN',
+        # 'slTriggerBy': 'UNKNOWN', 'triggerDirection': 1, 'triggerBy': 'LastPrice',
+        # 'lastPriceOnCreated': '36972.00', 'reduceOnly': True, 'closeOnTrigger': True, 'smpType': 'None',
+        # 'smpGroup': 0, 'smpOrderId': '', 'tpslMode': 'Full', 'tpLimitPrice': '', 'slLimitPrice': '',
+        # 'placeType': '', 'createdTime': '1701099868909', 'updatedTime': '1701099868909'}
         sideMulti = 1 if o["side"] == "Buy" else -1
-        ext = o['ext_fields'] if 'ext_fields' in o.keys() else None
-        stop = o['trigger_price'] if 'trigger_price' in o.keys() else None
+        ext = o['extFields'] if 'extFields' in o.keys() else None
+        stop = float(o['triggerPrice']) if 'triggerPrice' in o.keys() else None
         if stop is None:
-            stop = o['stop_px'] if 'stop_px' in o.keys() else None
-        if stop is None and ext is not None and 'trigger_price' in ext.keys():
-            stop = ext['trigger_price']
-        order = Order(orderId=o["order_link_id"],
+            stop = o['stopPx'] if 'stopPx' in o.keys() else None
+        if stop is None and ext is not None and 'triggerPrice' in ext.keys():
+            stop = ext['triggerPrice']
+        order = Order(orderId=o["orderLinkId"],
                       stop=float(stop) if stop is not None else None,
-                      limit=float(o["price"]) if o['order_type'] == 'Limit' else None,
+                      limit=float(o["price"]) if o['orderType'] == 'Limit' else None,
                       amount=float(o["qty"]) * sideMulti)
-        if "order_status" in o.keys():
-            order.stop_triggered = o["order_status"] == "New" and stop is not None
-            order.active = o['order_status'] in ['New', 'Untriggered' , "PartiallyFilled"]
-        elif "stop_order_status" in o.keys():
-            order.stop_triggered = o["stop_order_status"] == 'Triggered' or o['stop_order_status'] == 'Active'
-            order.active = o['stop_order_status'] in ['Triggered' , 'Untriggered' ]
-        execution = o['cum_exec_qty'] if 'cum_exec_qty' in o.keys() else 0
+        if "orderStatus" in o.keys():
+            order.stop_triggered = o["orderStatus"] == "New" and stop is not None
+            order.active = o['orderStatus'] in ['New', 'Untriggered' , "PartiallyFilled"]
+        elif "stopOrderStatus" in o.keys():
+            order.stop_triggered = o["stopOrderStatus"] == 'Triggered' or o['stopOrderStatus'] == 'Active'
+            order.active = o['stopOrderStatus'] in ['Triggered' , 'Untriggered' ]
+        execution = o['cumExecQty'] if 'cumExecQty' in o.keys() else 0
         order.executed_amount = float(execution) * sideMulti
-        order.tstamp = parse_utc_timestamp(o['timestamp'] if 'timestamp' in o.keys() else o['created_at'])
-        order.exchange_id = o["order_id"] if 'order_id' in o.keys() else o['stop_order_id']
+        #order.tstamp = parse_utc_timestamp(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])
+        order.tstamp = int(int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])/1000)
+        order.exchange_id = o["orderId"] if 'orderId' in o.keys() else o['stopOrderId']
         order.executed_price = None
-        if 'cum_exec_value' in o.keys() and 'cum_exec_qty' in o.keys() \
-                and o['cum_exec_value'] is not None and float(o['cum_exec_value']) != 0:
-            order.executed_price = o['cum_exec_qty'] / float(o["cum_exec_value"])  # cause of inverse
+        if 'cumExecValue' in o.keys() and 'cumExecQty' in o.keys() \
+                and o['cumExecValue'] is not None and float(o['cumExecValue']) != 0:
+            order.executed_price = float(o['cumExecQty']) / float(o["cumExecValue"])  # cause of inverse
         return order
 
     @staticmethod
     def barDictToBar(b):
-        tstamp = int(b['open_time'] if 'open_time' in b.keys() else b['start'])
-        bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
-                  low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
-        if 'timestamp' in b:
-            bar.last_tick_tstamp = b['timestamp'] / 1000000.0
+        #tstamp = int(b['open_time'] if 'open_time' in b.keys() else b['start'])
+        #bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+        #          low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+
+        if 'open_time' in b:
+            tstamp = int(b['open_time'])
+            bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+                      low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        elif 'start' in b:
+            tstamp = int(b['start'])
+            bar = Bar(tstamp=tstamp, open=float(b['open']), high=float(b['high']),
+                      low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
+        else: # bybit
+            bar = Bar(tstamp = int(int(b[0])/1000), open=float(b[1]), high=float(b[2]),
+                      low=float(b[3]), close=float(b[4]), volume=0)
+        #if 'timestamp' in b:
+        #    bar.last_tick_tstamp = b['timestamp'] / 1000.0
         return bar
