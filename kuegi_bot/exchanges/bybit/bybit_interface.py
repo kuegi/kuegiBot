@@ -234,7 +234,7 @@ class ByBitInterface(ExchangeWithWS):
             msgs = self.ws.get_data(topic)
             while len(msgs) > 0:
                 if topic == 'order' or topic == 'stopOrder':
-                    print('order msg arrived:')
+                    #print('order msg arrived:')
                     # {'orderId': 'c9cc56cb-164c-4978-811e-2d2e4ef6153a', 'orderLinkId': '', 'blockTradeId': '',
                     # 'symbol': 'BTCUSD', 'price': '0.00', 'qty': '10', 'side': 'Buy', 'isLeverage': '', 'positionIdx': 0,
                     # 'orderStatus': 'Untriggered', 'cancelType': 'UNKNOWN', 'rejectReason': 'EC_NoError', 'avgPrice': '0',
@@ -270,7 +270,7 @@ class ByBitInterface(ExchangeWithWS):
 
                         self.logger.info("received order update: %s" % (str(order)))
                 elif topic == 'execution':
-                    print('execution msg arrived')
+                    #print('execution msg arrived')
                     # {'symbol': 'BTCUSD', 'side': 'Buy', 'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951',
                     # 'exec_id': '22add7a8-bb15-585f-b068-3a8648f6baff', 'order_link_id': '', 'price': '7307.5',
                     # 'order_qty': 1, 'exec_type': 'Trade', 'exec_qty': 1, 'exec_fee': '0.00000011', 'leaves_qty': 0,
@@ -279,21 +279,21 @@ class ByBitInterface(ExchangeWithWS):
                         if execution['orderId'] in self.orders.keys():
                             sideMulti = 1 if execution['side'] == "Buy" else -1
                             order = self.orders[execution['orderId']]
-                            order.executed_amount = (execution['orderQty'] - execution['leavesQty']) * sideMulti
+                            order.executed_amount = (float(execution['orderQty']) - float(execution['leavesQty'])) * sideMulti
                             if (order.executed_amount - order.amount) * sideMulti >= 0:
                                 order.active = False
                             self.on_execution_callback(order_id=order.id,
                                                        executed_price= float(execution['price']),
-                                                       amount=execution['execQty'] * sideMulti,
+                                                       amount=float(execution['execQty']) * sideMulti,
                                                        tstamp=int(execution['tradeTime']))#/1000))
                                                        #tstamp= parse_utc_timestamp(execution['tradeTime']))
 
                             self.logger.info("got order execution: %s %.1f @ %.1f " % (
-                                execution['orderLinkId'], execution['execQty'] * sideMulti,
+                                execution['orderLinkId'], float(execution['execQty']) * sideMulti,
                                 float(execution['price'])))
 
                 elif topic == 'position':
-                    print('position msg arrived')
+                    #print('position msg arrived')
                     # {'bustPrice': '0.00', 'category': 'inverse', 'createdTime': '1627542388255',
                     # 'cumRealisedPnl': '0.04030169', 'entryPrice': '0', 'leverage': '100', 'liqPrice': '',
                     # 'markPrice': '41835.00', 'positionBalance': '0', 'positionIdx': 0, 'positionMM': '0',
@@ -306,28 +306,29 @@ class ByBitInterface(ExchangeWithWS):
                     for pos in msgs:
                         sizefac = -1 if pos["side"] == "Sell" else 1
                         if pos['symbol'] == self.symbol and \
-                                self.positions[pos['symbol']].quantity != pos["size"] * sizefac:
+                                self.positions[pos['symbol']].quantity != float(pos["size"]) * sizefac:
                             self.logger.info("position changed %.2f -> %.2f" % (
-                                self.positions[pos['symbol']].quantity, pos["size"] * sizefac))
+                                self.positions[pos['symbol']].quantity, float(pos["size"]) * sizefac))
                         if pos['symbol'] not in self.positions.keys():
                             self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
                                                                             avgEntryPrice=float(pos["entryPrice"]),
-                                                                            quantity=pos["size"] * sizefac,
-                                                                            walletBalance=float(pos['walletBalance']))
+                                                                            quantity=float(pos["size"]) * sizefac)#,
+                                                                            #walletBalance=float(pos['walletBalance']))
                         else:
                             accountPos = self.positions[pos['symbol']]
-                            accountPos.quantity = pos["size"] * sizefac
+                            accountPos.quantity = float(pos["size"]) * sizefac
                             accountPos.avgEntryPrice = float(pos["entryPrice"])
-                            accountPos.walletBalance = float(pos['walletBalance'])
+                            #accountPos.walletBalance = float(pos['walletBalance'])
                 elif topic.startswith('kline.') and topic.endswith('.' + self.symbol):
-                    for entry in msgs:
-                        entry['start'] = entry['start']/1000
-                        entry['end'] = entry['end'] / 1000
-                        entry['timestamp'] = entry['timestamp'] / 1000
+                    for kline in msgs:
+                        #print(kline)
+                        kline['start'] = int(int(kline['start'])/1000)
+                        kline['end'] = int(int(kline['end']) / 1000)
+                        kline['timestamp'] = int(int(kline['timestamp']) / 1000)
                     msgs.sort(key=lambda temp: temp['start'], reverse=True)
                     if len(self.bars) > 0:
                         for b in reversed(msgs):
-                            if self.bars[0]['start'] >= b['start'] >= self.bars[-1]['start']:
+                            if int(self.bars[0]['start']) >= b['start'] >= self.bars[-1]['start']:
                                 # find bar to fix
                                 for idx in range(0, len(self.bars)):
                                     if b['start'] == self.bars[idx]['start']:
@@ -350,6 +351,9 @@ class ByBitInterface(ExchangeWithWS):
                 elif topic == 'tickers.'+self.symbol:
                     #print(msgs)
                     pass
+                #elif topic == 'wallet':
+                #    print("topic is wallet")
+                    #pass
                 else:
                     self.logger.error('got unkown topic in callback: ' + topic)
                 msgs = self.ws.get_data(topic)
@@ -380,7 +384,7 @@ class ByBitInterface(ExchangeWithWS):
 
     @staticmethod
     def orderDictToOrder(o):
-        print('translating order')
+        #print('translating order')
         # {'orderId': 'c9cc56cb-164c-4978-811e-2d2e4ef6153a', 'orderLinkId': '', 'blockTradeId': '',
         # 'symbol': 'BTCUSD', 'price': '0.00', 'qty': '10', 'side': 'Buy', 'isLeverage': '', 'positionIdx': 0,
         # 'orderStatus': 'Untriggered', 'cancelType': 'UNKNOWN', 'rejectReason': 'EC_NoError', 'avgPrice': '0',
