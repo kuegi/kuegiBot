@@ -20,3 +20,7 @@ settings/defaults.json
 pybit.log
 .DS_store
 backtest_v2.py
+
+ta-lib-python
+
+settings/
