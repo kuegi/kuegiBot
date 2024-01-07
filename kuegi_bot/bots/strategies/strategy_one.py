@@ -137,8 +137,13 @@ class StrategyOne(TrendStrategy):
         self.logger.info(vars(self))
         super().init(bars, account, symbol)
 
+    def min_bars_needed(self) -> int:
+        min_bars = super().min_bars_needed()
+        return min_bars
+
     def prep_bars(self, is_new_bar: bool, bars: list):
         if is_new_bar:
+            #print("processing new bar")
             super().prep_bars(is_new_bar, bars)
             self.ta_data_trend_strat = self.get_ta_data_trend_strategy()
             self.ta_strat_one.set_ta_data_trend_strat(self.ta_data_trend_strat)
@@ -178,7 +183,7 @@ class StrategyOne(TrendStrategy):
 
     def got_data_for_position_sync(self, bars: List[Bar]) -> bool:
         result= super().got_data_for_position_sync(bars)
-        return result# and (self.get_data(bars[1]) is not None)
+        return result
 
     def open_new_trades(self, is_new_bar, directionFilter, bars, account, open_positions, all_open_pos: dict):
         if not is_new_bar:
@@ -186,6 +191,7 @@ class StrategyOne(TrendStrategy):
 
         if not self.entries_allowed(bars):
             self.logger.info("New entries not allowed")
+            self.telegram.send_log("New entries not allowed")
             return
 
         if self.ta_data_trend_strat.atr_4h is None:
@@ -198,9 +204,13 @@ class StrategyOne(TrendStrategy):
 
         if len(all_open_pos) >= self.maxPositions and self.consolidate is False:
             self.logger.info("Reached max Positions: " + str(len(all_open_pos)))
+            self.telegram.send_log("Reached max Positions")
             return
 
-        self.logger.info("New bar. Checking for new trades")
+        self.logger.info("New bar. Checking for new entry options")
+        self.logger.info("Market Regime: "+str(self.ta_data_trend_strat.marketRegime))
+        self.telegram.send_log("Market Regime: "+str(self.ta_data_trend_strat.marketRegime))
+
 
         # Limit Orders
         if self.tradeWithLimitOrders:
@@ -252,6 +262,8 @@ class StrategyOne(TrendStrategy):
             if bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] and \
                     self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo:
                 longed = True
+                self.logger.info("Longing trail breakout.")
+                self.telegram.send_log("Longing trail breakout.")
                 self.entry_by_market_order(entry=bars[0].open,
                                            stop=bars[0].open - self.sl_atr_fac * atr,
                                            open_positions=open_positions,
@@ -285,7 +297,8 @@ class StrategyOne(TrendStrategy):
                 self.sold_off_bband = False
                 self.reclaimed_bband = True
                 longed = True
-                # TODO: log to Telegram which trade is executed
+                self.logger.info("Longing bollinger bands reclaim 1.")
+                self.telegram.send_log("Longing bollinger bands reclaim 1.")
                 self.entry_by_market_order(entry=bars[0].open,
                                            stop = bars[0].open - self.sl_atr_fac * atr,
                                            open_positions=open_positions,
@@ -305,7 +318,8 @@ class StrategyOne(TrendStrategy):
                     self.sold_off_bband_2 = False
                     self.reclaimed_bband_2 = True
                     longed = True
-                    # TODO: log to Telegram which trade is executed
+                    self.logger.info("Longing bollinger bands reclaim 2.")
+                    self.telegram.send_log("Longing bollinger bands reclaim 2.")
                     self.entry_by_market_order(entry=bars[0].open,
                                                stop=min(bars[0].open - self.sl_atr_fac * atr, bars[2].low, bars[1].low),
                                                open_positions=open_positions,
@@ -323,7 +337,8 @@ class StrategyOne(TrendStrategy):
                 self.sold_off_bband_3 = False
                 self.reclaimed_bband_3 = True
                 longed = True
-                # TODO: log to Telegram which trade is executed
+                self.logger.info("Longing bollinger bands reclaim 3.")
+                self.telegram.send_log("Longing bollinger bands reclaim 3.")
                 self.entry_by_market_order(entry=bars[0].open,
                                            stop=min(bars[0].open - self.sl_atr_fac * atr, bars[2].low, bars[1].low),
                                            open_positions=open_positions,
@@ -335,6 +350,8 @@ class StrategyOne(TrendStrategy):
                 bars[1].low < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-2] < bars[1].close and \
                 self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] < self.max_rsi_trail_rev:
             longed = True
+            self.logger.info("Longing fakedown.")
+            self.telegram.send_log("Longing fakedown.")
             self.entry_by_market_order(entry=bars[0].open,
                                        stop=bars[0].open - self.sl_atr_fac * atr,
                                        open_positions=open_positions,
@@ -351,6 +368,8 @@ class StrategyOne(TrendStrategy):
                 self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and
                 not shorted):
             shorted = True
+            self.logger.info("Shorting breakdown from bollinger band.")
+            self.telegram.send_log("Shorting breakdown from bollinger band.")
             self.entry_by_market_order(entry = bars[0].open,
                                        stop= max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
                                        open_positions = open_positions,
@@ -362,6 +381,8 @@ class StrategyOne(TrendStrategy):
                     bars[1].close > bars[1].open and
                     self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR):
                 shorted = True
+                self.logger.info("Bearish trend. Shorting overextended pump.")
+                self.telegram.send_log("Bearish trend. Shorting overextended pump.")
                 self.entry_by_market_order(entry = bars[0].open,
                                            stop= max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
                                            open_positions = open_positions,
@@ -372,6 +393,8 @@ class StrategyOne(TrendStrategy):
         if self.shortTrailBreakdown and not shorted and \
                 bars[1].close < self.ta_data_trend_strat.lows_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] < bars[2].close and \
                 self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] > self.min_rsi_bd:
+            self.logger.info("Shorting lost support.")
+            self.telegram.send_log("Shorting lost support.")
             self.entry_by_market_order(entry=bars[0].open,
                                        stop=bars[0].open + self.sl_atr_fac * atr,
                                        open_positions=open_positions,
@@ -398,7 +421,8 @@ class StrategyOne(TrendStrategy):
                 self.sold_off_bband_3 = False
                 self.reclaimed_bband_3 = True
                 shorted = True
-                # TODO: log to Telegram which trade is executed
+                self.logger.info("Shorting lost bollinger band level.")
+                self.telegram.send_log("Shorting lost bollinger band level.")
                 self.entry_by_market_order(entry=bars[0].open,
                                            stop=bars[0].open + self.sl_atr_fac * atr,
                                            open_positions=open_positions,
@@ -409,6 +433,8 @@ class StrategyOne(TrendStrategy):
         if self.shortReversals and not shorted and \
                 bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] > bars[1].close and \
                     self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
+            self.logger.info("Shorting fakeout.")
+            self.telegram.send_log("Shorting fakeout.")
             self.entry_by_market_order(entry=bars[0].open,
                                        stop=max(bars[0].open + self.sl_atr_fac * atr, bars[2].high, bars[1].high),
                                        open_positions=open_positions,
@@ -455,6 +481,10 @@ class StrategyOne(TrendStrategy):
                                                open_positions=open_positions,
                                                bars=bars,
                                                direction=PositionDirection.LONG)
+
+        if not longed and not shorted:
+            self.logger.info("No new entries for now.")
+            self.telegram.send_log("No new entries for now.")
 
     def entry_by_market_order(self, entry, stop, open_positions, bars, direction):
         expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
@@ -612,6 +642,7 @@ class TAStrategyOne(Indicator):
         self.h_lows_trail_period = h_lows_trail_period
 
     def on_tick(self, bars: List[Bar]):
+        #print("TA analysis StrategyOne")
         self.run_ta_analysis()
         self.write_data_for_plot(bars)
 

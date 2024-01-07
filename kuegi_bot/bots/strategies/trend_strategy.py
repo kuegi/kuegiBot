@@ -89,6 +89,9 @@ class TrendStrategy(StrategyWithTradeManagement):
     def myId(self):
         return "TrendStrategy"
 
+    def min_bars_needed(self) -> int:
+        return self.ta_trend_strat.max_4h_history_candles+1
+
     def prep_bars(self, is_new_bar: bool, bars: list):
         if is_new_bar:
             self.ta_trend_strat.taData_trend_strat.talibbars.on_tick(bars)
@@ -405,6 +408,7 @@ class TATrendStrategyIndicator(Indicator):
         self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow, self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period)
         self.max_d_period = max(self.trend_d_period, self.rsi_d_period)
         self.max_w_period = max(self.trend_w_period, self.ema_w_period, self.rsi_w_period)
+        self.max_4h_history_candles = max(self.max_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
         self.initialize_arrays()
 
     def on_tick(self, bars: List[Bar]):
@@ -419,6 +423,7 @@ class TATrendStrategyIndicator(Indicator):
         self.taData_trend_strat.last_w_index = ((len(bars) - 1 - weekly_candle_start_index) // 42) % self.max_w_period
 
         # Run TA calculations
+        #print("TA analysis TrendStrategy")
         self.run_ta_analysis(self.taData_trend_strat.last_4h_index)
         self.identify_trend()
         self.write_data_for_plot(bars)
@@ -482,8 +487,6 @@ class TATrendStrategyIndicator(Indicator):
             self.taData_trend_strat.bbands_4h.std = upperband - self.taData_trend_strat.bbands_4h.middleband
         else:
             self.taData_trend_strat.bbands_4h.std = np.nan
-
-        #self.taData_trend_strat.bbands_talib.on_tick_talib(close, self.bbands_4h_period)
 
         # Update atr_4h & natr_4h arrays
         atr_4h = talib.ATR(high[- self.atr_4h_period-1:],low[-self.atr_4h_period-1:], close[- self.atr_4h_period-1:], self.atr_4h_period)[-1]
