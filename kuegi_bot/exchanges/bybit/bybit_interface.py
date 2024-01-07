@@ -155,35 +155,32 @@ class ByBitInterface(ExchangeWithWS):
         return buy, sell
 
     def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed=600) -> List[Bar]:
-        limit= 200
-        tf = 1 if timeframe_minutes <= 60 else 60
+        limit = 200                                         # entries per message
+        tf = 1 if timeframe_minutes <= 60 else 60           # minutes per candle requested from exchange
         time_now = int(datetime.now().timestamp()*1000)
-        start = (int(time_now - tf * 60 * 199*1000))
+        start = int(time_now - (limit-1) * tf * 60 * 1000)  # request 200 * tf
         apibars =  self.handle_result(lambda:self.pybit.get_kline(category = 'inverse', symbol = self.symbol, interval = str(tf),
                                                                   start = start, limit = limit)).get("list")
-        #for bar in apibars:
-        #    bar[0]= int(int(bar[0])/1000)
-        # get more history to fill enough (currently 200 H4 bars).
-        for idx in range(1+ math.ceil((min_bars_needed*timeframe_minutes)/(tf*200))):
-            start = int(apibars[0][0]) - tf * 60 * 200*1000
-            #start = int(apibars[0][0]) - tf * 60 * 200
+
+        # get more history to fill enough
+        mult = timeframe_minutes / tf                                       # multiplier
+        min_needed_tf_candles = min_bars_needed * mult                      # number of required tf-sized candles
+        number_of_requests = 1+ math.ceil(min_needed_tf_candles/limit)      # number of requests
+        for idx in range(number_of_requests):
+            start = int(apibars[-1][0]) - limit * tf * 60 * 1000
             bars1 =  self.handle_result(lambda:self.pybit.get_kline(category = 'inverse', symbol = self.symbol, interval = str(tf),
                                                                   start = start, limit = limit)).get("list")
-            #for bar1 in bars1:
-            #    bar1[0] = int(int(bar1[0]) / 1000)
-            apibars = bars1 + apibars
+            apibars = apibars + bars1
 
         return self._aggregate_bars(reversed(apibars), timeframe_minutes, start_offset_minutes)
 
     def _aggregate_bars(self, apibars, timeframe_minutes, start_offset_minutes) -> List[Bar]:
         subbars = []
         for b in apibars:
-            if 'open' in b:#b['open'] is None:
-                continue
+            if 'open' in b:
+                if b['open'] is None:
+                    continue
 
-            #if 'open' in b:
-            #        if b['open'] is None:
-            #            continue
             subbars.append(self.barDictToBar(b))
         return process_low_tf_bars(subbars, timeframe_minutes, start_offset_minutes)
 
@@ -249,6 +246,7 @@ class ByBitInterface(ExchangeWithWS):
                         if o['symbol'] != self.symbol:
                             continue  # ignore orders not of my symbol
                         order = self.orderDictToOrder(o)
+                        #print(order)
                         prev: Order = self.orders[
                             order.exchange_id] if order.exchange_id in self.orders.keys() else None
                         if prev is not None:
@@ -270,12 +268,13 @@ class ByBitInterface(ExchangeWithWS):
 
                         self.logger.info("received order update: %s" % (str(order)))
                 elif topic == 'execution':
-                    #print('execution msg arrived')
+                    #print('execution msg arrived:')
                     # {'symbol': 'BTCUSD', 'side': 'Buy', 'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951',
                     # 'exec_id': '22add7a8-bb15-585f-b068-3a8648f6baff', 'order_link_id': '', 'price': '7307.5',
                     # 'order_qty': 1, 'exec_type': 'Trade', 'exec_qty': 1, 'exec_fee': '0.00000011', 'leaves_qty': 0,
                     # 'is_maker': False, 'trade_time': '2019-12-26T20:02:19.576Z'}
                     for execution in msgs:
+                        #print(execution)
                         if execution['orderId'] in self.orders.keys():
                             sideMulti = 1 if execution['side'] == "Buy" else -1
                             order = self.orders[execution['orderId']]
@@ -293,7 +292,7 @@ class ByBitInterface(ExchangeWithWS):
                                 float(execution['price'])))
 
                 elif topic == 'position':
-                    #print('position msg arrived')
+                    #print('position msg arrived:')
                     # {'bustPrice': '0.00', 'category': 'inverse', 'createdTime': '1627542388255',
                     # 'cumRealisedPnl': '0.04030169', 'entryPrice': '0', 'leverage': '100', 'liqPrice': '',
                     # 'markPrice': '41835.00', 'positionBalance': '0', 'positionIdx': 0, 'positionMM': '0',
@@ -304,14 +303,12 @@ class ByBitInterface(ExchangeWithWS):
                     # 'adlRankIndicator': 0, 'seq': 31244873358, 'isReduceOnly': False, 'mmrSysUpdateTime': '',
                     # 'leverageSysUpdatedTime': ''}
                     for pos in msgs:
+                        #print(pos)
                         sizefac = -1 if pos["side"] == "Sell" else 1
-                        if pos['symbol'] == self.symbol and \
-                                self.positions[pos['symbol']].quantity != float(pos["size"]) * sizefac:
-                            self.logger.info("position changed %.2f -> %.2f" % (
-                                self.positions[pos['symbol']].quantity, float(pos["size"]) * sizefac))
+                        if pos['symbol'] == self.symbol and self.positions[pos['symbol']].quantity != float(pos["size"]) * sizefac:
+                            self.logger.info("position changed %.2f -> %.2f" % ( self.positions[pos['symbol']].quantity, float(pos["size"]) * sizefac))
                         if pos['symbol'] not in self.positions.keys():
-                            self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
-                                                                            avgEntryPrice=float(pos["entryPrice"]),
+                            self.positions[pos['symbol']] = AccountPosition(pos['symbol'], avgEntryPrice=float(pos["entryPrice"]),
                                                                             quantity=float(pos["size"]) * sizefac)#,
                                                                             #walletBalance=float(pos['walletBalance']))
                         else:
@@ -320,11 +317,12 @@ class ByBitInterface(ExchangeWithWS):
                             accountPos.avgEntryPrice = float(pos["entryPrice"])
                             #accountPos.walletBalance = float(pos['walletBalance'])
                 elif topic.startswith('kline.') and topic.endswith('.' + self.symbol):
-                    for kline in msgs:
-                        #print(kline)
-                        kline['start'] = int(int(kline['start'])/1000)
-                        kline['end'] = int(int(kline['end']) / 1000)
-                        kline['timestamp'] = int(int(kline['timestamp']) / 1000)
+                    for b in msgs:
+                        #print('kline message: ')
+                        #print(b)
+                        b['start'] = int(int(b['start'])/1000)
+                        b['end'] = int(int(b['end']) / 1000)
+                        b['timestamp'] = int(int(b['timestamp']) / 1000)
                     msgs.sort(key=lambda temp: temp['start'], reverse=True)
                     if len(self.bars) > 0:
                         for b in reversed(msgs):
@@ -349,11 +347,15 @@ class ByBitInterface(ExchangeWithWS):
                     if obj['symbol'] == self.symbol and 'last_price_e4' in obj.keys():
                         self.last = obj['last_price_e4']# / 10000
                 elif topic == 'tickers.'+self.symbol:
+                    #print('ticker message: ')
                     #print(msgs)
                     pass
-                #elif topic == 'wallet':
-                #    print("topic is wallet")
-                    #pass
+                elif topic == 'wallet':
+                    #for wallet in msgs:
+                        #print("wallet: ")
+                        #print(wallet)
+                        #accountPos.walletBalance = float(pos['walletBalance'])
+                    pass
                 else:
                     self.logger.error('got unkown topic in callback: ' + topic)
                 msgs = self.ws.get_data(topic)
