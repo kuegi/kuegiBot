@@ -108,7 +108,7 @@ class ByBitInterface(ExchangeWithWS):
                 stop_px=strOrNone(normalizedStop),
                 order_link_id=order.id,
                 base_price=strOrNone(round(normalizedStop + base_side, self.symbol_info.pricePrecision)),
-                time_in_force="GoodTillCancel").get("list"))#,# #trigger_by="LastPrice")
+                time_in_force="GTC").get("list"))#,# #trigger_by="LastPrice")
             if result is not None:
                 order.exchange_id = result['stopOrderId']
 
@@ -121,7 +121,7 @@ class ByBitInterface(ExchangeWithWS):
                 qty=strOrNone(int(abs(order.amount))),
                 price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0)),
                 order_link_id=order.id,
-                time_in_force="GoodTillCancel").get("list"))
+                time_in_force="GTC").get("list"))
             if result is not None:
                 order.exchange_id = result['orderId']
 
@@ -188,8 +188,8 @@ class ByBitInterface(ExchangeWithWS):
         if symbol is None:
             symbol = self.symbol
         fees = self.handle_result(lambda:self.pybit.get_fee_rates(symbol =symbol)).get("list")
-        makerFeeRate = fees[0].get("makerFeeRate")
-        takerFeeRate = fees[0].get("takerFeeRate")
+        makerFeeRate = float(fees[0].get("makerFeeRate"))
+        takerFeeRate = float(fees[0].get("takerFeeRate"))
         instr = self.handle_result(lambda:self.pybit.get_instruments_info(category = 'inverse'))
         for entry in instr['list']:
             if entry['symbol'] == symbol:
@@ -200,7 +200,7 @@ class ByBitInterface(ExchangeWithWS):
                               tickSize=float(entry['priceFilter']['tickSize']),
                               makerFee=makerFeeRate,
                               takerFee=takerFeeRate,
-                              pricePrecision=entry['priceScale'],
+                              pricePrecision=int(entry['priceScale']),
                               quantityPrecision=0)  # hardcoded full dollars
         return None
 
@@ -209,9 +209,9 @@ class ByBitInterface(ExchangeWithWS):
             symbol = self.symbol
         symbolData = self.handle_result(lambda:self.pybit.get_orderbook(category = "inverse", symbol= symbol, limit = 1))
         tickerData = self.handle_result(lambda: self.pybit.get_tickers(category="inverse", symbol=symbol))
-        lastPrice = tickerData['list'][0]['lastPrice']
-        bid = symbolData['b'][0][0]
-        ask = symbolData['a'][0][0]
+        lastPrice = float(tickerData['list'][0]['lastPrice'])
+        bid = float(symbolData['b'][0][0])
+        ask = float(symbolData['a'][0][0])
         if bid is not None and ask is not None and lastPrice is not None:
             return TickerData(bid=bid, ask=ask, last=lastPrice)
         return None
@@ -345,7 +345,7 @@ class ByBitInterface(ExchangeWithWS):
                     if 'update' in obj.keys():
                         obj = obj['update'][0]
                     if obj['symbol'] == self.symbol and 'last_price_e4' in obj.keys():
-                        self.last = obj['last_price_e4']# / 10000
+                        self.last = float(obj['last_price_e4'])# / 10000
                 elif topic == 'tickers.'+self.symbol:
                     #print('ticker message: ')
                     #print(msgs)
