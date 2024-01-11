@@ -91,9 +91,9 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     plotIndicators=stratSettings.PLOTINDICATORS,
                                     trend_var_1=stratSettings.TREND_VAR_1,
                                     # Risk
-                                    risk_with_trend=stratSettings.RISK_WITH_TREND,
-                                    risk_counter_trend=stratSettings.RISK_COUNTER_TREND,
-                                    risk_ranging=stratSettings.RISK_RANGING,
+                                    risk_with_trend=stratSettings.RISK_WITH_TREND*risk_reference,
+                                    risk_counter_trend=stratSettings.RISK_COUNTER_TREND*risk_reference,
+                                    risk_ranging=stratSettings.RISK_RANGING*risk_reference,
                                     # SL
                                     sl_atr_fac=stratSettings.SL_ATR_FAC,
                                     be_by_middleband=stratSettings.BE_BY_MIDDLEBAND,
