@@ -53,14 +53,14 @@ class MACross(StrategyWithExitModulesAndFilter):
             orderType = TradingBot.order_type_from_order_id(order.id)
             if position is not None and orderType == OrderType.SL:
                 # trail
-                newStop = order.stop_price
+                newStop = order.trigger_price
                 isLong = position.amount > 0
                 trail = stopLong if isLong else stopShort
                 if trail is not None and (trail - newStop) * position.amount > 0:
                     newStop = math.floor(trail) if not isLong else math.ceil(trail)
 
-                if newStop != order.stop_price:
-                    order.stop_price = newStop
+                if newStop != order.trigger_price:
+                    order.trigger_price = newStop
                     to_update.append(order)
 
     def owns_signal_id(self, signalId: str):
@@ -102,9 +102,9 @@ class MACross(StrategyWithExitModulesAndFilter):
             open_positions[posId] = pos
             # send entry as market, immediatly send SL too
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                  amount=amount, stop=None, limit=None))
+                                                  amount=amount, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=-amount, stop=stop, limit=None))
+                                                  amount=-amount, trigger=stop, limit=None))
             pos.status = PositionStatus.OPEN
 
         elif prevFast >= prevSlow and currentFast < currentSlow:
@@ -122,9 +122,9 @@ class MACross(StrategyWithExitModulesAndFilter):
             open_positions[posId] = pos
             # send entry as market, immediatly send SL too
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                  amount=amount, stop=None, limit=None))
+                                                  amount=amount, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=-amount, stop=stop, limit=None))
+                                                  amount=-amount, trigger=stop, limit=None))
             pos.status = PositionStatus.OPEN
 
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):

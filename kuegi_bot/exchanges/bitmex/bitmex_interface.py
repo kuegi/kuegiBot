@@ -45,7 +45,7 @@ class BitmexInterface(ExchangeInterface):
         result :List[Order]= []
         for o in mexOrders:
             sideMulti= 1 if o["side"] == "Buy" else -1
-            order = Order(orderId=o["clOrdID"],stop=o["stopPx"],limit=o["price"],amount=o["orderQty"]*sideMulti)
+            order = Order(orderId=o["clOrdID"], trigger=o["stopPx"], limit=o["price"], amount=o["orderQty"] * sideMulti)
             order.stop_triggered= o["triggered"] == "StopOrderTriggered"
             order.executed_amount= (o["cumQty"])*sideMulti
             order.tstamp= parse_utc_timestamp(o['timestamp'])

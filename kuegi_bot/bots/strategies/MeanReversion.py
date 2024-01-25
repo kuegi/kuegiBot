@@ -78,11 +78,11 @@ class MeanReversion(StrategyWithExitModulesAndFilter):
 
             self.order_interface.send_order(
                 Order(orderId=TradingBot.generate_order_id(position.id, OrderType.TP),
-                      amount=-position.currentOpenAmount, stop=None, limit=tp))
+                      amount=-position.currentOpenAmount, trigger=None, limit=tp))
         if not gotSL:
             order= Order(orderId=TradingBot.generate_order_id(positionId=position.id, type=OrderType.SL),
-                      stop=position.initial_stop,
-                      amount=-position.currentOpenAmount)
+                         trigger=position.initial_stop,
+                         amount=-position.currentOpenAmount)
             self.order_interface.send_order(order)
             # added temporarily, cause sync with open orders is in the next loop and otherwise the orders vs
             # position check fails

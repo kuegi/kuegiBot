@@ -63,14 +63,14 @@ class TemplateStrategy(TrendStrategy):
         # Update SLs
         orderType = TradingBot.order_type_from_order_id(order.id)
         if orderType == OrderType.SL: # Manage Stop Losses
-            new_stop_price = order.stop_price
+            new_stop_price = order.trigger_price
             if order.amount > 0: # SL for SHORTS
                 pass
             elif order.amount < 0: # SL for LONGs
                 pass
 
-            if new_stop_price != order.stop_price:
-                order.stop_price = new_stop_price
+            if new_stop_price != order.trigger_price:
+                order.trigger_price = new_stop_price
                 to_update.append(order)
 
         # cancel if the trend has changed

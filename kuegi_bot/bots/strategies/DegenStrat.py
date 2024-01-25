@@ -97,7 +97,7 @@ class DegenStrategy(ChannelStrategy):
         open_positions[posId] = pos   # need to add to the bots open pos too, so the execution of the market is not missed
 
         self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                              amount=amount, stop=entry, limit=entry))
+                                              amount=amount, trigger=entry, limit=entry))
 
         if self.close_on_opposite:
             for pos in open_positions.values():
@@ -106,7 +106,7 @@ class DegenStrategy(ChannelStrategy):
                     # execution will trigger close and cancel of other orders
                     self.order_interface.send_order(
                         Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
-                              amount=-pos.amount, stop=None, limit=None))
+                              amount=-pos.amount, trigger=None, limit=None))
 
     def calc_stoplosses(self, channel, bars):
         trail_range_short = min(self.trail_short_fac * (channel.shortTrail - channel.longTrail), 0.3 * bars[0].open)
@@ -191,7 +191,7 @@ class DegenStrategy(ChannelStrategy):
         if not gotStop:
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
                                                                type=OrderType.SL),
-                          stop=position.initial_stop,
+                          trigger=position.initial_stop,
                           amount=-position.amount)
             self.order_interface.send_order(order)
         if self.tp_fac > 0 and not gotTp:

@@ -103,7 +103,7 @@ class BotWithChannel(TradingBot):
                 orderType = self.order_type_from_order_id(order.id)
                 if pos is not None and orderType == OrderType.SL:
                     # trail
-                    newStop = order.stop_price
+                    newStop = order.trigger_price
                     isLong = pos.amount > 0
                     if self.trail_active:
                         newStop = self.__trail_stop(direction=1 if isLong else -1,
@@ -119,8 +119,8 @@ class BotWithChannel(TradingBot):
                                                         current_stop=newStop,
                                                         trail=pos.wanted_entry + entry_diff * self.be_buffer,
                                                         initial_stop=pos.initial_stop)
-                    if newStop != order.stop_price:
-                        order.stop_price = newStop
+                    if newStop != order.trigger_price:
+                        order.trigger_price = newStop
                         to_update.append(order)
 
             for order in to_update:

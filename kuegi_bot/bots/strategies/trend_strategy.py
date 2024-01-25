@@ -217,7 +217,7 @@ class TrendStrategy(StrategyWithTradeManagement):
         # Update SLs based on BBs
         orderType = TradingBot.order_type_from_order_id(order.id)
         if orderType == OrderType.SL:  # Manage Stop Losses
-            new_stop_price = order.stop_price
+            new_stop_price = order.trigger_price
             if new_stop_price is not None and \
                     self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband is not None and \
                     self.ta_trend_strat.taData_trend_strat.bbands_4h.std is not None:
@@ -274,8 +274,8 @@ class TrendStrategy(StrategyWithTradeManagement):
                     if self.trail_sl_with_bband:
                         new_stop_price = max(lower_band, new_stop_price)
 
-                if new_stop_price != order.stop_price:
-                    order.stop_price = new_stop_price
+                if new_stop_price != order.trigger_price:
+                    order.trigger_price = new_stop_price
                     to_update.append(order)
 
 

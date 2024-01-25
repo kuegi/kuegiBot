@@ -83,7 +83,7 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
             orderType = TradingBot.order_type_from_order_id(order.id)
             if position is not None and orderType == OrderType.SL:
                 # trail
-                newStop = order.stop_price
+                newStop = order.trigger_price
                 isLong = position.amount > 0
                 if self.trail_active:
                     trail = stopLong if isLong else stopShort
@@ -92,8 +92,8 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
                                 and (trail - position.initial_stop) * position.amount > 0):
                         newStop = math.floor(trail) if not isLong else math.ceil(trail)
 
-                if newStop != order.stop_price:
-                    order.stop_price = newStop
+                if newStop != order.trigger_price:
+                    order.trigger_price = newStop
                     to_update.append(order)
 
     def consolidate_positions(self, is_new_bar, bars, account, open_positions):
@@ -115,14 +115,14 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
                     if order.amount < 0:
                         nmbLongs = nmbLongs + 1
                         if lowestSL is None:
-                            lowestSL = order.stop_price
-                            secLowestSL = order.stop_price
+                            lowestSL = order.trigger_price
+                            secLowestSL = order.trigger_price
                             lowestSLPosID = posId
                             amountLowestSL = order.amount
                             amountSecLowestSL = order.amount
-                        elif order.stop_price < lowestSL:
+                        elif order.trigger_price < lowestSL:
                             secLowestSL = lowestSL
-                            lowestSL = order.stop_price
+                            lowestSL = order.trigger_price
                             secLowestSLPosID = lowestSLPosID
                             lowestSLPosID = posId
                             amountSecLowestSL = amountLowestSL
@@ -130,14 +130,14 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
                     else:
                         nmbShorts = nmbShorts + 1
                         if highestSL is None:
-                            secHighestSL = order.stop_price
-                            highestSL = order.stop_price
+                            secHighestSL = order.trigger_price
+                            highestSL = order.trigger_price
                             highestSLPosID = posId
                             amountHighestSL = order.amount
                             amountSecHighestSL = order.amount
-                        elif order.stop_price > highestSL:
+                        elif order.trigger_price > highestSL:
                             secHighestSL = highestSL
-                            highestSL = order.stop_price
+                            highestSL = order.trigger_price
                             secHighestSLPosID = highestSLPosID
                             highestSLPosID = posId
                             amountSecHighestSL = amountHighestSL
@@ -151,13 +151,13 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
                 # Cancel two Shorts with the highest SLs
                 if orderType == OrderType.SL and orderID == highestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing position with highest SL")
                     self.order_interface.update_order(order)
 
                 elif orderType == OrderType.SL and orderID == secHighestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing position with second highest SL")
                     self.order_interface.update_order(order)
 
@@ -177,9 +177,9 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
             orderId = TradingBot.generate_order_id(posId, OrderType.ENTRY)
 
             self.logger.info("sending replacement position and SL")
-            self.order_interface.send_order(Order(orderId=orderId, amount=-x, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=orderId, amount=-x, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=x, stop=secHighestSL, limit=None))
+                                                  amount=x, trigger=secHighestSL, limit=None))
 
             pos = Position(id=posId, entry=bars[0].open, amount=-x, stop=y, tstamp=bars[0].last_tick_tstamp)
             pos.status = PositionStatus.OPEN
@@ -193,13 +193,13 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
                 # Cancel two Longs with the lowest SLs
                 if orderType == OrderType.SL and orderID == lowestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing positions with lowest SL")
                     self.order_interface.update_order(order)
 
                 elif orderType == OrderType.SL and orderID == secLowestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing positions with second lowest SL")
                     self.order_interface.update_order(order)
 
@@ -219,9 +219,9 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
             orderId = TradingBot.generate_order_id(posId, OrderType.ENTRY)
 
             self.logger.info("sending replacement position and SL")
-            self.order_interface.send_order(Order(orderId=orderId, amount=-x, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=orderId, amount=-x, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=x, stop=secLowestSL, limit=None))
+                                                  amount=x, trigger=secLowestSL, limit=None))
 
             pos = Position(id=posId, entry=bars[0].open, amount=-x, stop=y, tstamp=bars[0].last_tick_tstamp)
             pos.status = PositionStatus.OPEN

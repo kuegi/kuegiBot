@@ -356,7 +356,7 @@ class TradingBot:
                 stop = self.get_stop_for_unmatched_amount(order.amount, bars)
                 if stop is not None:
                     newPos = Position(id=posId,
-                                      entry=order.limit_price if order.limit_price is not None else order.stop_price,
+                                      entry=order.limit_price if order.limit_price is not None else order.trigger_price,
                                       amount=order.amount,
                                       stop=stop,
                                       tstamp=bars[0].tstamp)
@@ -364,12 +364,12 @@ class TradingBot:
                     self.open_positions[posId] = newPos
                     self.logger.warn("found unknown entry %s %.1f @ %.1f, added position"
                                      % (order.id, order.amount,
-                                        order.stop_price if order.stop_price is not None else order.limit_price))
+                                        order.trigger_price if order.trigger_price is not None else order.limit_price))
                 else:
                     self.logger.warn(
                         "found unknown entry %s %.1f @ %.1f, but don't know what stop to use -> canceling"
                         % (order.id, order.amount,
-                           order.stop_price if order.stop_price is not None else order.limit_price))
+                           order.trigger_price if order.trigger_price is not None else order.limit_price))
                     self.order_interface.cancel_order(order)
 
             elif orderType == OrderType.SL and remainingPosition * order.amount < 0 and abs(
@@ -378,13 +378,13 @@ class TradingBot:
                 # only assume open position for the waiting SL with the remainingPosition also indicates it, 
                 # otherwise it might be a pending cancel (from executed TP) or already executed
                 newPos = Position(id=posId, entry=None, amount=-order.amount,
-                                  stop=order.stop_price, tstamp=bars[0].tstamp)
+                                  stop=order.trigger_price, tstamp=bars[0].tstamp)
                 newPos.status = PositionStatus.OPEN
                 remainingPosition -= newPos.amount
                 self.open_positions[posId] = newPos
                 self.logger.warn("found unknown exit %s %.1f @ %.1f, opened position for it" % (
                     order.id, order.amount,
-                    order.stop_price if order.stop_price is not None else order.limit_price))
+                    order.trigger_price if order.trigger_price is not None else order.limit_price))
             else:
                 waiting_tps.append(order)
 
@@ -396,7 +396,7 @@ class TradingBot:
                 self.logger.warn(
                     "didn't find matching position for order %s %.1f @ %.1f -> canceling"
                     % (order.id, order.amount,
-                       order.stop_price if order.stop_price is not None else order.limit_price))
+                       order.trigger_price if order.trigger_price is not None else order.limit_price))
                 self.order_interface.cancel_order(order)
 
         self.logger.info("found " + str(len(self.open_positions)) + " existing positions on sync")
@@ -434,7 +434,7 @@ class TradingBot:
                             posId, pos.current_open_amount))
                     self.order_interface.send_order(
                         Order(orderId=self.generate_order_id(posId, OrderType.SL), amount=-pos.current_open_amount,
-                              stop=pos.initial_stop))
+                              trigger=pos.initial_stop))
                 else:
                     self.logger.warn(
                         "found position with no stop in market. %s with %.1f contracts. but no initial stop on position had to close" % (
@@ -464,7 +464,7 @@ class TradingBot:
                         "couldn't account for " + str(
                             newPos.current_open_amount) + " open contracts. Adding position with stop for it")
                     self.order_interface.send_order(Order(orderId=self.generate_order_id(posId, OrderType.SL),
-                                                          stop=newPos.initial_stop, amount=-newPos.current_open_amount))
+                                                          trigger=newPos.initial_stop, amount=-newPos.current_open_amount))
                 elif account.open_position.quantity * remainingPosition > 0:
                     self.logger.info(
                         "couldn't account for " + str(remainingPosition) + " open contracts. Market close")

@@ -82,7 +82,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
 
         # find two lowest and highest SLs
         for order in account.open_orders:
-            if order.stop_price is not None:
+            if order.trigger_price is not None:
                 orderType = TradingBot.order_type_from_order_id(order.id)
                 posId = TradingBot.position_id_from_order_id(order.id)
 
@@ -91,14 +91,14 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                         if order.amount < 0:
                             nmbLongs = nmbLongs + 1
                             if lowestSL is None:
-                                lowestSL = order.stop_price
-                                secLowestSL = order.stop_price
+                                lowestSL = order.trigger_price
+                                secLowestSL = order.trigger_price
                                 lowestSLPosID = posId
                                 amountLowestSL = order.amount
                                 amountSecLowestSL = order.amount
-                            elif order.stop_price < lowestSL:
+                            elif order.trigger_price < lowestSL:
                                 secLowestSL = lowestSL
-                                lowestSL = order.stop_price
+                                lowestSL = order.trigger_price
                                 secLowestSLPosID = lowestSLPosID
                                 lowestSLPosID = posId
                                 amountSecLowestSL = amountLowestSL
@@ -106,14 +106,14 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                         else:
                             nmbShorts = nmbShorts + 1
                             if highestSL is None:
-                                secHighestSL = order.stop_price
-                                highestSL = order.stop_price
+                                secHighestSL = order.trigger_price
+                                highestSL = order.trigger_price
                                 highestSLPosID = posId
                                 amountHighestSL = order.amount
                                 amountSecHighestSL = order.amount
-                            elif order.stop_price > highestSL:
+                            elif order.trigger_price > highestSL:
                                 secHighestSL = highestSL
-                                highestSL = order.stop_price
+                                highestSL = order.trigger_price
                                 secHighestSLPosID = highestSLPosID
                                 highestSLPosID = posId
                                 amountSecHighestSL = amountHighestSL
@@ -129,13 +129,13 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                 # Cancel two Shorts with the highest SLs
                 if orderType == OrderType.SL and orderID == highestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing position with highest SL")
                     self.order_interface.update_order(order)
 
                 elif orderType == OrderType.SL and orderID == secHighestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing position with second highest SL")
                     self.order_interface.update_order(order)
 
@@ -155,9 +155,9 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
             orderId = TradingBot.generate_order_id(posId, OrderType.ENTRY)
 
             self.logger.info("sending replacement position and SL")
-            self.order_interface.send_order(Order(orderId=orderId, amount=-x, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=orderId, amount=-x, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=x, stop=secHighestSL, limit=None))
+                                                  amount=x, trigger=secHighestSL, limit=None))
 
             pos = Position(id=posId, entry=bars[0].open, amount=-x, stop=y, tstamp=bars[0].last_tick_tstamp)
             pos.status = PositionStatus.OPEN
@@ -171,13 +171,13 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                 # Cancel two Longs with the lowest SLs
                 if orderType == OrderType.SL and orderID == lowestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing positions with lowest SL")
                     self.order_interface.update_order(order)
 
                 elif orderType == OrderType.SL and orderID == secLowestSLPosID:
                     order.limit_price = None
-                    order.stop_price = None
+                    order.trigger_price = None
                     self.logger.info("Closing positions with second lowest SL")
                     self.order_interface.update_order(order)
 
@@ -197,9 +197,9 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
             orderId = TradingBot.generate_order_id(posId, OrderType.ENTRY)
 
             self.logger.info("sending replacement position and SL")
-            self.order_interface.send_order(Order(orderId=orderId, amount=-x, stop=None, limit=None))
+            self.order_interface.send_order(Order(orderId=orderId, amount=-x, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=x, stop=secLowestSL, limit=None))
+                                                  amount=x, trigger=secLowestSL, limit=None))
 
             pos = Position(id=posId, entry=bars[0].open, amount=-x, stop=y, tstamp=bars[0].last_tick_tstamp)
             pos.status = PositionStatus.OPEN
@@ -242,7 +242,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
 
         if not gotStop:
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id, type=OrderType.SL),
-                          stop=position.initial_stop, amount=-position.amount)
+                          trigger=position.initial_stop, amount=-position.amount)
             self.order_interface.send_order(order)
 
         if self.tp_fac > 0 and not gotTp:
@@ -278,15 +278,15 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                     amount = shortAmount
                 for order in account.open_orders:
                     if TradingBot.position_id_from_order_id(order.id) == position.id:
-                        if order.stop_price != stop or order.amount != amount or order.limit_price != entry:
+                        if order.trigger_price != stop or order.amount != amount or order.limit_price != entry:
                             entryBuffer = entry * self.limit_entry_offset_perc * 0.01
                             if amount > 0:
                                 entryBuffer = -entryBuffer
                             order.limit_price = entry + entryBuffer
-                            order.stop_price = entry
+                            order.trigger_price = entry
                             order.amount = amount
                             self.logger.info("changing order id: %s, amount: %.1f, stop price: %.1f, limit price: %.f, active: %s" %
-                                             (order.id, order.amount, order.stop_price, order.limit_price, order.active))
+                                             (order.id, order.amount, order.trigger_price, order.limit_price, order.active))
                             self.order_interface.update_order(order)
                             position.wanted_entry = entry
                             position.initial_stop = stop
@@ -314,7 +314,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                     # execution will trigger close and cancel of other orders
                     self.order_interface.send_order(
                         Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
-                              amount=-pos.amount, stop=None, limit=None))
+                              amount=-pos.amount, trigger=None, limit=None))
 
         # Consider slippage
         signalId = self.get_signal_id(bars)
@@ -329,10 +329,29 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
         entryBuffer = entry * self.limit_entry_offset_perc * 0.01
         if amount > 0:
             entryBuffer = -entryBuffer
-        self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY), amount=amount, stop=entry, limit=entry + entryBuffer))
+
         # need to add to the bots open pos too, so the execution of the market is not missed
         pos = Position(id=posId, entry=entry, amount=amount, stop=stop, tstamp=bars[0].tstamp)
         open_positions[posId] = pos
+        self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY), amount=amount, trigger=entry, limit=entry + entryBuffer))
+
+
+    def entry_by_market_order(self, entry, stop, open_positions, bars, direction):
+        expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
+        expectedExitSlippagePer = 0.0015
+        if direction == PositionDirection.LONG:
+            entry = self.symbol.normalizePrice(entry, roundUp=True)
+            stop = self.symbol.normalizePrice(stop, roundUp=False)
+            exitPrice = stop * (1 - expectedExitSlippagePer)
+            entry = entry * (1 + expectedEntrySlippagePer)
+        else:
+            entry = self.symbol.normalizePrice(entry, roundUp=False)
+            stop = self.symbol.normalizePrice(stop, roundUp=True)
+            exitPrice = stop * (1 + expectedExitSlippagePer)
+            entry = entry * (1 - expectedEntrySlippagePer)
+
+        amount = self.calc_pos_size(risk=self.risk_factor, entry=entry, exitPrice=exitPrice, atr=0)
+        self.open_new_position(direction, bars, stop, open_positions, entry, amount)
 
 
 class ATRrangeSL(ExitModule):
@@ -355,7 +374,7 @@ class ATRrangeSL(ExitModule):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         # trail the stop to "break even" when the price move a given factor of the entry-risk in the right direction
         ep = bars[0].high if position.amount > 0 else bars[0].low
-        newStop = order.stop_price
+        newStop = order.trigger_price
         direction = 1 if position.amount > 0 else -1
         refRange = 0
         atrId = "ATR_" + str(self.atrPeriod)
@@ -379,6 +398,6 @@ class ATRrangeSL(ExitModule):
             elif ep > (position.wanted_entry + refRange * self.rangeFacTrigger) and position.amount > 0 and newStop < targetSL:
                 newStop = self.symbol.normalizePrice(targetSL, roundUp=position.amount < 0)
 
-            if newStop > order.stop_price and position.amount > 0 or newStop < order.stop_price and position.amount < 0:
-                order.stop_price = newStop
+            if newStop > order.trigger_price and position.amount > 0 or newStop < order.trigger_price and position.amount < 0:
+                order.trigger_price = newStop
                 to_update.append(order)

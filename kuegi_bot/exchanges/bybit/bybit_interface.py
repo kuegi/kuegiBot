@@ -85,15 +85,15 @@ class ByBitInterface(ExchangeWithWS):
         order_type = "Market"
         if order.limit_price is not None:
             order_type = "Limit"
-        if order.stop_price is not None and (self.last - order.stop_price) * order.amount >= 0:
-            order.stop_price = None  # already triggered
+        if order.trigger_price is not None and (self.last - order.trigger_price) * order.amount >= 0:
+            order.trigger_price = None  # already triggered
 
-        if order.stop_price is not None:
+        if order.trigger_price is not None:
             # conditional order
             base_side = self.symbol_info.tickSize * (
                 1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
             # considered lower before)
-            normalizedStop = self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)
+            normalizedStop = self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)
             result = self.handle_result(lambda:self.pybit.place_order(
                 side=("Buy" if order.amount > 0 else "Sell"),
                 category="inverse",
@@ -122,13 +122,13 @@ class ByBitInterface(ExchangeWithWS):
                 order.exchange_id = result['orderId']
 
     def internal_update_order(self, order: Order):
-        if order.stop_price is not None:
+        if order.trigger_price is not None:
             self.handle_result(lambda:self.pybit.amend_order(
                 orderId=order.exchange_id,
                 category = "inverse",
                 symbol=self.symbol,
                 qty=strOrNone(int(abs(order.amount))),
-                triggerPrice=strOrNone(self.symbol_info.normalizePrice(order.stop_price, order.amount > 0)),
+                triggerPrice=strOrNone(self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)),
                 price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))).get("list"))
         else:
             self.handle_result(lambda:self.pybit.amend_order(
@@ -252,8 +252,8 @@ class ByBitInterface(ExchangeWithWS):
                                 self.logger.info("ignoring delayed update for %s " % prev.id)
                                 continue
                             # ws removes stop price when executed
-                            if order.stop_price is None:
-                                order.stop_price = prev.stop_price
+                            if order.trigger_price is None:
+                                order.trigger_price = prev.trigger_price
                                 order.stop_triggered= True # there was a stop and its no longer there -> it was triggered and order turned to linear
                             if order.limit_price is None:
                                 order.limit_price = prev.limit_price
@@ -405,7 +405,7 @@ class ByBitInterface(ExchangeWithWS):
         if stop is None and ext is not None and 'triggerPrice' in ext.keys():
             stop = ext['triggerPrice']
         order = Order(orderId=o["orderLinkId"],
-                      stop=float(stop) if stop is not None else None,
+                      trigger=float(stop) if stop is not None else None,
                       limit=float(o["price"]) if o['orderType'] == 'Limit' else None,
                       amount=float(o["qty"]) * sideMulti)
         if "orderStatus" in o.keys():

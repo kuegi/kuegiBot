@@ -157,9 +157,9 @@ class BackTest(OrderInterface):
         if order.limit_price and not force_taker:
             price = order.limit_price
             fee = self.maker_fee
-        elif order.stop_price:
-            price = int(order.stop_price * (1 + math.copysign(self.market_slipage_percent,
-                                                              order.amount) / 100) / self.symbol.tickSize) * self.symbol.tickSize
+        elif order.trigger_price:
+            price = int(order.trigger_price * (1 + math.copysign(self.market_slipage_percent,
+                                                                 order.amount) / 100) / self.symbol.tickSize) * self.symbol.tickSize
         else:
             price = intrabar.open * (1 + math.copysign(self.market_slipage_percent, order.amount) / 100)
         price = min(intrabar.high,
@@ -202,16 +202,16 @@ class BackTest(OrderInterface):
                 order.executed_price))
 
     def orderKeyForSort(self, order):
-        if order.stop_price is None and order.limit_price is None:
+        if order.trigger_price is None and order.limit_price is None:
             return 0
         # sort buys after sells (higher number) when bar is falling
         long_fac = 1 if self.bars[0].close > self.bars[0].open else 2
         short_fac = 1 if self.bars[0].close < self.bars[0].open else 2
-        if order.stop_price is not None:
+        if order.trigger_price is not None:
             if order.amount > 0:
-                return order.stop_price
+                return order.trigger_price
             else:
-                return -order.stop_price
+                return -order.trigger_price
         else:  # limit -> bigger numbers to be sorted after the stops
             if order.amount > 0:
                 return (self.bars[0].close + self.bars[0].close - order.limit_price) + self.bars[0].close * long_fac
@@ -239,18 +239,18 @@ class BackTest(OrderInterface):
                 execute_order_only_on_close = only_on_close
                 if order.tstamp > intrabar_to_check.tstamp:
                     execute_order_only_on_close = True  # was changed during execution on this bar, might have changed the price. only execute if close triggered it
-                if order.limit_price is None and order.stop_price is None:
+                if order.limit_price is None and order.trigger_price is None:
                     should_execute = True
-                elif order.stop_price and not order.stop_triggered:
-                    if (order.amount > 0 and order.stop_price < intrabar_to_check.high) or (
-                            order.amount < 0 and order.stop_price > intrabar_to_check.low):
+                elif order.trigger_price and not order.stop_triggered:
+                    if (order.amount > 0 and order.trigger_price < intrabar_to_check.high) or (
+                            order.amount < 0 and order.trigger_price > intrabar_to_check.low):
                         order.stop_triggered = True
                         something_changed = True
                         if order.limit_price is None:
                             # execute stop market
                             should_execute = True
                             if only_on_close:  # order just came in and executed right away: execution on the worst price cause can't assume anything better
-                                order.stop_price = intrabar_to_check.low if order.amount < 0 else intrabar_to_check.high
+                                order.trigger_price = intrabar_to_check.low if order.amount < 0 else intrabar_to_check.high
 
                         elif ((order.amount > 0 and order.limit_price > intrabar_to_check.close) or (
                                 order.amount < 0 and order.limit_price < intrabar_to_check.close)):

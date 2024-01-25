@@ -125,9 +125,9 @@ class OrderType(Enum):
 
 
 class Order:
-    def __init__(self, orderId=None, stop=None, limit=None, amount: float = 0):
+    def __init__(self, orderId=None, trigger=None, limit=None, amount: float = 0):
         self.id = orderId
-        self.stop_price = stop # change to trigger_price
+        self.trigger_price = trigger
         self.limit_price = limit
         self.amount = amount
         self.executed_amount = 0
@@ -141,7 +141,7 @@ class Order:
     def __str__(self):
         string = f"{self.id} ({'active' if self.active else 'inactive'}, " \
                  f"{self.exchange_id[-8:] if self.exchange_id is not None else None})" \
-                 f" {self.amount}@{self.limit_price}/{self.stop_price} at {datetime.fromtimestamp(self.tstamp)}"
+                 f" {self.amount}@{self.limit_price}/{self.trigger_price} at {datetime.fromtimestamp(self.tstamp)}"
         if self.executed_price is not None:
             string += f" ex: {self.executed_amount}@{self.executed_price} at " \
                       f"{datetime.fromtimestamp(self.execution_tstamp) if self.execution_tstamp is not None else None}"
@@ -153,12 +153,12 @@ class Order:
             precision = 3
         format = "{:." + str(precision) + "f}"
         amount = format.format(self.amount)
-        if self.limit_price is None and self.stop_price is None:
+        if self.limit_price is None and self.trigger_price is None:
             return "%s %s @ market" % (self.id, amount)
         else:
             price = ""
-            if self.stop_price is not None:
-                price += "%.3f" % self.stop_price
+            if self.trigger_price is not None:
+                price += "%.3f" % self.trigger_price
             if self.limit_price is not None:
                 price += "/%.3f" % self.limit_price
             return "%s %s @ %s" % (

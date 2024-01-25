@@ -80,7 +80,7 @@ class SimpleBE(ExitModule):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         if position is not None and self.factor > 0:
             # trail
-            newStop = order.stop_price
+            newStop = order.trigger_price
             refRange = 0
             if self.atrPeriod > 0:
                 atrId = "atr_4h" + str(self.atrPeriod)
@@ -101,8 +101,8 @@ class SimpleBE(ExitModule):
                             and (be - newStop) * position.amount > 0:
                         newStop= self.symbol.normalizePrice(be, roundUp=position.amount < 0)
 
-            if newStop != order.stop_price:
-                order.stop_price = newStop
+            if newStop != order.trigger_price:
+                order.trigger_price = newStop
                 to_update.append(order)
 
 
@@ -118,7 +118,7 @@ class QuickBreakEven(ExitModule):
         self.logger.info("init QuickBreakEven %i" % (self.seconds_to_BE))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        newStop = order.stop_price
+        newStop = order.trigger_price
         current_tstamp = bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
 
         refRange = abs(position.wanted_entry - position.initial_stop)
@@ -136,8 +136,8 @@ class QuickBreakEven(ExitModule):
 
                 newStop = self.symbol.normalizePrice(newStop, roundUp=position.amount < 0)
 
-            if newStop != order.stop_price:
-                order.stop_price = newStop
+            if newStop != order.trigger_price:
+                order.trigger_price = newStop
                 to_update.append(order)
 
 
@@ -156,7 +156,7 @@ class MaxSLDiff(ExitModule):
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         if position is not None and self.maxATRDiff > 0 and self.atrPeriod > 0:
             # trail
-            newStop = order.stop_price
+            newStop = order.trigger_price
             atrId = "atr_4h" + str(self.atrPeriod)
             refRange = Indicator.get_data_static(bars[1], atrId)
             if refRange is None:
@@ -169,8 +169,8 @@ class MaxSLDiff(ExitModule):
                 if (maxdistStop - newStop) * position.amount > 0:
                     newStop= self.symbol.normalizePrice(maxdistStop, roundUp=position.amount < 0)
 
-            if math.fabs(newStop - order.stop_price) > 0.5*self.symbol.tickSize:
-                order.stop_price = newStop
+            if math.fabs(newStop - order.trigger_price) > 0.5*self.symbol.tickSize:
+                order.trigger_price = newStop
                 to_update.append(order)
 
 
@@ -190,7 +190,7 @@ class TimedExit(ExitModule):
         current_tstamp= bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
         if position is not None and position.entry_tstamp is not None\
                 and current_tstamp - position.entry_tstamp > self.minutes_till_exit*60:
-            order.stop_price= None # make it market
+            order.trigger_price= None # make it market
             order.limit_price= None
             to_update.append(order)
 
@@ -223,12 +223,12 @@ class FixedPercentage(ExitModule):
         self.logger.info("init Percentage Trail %.1f %s %.1f" % (self.slPercentage, self.useInitialSLRange, self.rangeFactor))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        if order.stop_price is None:
+        if order.trigger_price is None:
             return
 
         if position is not None:
             extremePoint = bars[0].high if position.amount > 0 else bars[0].low     # new highest/lowest price
-            currentStop = sl_perc = sl_range= order.stop_price                      # current SL price
+            currentStop = sl_perc = sl_range= order.trigger_price                      # current SL price
             refRange = abs(position.wanted_entry - position.initial_stop)           # initial SL range in $
             refRangePercent = refRange/position.wanted_entry                        # initial SL range in %
 
@@ -249,9 +249,9 @@ class FixedPercentage(ExitModule):
                     sl_range = self.symbol.normalizePrice(sl2, roundUp=position.amount < 0)
                 newStop = min(sl_perc, sl_range, currentStop)
 
-            if newStop != order.stop_price:
-                self.logger.info("changing SL. Previous Stop: " + str(order.stop_price) + "; New Stop: " + str(newStop))
-                order.stop_price = newStop
+            if newStop != order.trigger_price:
+                self.logger.info("changing SL. Previous Stop: " + str(order.trigger_price) + "; New Stop: " + str(newStop))
+                order.trigger_price = newStop
                 to_update.append(order)
 
 

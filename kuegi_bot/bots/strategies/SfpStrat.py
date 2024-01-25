@@ -154,7 +154,7 @@ class SfpStrategy(ChannelStrategy):
                     # execution will trigger close and cancel of other orders
                     self.order_interface.send_order(
                         Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
-                              amount=-pos.amount, stop=None, limit=None))
+                              amount=-pos.amount, trigger=None, limit=None))
 
         if self.init_stop_type == 1:
             stop = extreme
@@ -183,14 +183,14 @@ class SfpStrategy(ChannelStrategy):
             open_positions[posId] = pos
             #all_open_pos[posId] = pos # need to add to the bots open pos too, so the execution of the market is not missed
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                  amount=amount, stop=None, limit=None))
+                                                  amount=amount, trigger=None, limit=None))
             self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.SL),
-                                                  amount=-amount, stop=stop, limit=None))
+                                                  amount=-amount, trigger=stop, limit=None))
             if self.tp_fac > 0:
                 ref = entry - stop
                 if self.tp_use_atr:
                     ref = math.copysign(data.atr, entry - stop)
                 tp = entry + ref * self.tp_fac
                 self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.TP),
-                                                      amount=-amount, stop=None, limit=tp))
+                                                      amount=-amount, trigger=None, limit=tp))
             pos.status = PositionStatus.OPEN

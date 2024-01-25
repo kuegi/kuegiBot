@@ -64,7 +64,7 @@ class KuegiStrategy(ChannelStrategy):
         if not gotStop:
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,
                                                                type=OrderType.SL),
-                          stop=position.initial_stop,
+                          trigger=position.initial_stop,
                           amount=-position.amount)
             self.order_interface.send_order(order)
         if self.tp_fac > 0 and not gotTp:
@@ -199,8 +199,8 @@ class KuegiStrategy(ChannelStrategy):
                                 if amount * order.amount < 0:
                                     self.logger.warn("updating order switching direction")
                                 changed = False
-                                changed = changed or order.stop_price != newEntry
-                                order.stop_price = newEntry
+                                changed = changed or order.trigger_price != newEntry
+                                order.trigger_price = newEntry
                                 if self.limit_entry_offset_perc is not None:
                                     newLimit = newEntry - entryBuffer * math.copysign(1, amount)
                                     changed = changed or order.limit_price != newLimit
@@ -226,7 +226,7 @@ class KuegiStrategy(ChannelStrategy):
                     entryBuffer = longEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
 
                     self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                          amount=longAmount, stop=longEntry,
+                                                          amount=longAmount, trigger=longEntry,
                                                           limit=longEntry - entryBuffer if entryBuffer is not None else None))
                     open_positions[posId] = Position(id=posId, entry=longEntry, amount=longAmount, stop=stopLong,
                                                      tstamp=bars[0].tstamp)
@@ -234,7 +234,7 @@ class KuegiStrategy(ChannelStrategy):
                     posId = TradingBot.full_pos_id(signalId, PositionDirection.SHORT)
                     entryBuffer = shortEntry * self.limit_entry_offset_perc * 0.01 if self.limit_entry_offset_perc is not None else None
                     self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
-                                                          amount=shortAmount, stop=shortEntry,
+                                                          amount=shortAmount, trigger=shortEntry,
                                                           limit=shortEntry + entryBuffer if entryBuffer is not None else None))
                     open_positions[posId] = Position(id=posId, entry=shortEntry, amount=shortAmount,
                                                      stop=stopShort, tstamp=bars[0].tstamp)

@@ -310,13 +310,13 @@ class BitMEX(object):
         execInst= None
         type= 'Limit'
         if order.limit_price is not None:
-            if order.stop_price is not None:
+            if order.trigger_price is not None:
                 type = 'StopLimit'
                 execInst= "LastPrice"
             else:
                 type= 'Limit'
         else:
-            if order.stop_price is not None:
+            if order.trigger_price is not None:
                 type = 'Stop'
                 execInst= "LastPrice"
             else:
@@ -326,7 +326,7 @@ class BitMEX(object):
             'symbol': self.symbol,
             'orderQty': order.amount,
             'price': order.limit_price,
-            'stopPx': order.stop_price,
+            'stopPx': order.trigger_price,
             'execInst': execInst,
             'clOrdID': order.id,
             'ordType': type
@@ -341,7 +341,7 @@ class BitMEX(object):
         postdict = {
             'orderQty': order.amount,
             'price': order.limit_price,
-            'stopPx': order.stop_price,
+            'stopPx': order.trigger_price,
             'origClOrdID': order.id
         }
         return self._curl_bitmex(path=endpoint, postdict=postdict, verb="PUT")

@@ -500,23 +500,6 @@ class StrategyOne(TrendStrategy):
             if self.telegram is not None:
                 self.telegram.send_log("No new entries for now.")
 
-    def entry_by_market_order(self, entry, stop, open_positions, bars, direction):
-        expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
-        expectedExitSlippagePer = 0.0015
-        if direction == PositionDirection.LONG:
-            entry = self.symbol.normalizePrice(entry, roundUp=True)
-            stop = self.symbol.normalizePrice(stop, roundUp=False)
-            exitPrice = stop * (1 - expectedExitSlippagePer)
-            entry = entry * (1 + expectedEntrySlippagePer)
-        else:
-            entry = self.symbol.normalizePrice(entry, roundUp=False)
-            stop = self.symbol.normalizePrice(stop, roundUp=True)
-            exitPrice = stop * (1 + expectedExitSlippagePer)
-            entry = entry * (1 - expectedEntrySlippagePer)
-
-        amount = self.calc_pos_size(risk=self.risk_factor, entry=entry, exitPrice = exitPrice, atr=0)
-        self.open_new_position(direction, bars, stop, open_positions, entry, amount)
-
     def calc_entry_and_exit(self, bars):
         # Calculate potential trade entries
         longEntry = self.symbol.normalizePrice(self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-1], roundUp=True)

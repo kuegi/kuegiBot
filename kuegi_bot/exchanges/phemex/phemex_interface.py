@@ -149,17 +149,17 @@ class PhemexInterface(ExchangeWithWS):
 
     def internal_send_order(self, order: Order):
         order_type = "Market"
-        if order.stop_price is not None and (self.last - order.stop_price) * order.amount >= 0:
-            order.stop_price = None  # already triggered
+        if order.trigger_price is not None and (self.last - order.trigger_price) * order.amount >= 0:
+            order.trigger_price = None  # already triggered
         if order.limit_price is not None:
-            if order.stop_price is not None:
+            if order.trigger_price is not None:
                 order_type = "StopLimit"
             else:
                 order_type = "Limit"
-        elif order.stop_price is not None:
+        elif order.trigger_price is not None:
             order_type = "Stop"
-            if (order.stop_price >= self.last and order.amount < 0) or \
-                    (order.stop_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
+            if (order.trigger_price >= self.last and order.amount < 0) or \
+                    (order.trigger_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
                 order_type = "Market"
 
         params = dict(symbol=self.symbol,
@@ -167,9 +167,9 @@ class PhemexInterface(ExchangeWithWS):
                       side="Buy" if order.amount > 0 else "Sell",
                       orderQty=abs(order.amount),
                       ordType=order_type,
-                      stopPxEp=self.scale_price(order.stop_price),
+                      stopPxEp=self.scale_price(order.trigger_price),
                       priceEp=self.scale_price(order.limit_price),
-                      triggerType="ByLastPrice" if order.stop_price is not None else None
+                      triggerType="ByLastPrice" if order.trigger_price is not None else None
                       )
         result = self.client.place_order(params)
         if "data" in result.keys() and "orderID" in result["data"]["orderID"]:
@@ -177,26 +177,26 @@ class PhemexInterface(ExchangeWithWS):
 
     def internal_update_order(self, order: Order):
         order_type = "Market"
-        if order.stop_price is not None and (self.last - order.stop_price) * order.amount >= 0:
-            order.stop_price = None  # already triggered
+        if order.trigger_price is not None and (self.last - order.trigger_price) * order.amount >= 0:
+            order.trigger_price = None  # already triggered
         if order.limit_price is not None:
-            if order.stop_price is not None:
+            if order.trigger_price is not None:
                 order_type = "StopLimit"
             else:
                 order_type = "Limit"
-        elif order.stop_price is not None:
+        elif order.trigger_price is not None:
             order_type = "Stop"
-            if (order.stop_price >= self.last and order.amount < 0) or \
-                    (order.stop_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
+            if (order.trigger_price >= self.last and order.amount < 0) or \
+                    (order.trigger_price <= self.last and order.amount > 0):  # prevent error of "would trigger immediatly"
                 order_type = "Market"
 
         params = dict(symbol=self.symbol,
                       side="Buy" if order.amount > 0 else "Sell",
                       orderQty=abs(order.amount),
                       ordType=order_type,
-                      stopPxEp=self.scale_price(order.stop_price),
+                      stopPxEp=self.scale_price(order.trigger_price),
                       priceEp=self.scale_price(order.limit_price),
-                      triggerType="ByLastPrice" if order.stop_price is not None else None
+                      triggerType="ByLastPrice" if order.trigger_price is not None else None
                       )
         self.client.amend_order(symbol=self.symbol, orderID=order.exchange_id, params=params)
 
@@ -277,7 +277,7 @@ class PhemexInterface(ExchangeWithWS):
         stop = self.noneIfZero(o['stopPx']) if 'stopPx' in o else self.noneIfZero(o['stopPxEp'], True)
         price = self.noneIfZero(o['price']) if 'price' in o else self.noneIfZero(o['priceEp'], True)
         order = Order(orderId=o['clOrdID'],
-                      stop=stop,
+                      trigger=stop,
                       limit=price,
                       amount=o['orderQty'] * sideMult)
         order.exchange_id = o['orderID']
@@ -289,5 +289,5 @@ class PhemexInterface(ExchangeWithWS):
         order.executed_price = o['cumQty'] / val if val != 0 else 0
         if order.executed_amount != 0:
             order.execution_tstamp = o['transactTimeNs'] / 1000000000
-        order.stop_triggered = order.stop_price is not None and o['ordStatus'] == Client.ORDER_STATUS_TRIGGERED
+        order.stop_triggered = order.trigger_price is not None and o['ordStatus'] == Client.ORDER_STATUS_TRIGGERED
         return order
