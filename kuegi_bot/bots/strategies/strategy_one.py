@@ -174,12 +174,12 @@ class StrategyOne(TrendStrategy):
 
         orderType = TradingBot.order_type_from_order_id(order.id)
         # cancel entries not allowed
-        if orderType == OrderType.ENTRY and position.status == PositionStatus.PENDING and \
-                ((position.amount>0 and not self.data_strat_one.longsAllowed) or
-                 (position.amount<0 and not self.data_strat_one.shortsAllowed)):
-            self.logger.info("canceling: " + position.id)
-            to_cancel.append(order)
-            del open_positions[position.id]
+        #if orderType == OrderType.ENTRY and position.status == PositionStatus.PENDING and \
+        #        ((position.amount>0 and not self.data_strat_one.longsAllowed) or
+        #         (position.amount<0 and not self.data_strat_one.shortsAllowed)):
+        #    self.logger.info("canceling: " + position.id)
+        #    to_cancel.append(order)
+        #    del open_positions[position.id]
 
     def got_data_for_position_sync(self, bars: List[Bar]) -> bool:
         result= super().got_data_for_position_sync(bars)
@@ -191,7 +191,8 @@ class StrategyOne(TrendStrategy):
 
         if not self.entries_allowed(bars):
             self.logger.info("New entries not allowed")
-            self.telegram.send_log("New entries not allowed")
+            if self.telegram is not None:
+                self.telegram.send_log("New entries not allowed")
             return
 
         if self.ta_data_trend_strat.atr_4h is None:

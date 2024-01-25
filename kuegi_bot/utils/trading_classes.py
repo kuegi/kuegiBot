@@ -127,7 +127,7 @@ class OrderType(Enum):
 class Order:
     def __init__(self, orderId=None, stop=None, limit=None, amount: float = 0):
         self.id = orderId
-        self.stop_price = stop
+        self.stop_price = stop # change to trigger_price
         self.limit_price = limit
         self.amount = amount
         self.executed_amount = 0
