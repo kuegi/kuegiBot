@@ -11,6 +11,8 @@ from kuegi_bot.exchanges.bybit.bybit_websocket import BybitWebsocket
 from kuegi_bot.utils.trading_classes import Order, Bar, TickerData, AccountPosition, \
     Symbol, process_low_tf_bars, parse_utc_timestamp
 from ..ExchangeWithWS import ExchangeWithWS
+from kuegi_bot.bots.trading_bot import TradingBot
+from kuegi_bot.utils.trading_classes import OrderType
 
 
 def strOrNone(input):
@@ -28,6 +30,8 @@ class ByBitInterface(ExchangeWithWS):
         logging.basicConfig(filename="pybit.log", level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
         #hosts = ["wss://stream-testnet.bybit.com/realtime"] if settings.IS_TEST \
         #    else ["wss://stream.bybit.com/realtime", "wss://stream.bytick.com/realtime"]
+        self.longPos = AccountPosition(settings.SYMBOL, 0, 0, 0)
+        self.shortPos = AccountPosition(settings.SYMBOL, 0, 0, 0)
         super().__init__(settings, logger,
                          ws=BybitWebsocket(wsURLs=None,
                                            api_key=settings.API_KEY,
@@ -57,69 +61,121 @@ class ByBitInterface(ExchangeWithWS):
 
     def initPositions(self):
         api_positions= self.handle_result(lambda: self.pybit.get_positions(category = 'inverse', symbol=self.symbol)).get("list")
-        wallet_balance = self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="CONTRACT", coin=self.baseCurrency)).get("list")
-        for coin in wallet_balance[0]['coin']:
+        api_wallet = self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="CONTRACT", coin=self.baseCurrency)).get("list")
+        for coin in api_wallet[0]['coin']:
             if coin['coin'] == self.baseCurrency:
                 balance = float(coin['walletBalance'])
                 break
-        self.positions[self.symbol] = AccountPosition(self.symbol, 0, 0, 0)
+        self.longPos = AccountPosition(self.symbol, 0, 0, balance)
+        self.shortPos = AccountPosition(self.symbol, 0, 0, balance)
         if api_positions is not None:
             for pos in api_positions:
-                if pos['positionValue']!=0:
-                    sizefac = -1 if pos["side"] == "Sell" else 1
-                    quantity = float(pos["size"]) * sizefac
-                    self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
-                                                                    avgEntryPrice=float(pos["avgPrice"]),
-                                                                    quantity=quantity,
-                                                                    walletBalance=balance)
+                if pos["side"] == "Sell":
+                    self.shortPos.avgEntryPrice = float(pos["avgPrice"])
+                    self.shortPos.quantity = -1 * float(pos["size"])
+                else:
+                    self.longPos.avgEntryPrice = float(pos["avgPrice"])
+                    self.longPos.quantity = float(pos["size"])
+        self.updatePosition_internally()
+
+    def updatePosition_internally(self):
+        if self.longPos.quantity > -self.shortPos.quantity:
+            entry = self.longPos.avgEntryPrice
+        else:
+            entry = self.shortPos.avgEntryPrice
+
+        if self.symbol in self.positions.keys() and \
+                self.positions[self.symbol].quantity != self.longPos.quantity + self.shortPos.quantity:
+            self.logger.info("position changed %.2f -> %.2f" % (
+                self.positions[self.symbol].quantity, self.longPos.quantity + self.shortPos.quantity))
+
+        self.positions[self.symbol] = AccountPosition(self.symbol,
+                                                      quantity=self.longPos.quantity + self.shortPos.quantity,
+                                                      avgEntryPrice=entry,
+                                                      walletBalance=self.longPos.walletBalance)
 
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
-        #if order.stop_price is not None:
         result = self.handle_result(lambda:self.pybit.cancel_order(category='inverse',order_id=order.exchange_id, symbol=self.symbol))
-        #else:
-        #    self.handle_result(lambda:self.pybit.cancel_active_order(order_id=order.exchange_id, symbol=self.symbol)).get("list")
+        self.logger.info("cancel order result:: %s" % (str(result)))
 
     def internal_send_order(self, order: Order):
-        order_type = "Market"
-        if order.limit_price is not None:
-            order_type = "Limit"
-        if order.trigger_price is not None and (self.last - order.trigger_price) * order.amount >= 0:
-            order.trigger_price = None  # already triggered
 
         if order.trigger_price is not None:
-            # conditional order
-            base_side = self.symbol_info.tickSize * (
-                1 if order.amount < 0 else -1)  # buy stops are triggered when price goes higher (so it is
-            # considered lower before)
-            normalizedStop = self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)
-            result = self.handle_result(lambda:self.pybit.place_order(
-                side=("Buy" if order.amount > 0 else "Sell"),
-                category="inverse",
-                symbol=self.symbol,
-                orderType=order_type,
-                qty=strOrNone(int(abs(order.amount))),
-                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0)),
-                triggerPrice=strOrNone(normalizedStop),
-                orderLinkId=order.id,
-                #base_price=strOrNone(round(normalizedStop + base_side, self.symbol_info.pricePrecision)),
-                timeInForce="GTC"))#,# #trigger_by="LastPrice")
-            if result is not None:
-                order.exchange_id = result['orderId']
+            # conditional
+            # types: entry / stop-limit, SL, TP, etc.
+            # execution type: Market and Limit
+            if self.last < order.trigger_price:
+                triggerDirection = 1
+            else:
+                triggerDirection = 2
 
+            if (self.last - order.trigger_price) * order.amount >= 0:
+                # condition is already true
+                order.trigger_price = None
+
+        if order.limit_price is not None:
+            # limit order
+            # types: entry / stop-limit, (TP)
+            # execution type: Limit
+            order_type = "Limit"
         else:
-            result =  self.handle_result(lambda:self.pybit.place_order(
-                side=("Buy" if order.amount > 0 else "Sell"),
-                symbol=self.symbol,
-                category = "inverse",
-                orderType=order_type,
-                qty=strOrNone(int(abs(order.amount))),
-                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0)),
-                orderLinkId=order.id,
-                timeInForce="GTC"))
-            if result is not None:
-                order.exchange_id = result['orderId']
+            # execution type: Market
+            order_type = "Market"
+
+        if order.trigger_price is not None:
+            if self.last < order.trigger_price:
+                triggerDirection = 1
+            else:
+                triggerDirection = 2
+
+        orderType = TradingBot.order_type_from_order_id(order.id)
+        if orderType == OrderType.ENTRY:
+            if order.trigger_price is not None:
+                # conditional order
+                result = self.handle_result(lambda:self.pybit.place_order(
+                    side=("Buy" if order.amount > 0 else "Sell"),
+                    category="inverse",
+                    symbol=self.symbol,
+                    orderType=order_type,
+                    qty=strOrNone(int(abs(order.amount))),
+                    price=strOrNone(order.limit_price),
+                    triggerDirection = int(triggerDirection),
+                    triggerPrice=strOrNone(order.trigger_price),
+                    orderLinkId=order.id,
+                    timeInForce="GTC"))
+                if result is not None:
+                    order.exchange_id = result['orderId']
+            else:
+                result =  self.handle_result(lambda:self.pybit.place_order(
+                    side=("Buy" if order.amount > 0 else "Sell"),
+                    symbol=self.symbol,
+                    category = "inverse",
+                    orderType=order_type,
+                    qty=strOrNone(int(abs(order.amount))),
+                    price=strOrNone(order.limit_price),
+                    orderLinkId=order.id,
+                    timeInForce="GTC"))
+                if result is not None:
+                    order.exchange_id = result['orderId']
+        elif orderType == OrderType.SL:
+            if order.trigger_price is not None:
+                # conditional order
+                result = self.handle_result(lambda: self.pybit.place_order(
+                    side=("Buy" if order.amount > 0 else "Sell"),
+                    category="inverse",
+                    symbol=self.symbol,
+                    orderType=order_type,
+                    slOrderType = "Market",
+                    qty=strOrNone(int(abs(order.amount))),
+                    triggerDirection=int(triggerDirection),
+                    triggerPrice=strOrNone(order.trigger_price),
+                    tpslMode = "Full",
+                    orderLinkId=order.id,
+                    timeInForce="GTC"))
+                if result is not None:
+                    order.exchange_id = result['orderId']
 
     def internal_update_order(self, order: Order):
         if order.trigger_price is not None:
@@ -219,6 +275,7 @@ class ByBitInterface(ExchangeWithWS):
             for o in apiOrders:
                 order = self.orderDictToOrder(o)
                 if order.active:
+                    self.logger.info("order: %s" % (str(order)))
                     self.orders[order.exchange_id] = order
 
     def socket_callback(self, topic):
@@ -227,7 +284,6 @@ class ByBitInterface(ExchangeWithWS):
             msgs = self.ws.get_data(topic)
             while len(msgs) > 0:
                 if topic == 'order' or topic == 'stopOrder':
-                    #print('order msg arrived:')
                     # {'orderId': 'c9cc56cb-164c-4978-811e-2d2e4ef6153a', 'orderLinkId': '', 'blockTradeId': '',
                     # 'symbol': 'BTCUSD', 'price': '0.00', 'qty': '10', 'side': 'Buy', 'isLeverage': '', 'positionIdx': 0,
                     # 'orderStatus': 'Untriggered', 'cancelType': 'UNKNOWN', 'rejectReason': 'EC_NoError', 'avgPrice': '0',
@@ -238,11 +294,11 @@ class ByBitInterface(ExchangeWithWS):
                     # 'lastPriceOnCreated': '36972.00', 'reduceOnly': True, 'closeOnTrigger': True, 'smpType': 'None',
                     # 'smpGroup': 0, 'smpOrderId': '', 'tpslMode': 'Full', 'tpLimitPrice': '', 'slLimitPrice': '',
                     # 'placeType': '', 'createdTime': '1701099868909', 'updatedTime': '1701099868909'}
+                    #self.logger.info("order msg arrived")
                     for o in msgs:
                         if o['symbol'] != self.symbol:
                             continue  # ignore orders not of my symbol
                         order = self.orderDictToOrder(o)
-                        #print(order)
                         prev: Order = self.orders[
                             order.exchange_id] if order.exchange_id in self.orders.keys() else None
                         if prev is not None:
@@ -261,16 +317,19 @@ class ByBitInterface(ExchangeWithWS):
                         if not prev.active and prev.execution_tstamp == 0:
                             prev.execution_tstamp = datetime.utcnow().timestamp()
                         self.orders[order.exchange_id] = prev
-
-                        self.logger.info("received order update: %s" % (str(order)))
                 elif topic == 'execution':
-                    #print('execution msg arrived:')
-                    # {'symbol': 'BTCUSD', 'side': 'Buy', 'order_id': '96319991-c6ac-4ad5-bdf8-a5a79b624951',
-                    # 'exec_id': '22add7a8-bb15-585f-b068-3a8648f6baff', 'order_link_id': '', 'price': '7307.5',
-                    # 'order_qty': 1, 'exec_type': 'Trade', 'exec_qty': 1, 'exec_fee': '0.00000011', 'leaves_qty': 0,
-                    # 'is_maker': False, 'trade_time': '2019-12-26T20:02:19.576Z'}
+                    #{'blockTradeId': '', 'category': 'inverse', 'execFee': '0.00000006',
+                    # 'execId': '4e995905-e9f5-51f1-bdf6-5c4d03a27b7d',
+                    # 'execPrice': '43022.00', 'execQty': '4', 'execTime': '1706556378218', 'execType': 'Trade',
+                    # 'execValue': '0.00009297', 'feeRate': '0.00055', 'indexPrice': '0.00', 'isLeverage': '',
+                    # 'isMaker': False, 'leavesQty': '0', 'markIv': '', 'markPrice': '43025.24',
+                    # 'orderId': 'f8cebf1d-128c-4352-862a-97338ce1b813',
+                    # 'orderLinkId': 'strategyOne+BTCUSD.f0a.504-LONG_ENTRY', 'orderPrice': '45172.50',
+                    # 'orderQty': '4', 'orderType': 'Market', 'symbol': 'BTCUSD', 'stopOrderType': 'UNKNOWN',
+                    # 'side': 'Buy', 'tradeIv': '', 'underlyingPrice': '', 'closedSize': '0',
+                    # 'seq': 34198439752, 'createType': 'CreateByUser'}
                     for execution in msgs:
-                        #print(execution)
+                        #self.logger.info("execution msg arrived: %s" % (str(execution)))
                         if execution['orderId'] in self.orders.keys():
                             sideMulti = 1 if execution['side'] == "Buy" else -1
                             order = self.orders[execution['orderId']]
@@ -286,7 +345,8 @@ class ByBitInterface(ExchangeWithWS):
                             self.logger.info("got order execution: %s %.1f @ %.1f " % (
                                 execution['orderLinkId'], float(execution['execQty']) * sideMulti,
                                 float(execution['execPrice'])))
-
+                        #else:
+                        #    self.logger.info("could not find the right order")
                 elif topic == 'position':
                     #print('position msg arrived:')
                     # {'bustPrice': '0.00', 'category': 'inverse', 'createdTime': '1627542388255',
@@ -299,21 +359,34 @@ class ByBitInterface(ExchangeWithWS):
                     # 'adlRankIndicator': 0, 'seq': 31244873358, 'isReduceOnly': False, 'mmrSysUpdateTime': '',
                     # 'leverageSysUpdatedTime': ''}
                     for pos in msgs:
-                        #print("position: ")
-                        #print(pos)
-                        sizefac = -1 if pos["side"] == "Sell" else 1
-                        if pos['symbol'] == self.symbol and self.positions[pos['symbol']].quantity != float(pos["size"]) * sizefac:
-                            self.logger.info("position changed %.2f -> %.2f" % ( self.positions[pos['symbol']].quantity, float(pos["size"]) * sizefac))
-                        if pos['symbol'] not in self.positions.keys():
-                            self.positions[pos['symbol']] = AccountPosition(pos['symbol'], avgEntryPrice=float(pos["entryPrice"]),
-                                                                            quantity=float(pos["size"]) * sizefac)#,
-                                                                            #walletBalance=float(pos['walletBalance']))
-                        else:
-                            pass
-                            #accountPos = self.positions[pos['symbol']]
-                            #accountPos.quantity = float(pos["size"]) * sizefac
-                            #accountPos.avgEntryPrice = float(pos["entryPrice"])
-                            #accountPos.walletBalance = float(pos['walletBalance'])
+                        #self.logger.info("pos message arrived: %s" % (str(pos)))
+                        if pos['symbol'] == self.symbol:
+                            if pos["side"] == "Sell":
+                                self.shortPos.quantity = -float(pos['size'])
+                                self.shortPos.avgEntryPrice = float(pos['entryPrice'])
+                            else:
+                                self.longPos.quantity = float(pos['size'])
+                                self.longPos.avgEntryPrice = float(pos['entryPrice'])
+
+                            self.updatePosition_internally()
+
+
+                    #for pos in msgs:
+                    #    self.logger.info("pos message arrived: %s" % (str(pos)))
+                    #    sizefac = -1 if pos["side"] == "Sell" else 1
+                    #    if pos['symbol'] == self.symbol and self.positions[pos['symbol']].quantity != float(pos["size"]) * sizefac:
+                    #        self.logger.info("position changed %.2f -> %.2f" % ( self.positions[pos['symbol']].quantity, float(pos["size"]) * sizefac))
+                    #    if pos['symbol'] not in self.positions.keys():
+                    #        self.positions[pos['symbol']] = AccountPosition(pos['symbol'], avgEntryPrice=float(pos["entryPrice"]),
+                    #                                                        quantity=float(pos["size"]) * sizefac)#,
+                    #                                                        #walletBalance=float(pos['walletBalance']))
+                    #    else:
+                    #        self.logger.info("don´t know what to do")
+                    #        #pass
+                    #        #accountPos = self.positions[pos['symbol']]
+                    #        #accountPos.quantity = float(pos["size"]) * sizefac
+                    #        #accountPos.avgEntryPrice = float(pos["entryPrice"])
+                    #        #accountPos.walletBalance = float(pos['walletBalance'])
                 elif topic.startswith('kline.') and topic.endswith('.' + self.symbol):
                     for b in msgs:
                         #print('kline message: ')
@@ -349,24 +422,36 @@ class ByBitInterface(ExchangeWithWS):
                     #print(msgs)
                     pass
                 elif topic == 'wallet':
+                    #print(str(topic))
                     for wallet in msgs:
                         for coin in wallet['coin']:
-                            pass
-                            #print("coin: ")
                             #print(coin)
-                            #if self.baseCurrency == coin['coin']:
-                            #    accountPos.walletBalance = float(pos['walletBalance'])
+                            if self.baseCurrency == coin['coin']:
+                                #print("wallet balance is:")
+                                #print(float(wallet["walletBalance"]))
+                                self.longPos.walletBalance = float(coin["walletBalance"])
+                                self.shortPos.walletBalance = float(coin["walletBalance"])
+                    self.updatePosition_internally()
+                    #for coin in wallet['coin']:
+                    #    #pass
+                    #self.logger.info("wallet message arrived")
+                    #    if self.baseCurrency == coin['coin']:
+                    #        self.longPos.walletBalance = float(wallet["walletBalance"])
+                    #        self.shortPos.walletBalance = float(wallet["walletBalance"])
+                    #        self.update_account()
+                    ##        self.positions[pos['symbol']]
+                    #        accountPos.walletBalance = float(pos['walletBalance'])
                 else:
                     self.logger.error('got unkown topic in callback: ' + topic)
                 msgs = self.ws.get_data(topic)
 
             # new bars is handling directly in the message, because we get a new one on each tick
-            if topic in ["order", "stopOrder", "execution"]:
+            if topic in ["order", "stopOrder", "execution", "wallet"]:
                 gotTick = True
                 self.reset_order_sync_timer() # only when something with orders changed
             if gotTick and self.on_tick_callback is not None:
                 self.on_tick_callback(
-                    fromAccountAction=topic in ["order", "stopOrder", "execution"])  # got something new
+                    fromAccountAction=topic in ["order", "stopOrder", "execution", "wallet"])  # got something new
         except Exception as e:
             self.logger.error("error in socket data (%s): %s " % (topic, str(e)))
 
@@ -417,7 +502,8 @@ class ByBitInterface(ExchangeWithWS):
         execution = o['cumExecQty'] if 'cumExecQty' in o.keys() else 0
         order.executed_amount = float(execution) * sideMulti
         #order.tstamp = parse_utc_timestamp(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])
-        order.tstamp = int(int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])/1000)
+        #order.tstamp = int(int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])/1000)
+        order.tstamp = int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])
         order.exchange_id = o["orderId"] if 'orderId' in o.keys() else o['stopOrderId']
         order.executed_price = None
         if 'cumExecValue' in o.keys() and 'cumExecQty' in o.keys() \

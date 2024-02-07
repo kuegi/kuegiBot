@@ -282,7 +282,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                             entryBuffer = entry * self.limit_entry_offset_perc * 0.01
                             if amount > 0:
                                 entryBuffer = -entryBuffer
-                            order.limit_price = entry + entryBuffer
+                            order.limit_price = entry - entryBuffer
                             order.trigger_price = entry
                             order.amount = amount
                             self.logger.info("changing order id: %s, amount: %.1f, stop price: %.1f, limit price: %.f, active: %s" %
@@ -297,16 +297,20 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
 
         return foundLong, foundShort
 
-    def open_new_position(self, direction, bars, stop, open_positions, entry, amount):
+    def open_new_position(self, direction, bars, stop, open_positions, entry, ExecutionType):
+        # cancel if type of entry order not specified
+        if ExecutionType not in ["Limit", "StopLimit", "StopLoss", "Market"]:
+            self.logger.warn("Order type not specified. No order placed.")
+            if self.telegram is not None:
+                self.telegram.send_log("Execution type not specified. No order placed.")
+            return
+
         # define directions
-        directionFactor = 1
         oppDirection = PositionDirection.SHORT
         if direction == PositionDirection.SHORT:
-            directionFactor = -1
             oppDirection = PositionDirection.LONG
-        oppDirectionFactor = directionFactor * -1
 
-        # first close on opposite, if necessary
+        # first, close on opposite, if necessary
         if self.close_on_opposite:
             for pos in open_positions.values():
                 if pos.status == PositionStatus.OPEN and \
@@ -316,9 +320,17 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                         Order(orderId=TradingBot.generate_order_id(pos.id, OrderType.SL),
                               amount=-pos.amount, trigger=None, limit=None))
 
-        # Consider slippage
-        signalId = self.get_signal_id(bars)
-        posId = TradingBot.full_pos_id(signalId, direction)
+        # account position amount for slippage during stop loss execution
+        expectedExitSlippagePer = 0.0015
+        if direction == PositionDirection.LONG:
+            entry = self.symbol.normalizePrice(entry, roundUp=True)
+            stop = self.symbol.normalizePrice(stop, roundUp=False)
+            exitPrice = stop * (1 - expectedExitSlippagePer)
+        else:
+            entry = self.symbol.normalizePrice(entry, roundUp=False)
+            stop = self.symbol.normalizePrice(stop, roundUp=True)
+            exitPrice = stop * (1 + expectedExitSlippagePer)
+        amount = self.calc_pos_size(risk=self.risk_factor, entry=entry, exitPrice=exitPrice, atr=0)
 
         # If the trade doesn't make sense, abort
         if (direction == PositionDirection.SHORT and (amount >= 0 or entry > stop)) or\
@@ -326,32 +338,31 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
             self.logger.warn("entry/stop mismatch or wrong amount")
             return
 
-        entryBuffer = entry * self.limit_entry_offset_perc * 0.01
-        if amount > 0:
-            entryBuffer = -entryBuffer
+        # Decide on entry order type
+        if ExecutionType == "Limit":
+            trigger_price = None
+            limit_price = entry
+        elif ExecutionType == "StopLimit":
+            entryBuffer = entry * self.limit_entry_offset_perc * 0.01
+            if amount > 0:
+                entryBuffer = -entryBuffer
+            trigger_price = entry
+            limit_price = entry - entryBuffer
+            limit_price = self.symbol.normalizePrice(limit_price, roundUp=amount < 0)
+        elif ExecutionType == "StopLoss":
+            trigger_price = entry
+            limit_price = None
+        else:                   # MarketOrder
+            trigger_price = None
+            limit_price = None
 
         # need to add to the bots open pos too, so the execution of the market is not missed
+        signalId = self.get_signal_id(bars)
+        posId = TradingBot.full_pos_id(signalId, direction)
         pos = Position(id=posId, entry=entry, amount=amount, stop=stop, tstamp=bars[0].tstamp)
         open_positions[posId] = pos
-        self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY), amount=amount, trigger=entry, limit=entry + entryBuffer))
-
-
-    def entry_by_market_order(self, entry, stop, open_positions, bars, direction):
-        expectedEntrySlippagePer = 0.0015 if self.limit_entry_offset_perc is None else 0
-        expectedExitSlippagePer = 0.0015
-        if direction == PositionDirection.LONG:
-            entry = self.symbol.normalizePrice(entry, roundUp=True)
-            stop = self.symbol.normalizePrice(stop, roundUp=False)
-            exitPrice = stop * (1 - expectedExitSlippagePer)
-            entry = entry * (1 + expectedEntrySlippagePer)
-        else:
-            entry = self.symbol.normalizePrice(entry, roundUp=False)
-            stop = self.symbol.normalizePrice(stop, roundUp=True)
-            exitPrice = stop * (1 + expectedExitSlippagePer)
-            entry = entry * (1 - expectedEntrySlippagePer)
-
-        amount = self.calc_pos_size(risk=self.risk_factor, entry=entry, exitPrice=exitPrice, atr=0)
-        self.open_new_position(direction, bars, stop, open_positions, entry, amount)
+        self.order_interface.send_order(Order(orderId=TradingBot.generate_order_id(posId, OrderType.ENTRY),
+                                              amount=amount, trigger=trigger_price, limit=limit_price))
 
 
 class ATRrangeSL(ExitModule):

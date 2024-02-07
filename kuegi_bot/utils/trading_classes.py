@@ -141,7 +141,7 @@ class Order:
     def __str__(self):
         string = f"{self.id} ({'active' if self.active else 'inactive'}, " \
                  f"{self.exchange_id[-8:] if self.exchange_id is not None else None})" \
-                 f" {self.amount}@{self.limit_price}/{self.trigger_price} at {datetime.fromtimestamp(self.tstamp)}"
+                 f" {self.amount}@{self.limit_price}/{self.trigger_price} at {datetime.fromtimestamp(int(self.tstamp/1000))}"
         if self.executed_price is not None:
             string += f" ex: {self.executed_amount}@{self.executed_price} at " \
                       f"{datetime.fromtimestamp(self.execution_tstamp) if self.execution_tstamp is not None else None}"
