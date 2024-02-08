@@ -380,7 +380,7 @@ class ATRrangeSL(ExitModule):
 
     def init(self, logger,symbol):
         super().init(logger,symbol)
-        self.logger.info("init ATRrangeSL %.2f %.2f %.2f %i" % (self.rangeFacTrigger, self.longRangefacSL, self.shortRangefacSL, self.rangeATRfactor))
+        self.logger.info("init ATRrangeSL %.2f %.2f %.2f %.2f %i" % (self.rangeFacTrigger, self.longRangefacSL, self.shortRangefacSL, self.rangeATRfactor, self.atrPeriod))
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         # trail the stop to "break even" when the price move a given factor of the entry-risk in the right direction

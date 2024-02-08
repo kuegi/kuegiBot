@@ -533,22 +533,6 @@ class TATrendStrategyIndicator(Indicator):
     def identify_trend(self):
         # Trend based on W-EMA and trails
         if self.taData_trend_strat.rsi_w_vec[-1] is not None and self.taData_trend_strat.ema_w is not None:
-            #if self.taData_trend_strat.rsi_w_vec[-1] > self.reset_level_of_oversold_rsi and self.bull_rsi_locked:
-            #    self.bull_rsi_locked = False
-
-            #if self.taData_trend_strat.rsi_w_vec[-1] <= self.oversold_limit_w_rsi:
-            #    self.bull_rsi_locked = True
-
-            #if self.bull_rsi_locked and False:
-            #    self.taData_trend_strat.marketRegime = MarketRegime.BULL
-            #    self.ranging_buffer = 0
-            #    self.bear_buffer = 0
-            #if self.taData_trend_strat.talibbars.high[-1] > self.taData_trend_strat.lows_trail_4h_vec[-2] or \
-            #        self.taData_trend_strat.talibbars.high[-1] > self.taData_trend_strat.ema_w:
-            #    self.taData_trend_strat.marketRegime = MarketRegime.BULL
-            #    self.ranging_buffer = 0
-            #    self.bear_buffer = 0
-            #else:
             if self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.lows_trail_4h_vec[-2] or \
                     self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w:
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
@@ -574,6 +558,8 @@ class TATrendStrategyIndicator(Indicator):
                     self.taData_trend_strat.marketRegime = MarketRegime.RANGING
                 else:
                     self.taData_trend_strat.marketRegime = MarketRegime.BEAR
+        else:
+            self.taData_trend_strat.marketRegime = MarketRegime.NONE
 
     def write_data_for_plot(self, bars: List[Bar]):
         if self.taData_trend_strat.marketRegime == MarketRegime.BULL:
