@@ -229,7 +229,7 @@ class StrategyOne(TrendStrategy):
                                                                      stopLong, stopShort, longAmount, shortAmount)
 
                 # decide if new entries are allowed
-                self.new_entries_allowed(bars)
+                #self.new_entries_allowed(bars)
 
                 # Set entries if no orders are found and the market conditions allow it
                 # go LONG
@@ -262,7 +262,7 @@ class StrategyOne(TrendStrategy):
         longed = False
         # Long trail breakout
         if self.longTrailBreakout and not longed:
-            if bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] and \
+            if bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index - 1] and \
                     self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo:
                 longed = True
                 self.logger.info("Longing trail breakout.")
@@ -278,10 +278,10 @@ class StrategyOne(TrendStrategy):
         # Long breakouts by close above the bollinger band
         # DO NOT USE OR IMPROVE FIRST
         if self.longBBandBreakouts and not longed:
-            if self.ta_data_trend_strat.rsi_w_vec is not None and\
+            if self.ta_data_trend_strat.rsi_w is not None and\
                     bars[1].close > (middleband + std * self.entry_upper_bb_std_fac) and \
                     bars[1].close > bars[2].close and \
-                    self.ta_data_trend_strat.rsi_w_vec[-1] < self.rsi_limit_breakout_long and \
+                    self.ta_data_trend_strat.rsi_w < self.rsi_limit_breakout_long and \
                     self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
                 longed = True
                 self.open_new_position(entry=bars[0].open,
@@ -360,7 +360,7 @@ class StrategyOne(TrendStrategy):
         # long trail reversal
         if self.longTrailReversal and not longed and \
                 bars[1].low < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-2] < bars[1].close and \
-                self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] < self.max_rsi_trail_rev:
+                self.ta_data_trend_strat.rsi_d < self.max_rsi_trail_rev:
             longed = True
             self.logger.info("Longing fakedown.")
             if self.telegram is not None:
@@ -410,7 +410,7 @@ class StrategyOne(TrendStrategy):
         # short break down from trail
         if self.shortTrailBreakdown and not shorted and \
                 bars[1].close < self.ta_data_trend_strat.lows_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] < bars[2].close and \
-                self.ta_data_trend_strat.rsi_d_vec[self.ta_data_trend_strat.last_d_index - 1] > self.min_rsi_bd:
+                self.ta_data_trend_strat.rsi_d > self.min_rsi_bd:
             self.logger.info("Shorting lost support.")
             if self.telegram is not None:
                 self.telegram.send_log("Shorting lost support.")
@@ -453,7 +453,7 @@ class StrategyOne(TrendStrategy):
 
         # short revesal
         if self.shortReversals and not shorted and \
-                bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[self.ta_data_trend_strat.last_4h_index-1] > bars[1].close and \
+                bars[1].high > self.ta_data_trend_strat.highs_trail_4h > bars[1].close and \
                     self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:
             self.logger.info("Shorting fakeout.")
             if self.telegram is not None:
@@ -556,7 +556,7 @@ class StrategyOne(TrendStrategy):
                 lower_equal = False
         return lower_equal
 
-    def new_entries_allowed(self, bars):
+    '''def new_entries_allowed(self, bars):
         self.data_strat_one.shortsAllowed = True
         self.data_strat_one.longsAllowed = True
         for i in range(1, self.nmb_bars_entry):
@@ -566,7 +566,7 @@ class StrategyOne(TrendStrategy):
 
             if self.ta_data_trend_strat.highs_trail_4h_vec[-i] != \
                     self.ta_data_trend_strat.highs_trail_4h_vec[-(i + 1)]:
-                self.data_strat_one.longsAllowed = False
+                self.data_strat_one.longsAllowed = False'''
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         super().manage_open_position(p, bars, account, pos_ids_to_cancel)

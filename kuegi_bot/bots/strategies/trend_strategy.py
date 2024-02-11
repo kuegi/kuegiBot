@@ -321,24 +321,26 @@ class TAdataTrendStrategy:
         # 4h arrays
         self.bbands_4h = BBands(None, None)
         #self.bbands_talib = Talib_BBANDS(None, None, None)
-        self.atr_4h_vec = None
+        #self.atr_4h_vec = None
         self.atr_4h = None
-        self.natr_4h_vec = None
+        #self.natr_4h_vec = None
         self.natr_4h = None
-        self.natr_slow_4h_vec = None
+        #self.natr_slow_4h_vec = None
         self.natr_slow_4h = None
         self.highs_trail_4h_vec = None
         self.highs_trail_4h = None
         self.lows_trail_4h_vec = None
         self.lows_trail_4h = None
         self.mid_trail_4h = None
-        self.rsi_4h_vec = None
+        #self.rsi_4h_vec = None
         # daily arrays
-        self.rsi_d_vec = None
+        #self.rsi_d_vec = None
+        self.rsi_d = None
         # weekly arrays
-        self.ema_w_vec = None
+        #self.ema_w_vec = None
         self.ema_w = None
-        self.rsi_w_vec = None
+        #self.rsi_w_vec = None
+        self.rsi_w = None
         # index of last bar
         self.last_4h_index = -1
         self.last_d_index = -1
@@ -409,7 +411,7 @@ class TATrendStrategyIndicator(Indicator):
         self.max_d_period = max(self.trend_d_period, self.rsi_d_period)
         self.max_w_period = max(self.trend_w_period, self.ema_w_period, self.rsi_w_period)
         self.max_4h_history_candles = max(self.max_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
-        self.initialize_arrays()
+        #self.initialize_arrays()
 
     def on_tick(self, bars: List[Bar]):
         # Update the index of the last bar of the current timeframe
@@ -432,30 +434,48 @@ class TATrendStrategyIndicator(Indicator):
         return self.taData_trend_strat
 
     def run_ta_analysis(self, last_index=None):
-        if last_index is None or not self.taData_trend_strat.is_initialized:
+        if not self.taData_trend_strat.is_initialized:
             # Initialize arrays only if not initialized yet
-            self.initialize_arrays()
-            self.taData_trend_strat.is_initialized = True
+            self.initialize_arrays(last_index)
+            #self.taData_trend_strat.is_initialized = True
 
         # Update TA-idnicators
         self.update_4h_values(last_index)
         self.update_daily_values(self.taData_trend_strat.last_d_index)
         self.update_weekly_values(self.taData_trend_strat.last_w_index)
 
-    def initialize_arrays(self):
+    def initialize_arrays(self, last_index: int = 0):
         # Initialize arrays with the provided lengths
         # 4H arrays
         self.taData_trend_strat.highs_trail_4h_vec = np.full(self.max_4h_period, np.nan)
         self.taData_trend_strat.lows_trail_4h_vec = np.full(self.max_4h_period, np.nan)
-        self.taData_trend_strat.atr_4h_vec = np.full(self.max_4h_period, np.nan)
-        self.taData_trend_strat.natr_4h_vec = np.full(self.max_4h_period, np.nan)
-        self.taData_trend_strat.natr_slow_4h_vec = np.full(self.max_4h_period, np.nan)
-        self.taData_trend_strat.rsi_4h_vec = np.full(self.max_4h_period, np.nan)
+        #self.taData_trend_strat.atr_4h_vec = np.full(self.max_4h_period, np.nan)
+        #self.taData_trend_strat.natr_4h_vec = np.full(self.max_4h_period, np.nan)
+        #self.taData_trend_strat.natr_slow_4h_vec = np.full(self.max_4h_period, np.nan)
+        #self.taData_trend_strat.rsi_4h_vec = np.full(self.max_4h_period, np.nan)
+
         # Daily arrays
-        self.taData_trend_strat.rsi_d_vec = np.full(self.max_d_period, np.nan)
+        #self.taData_trend_strat.rsi_d_vec = np.full(self.max_d_period, np.nan)
         # Weekly arrays
-        self.taData_trend_strat.ema_w_vec = np.full(self.max_w_period, np.nan)
-        self.taData_trend_strat.rsi_w_vec = np.full(self.max_w_period, np.nan)
+        #self.taData_trend_strat.ema_w_vec = np.full(self.max_w_period, np.nan)
+        #self.taData_trend_strat.rsi_w_vec = np.full(self.max_w_period, np.nan)
+
+        talibbars = self.taData_trend_strat.talibbars
+
+        # 4h arrays
+        if last_index != 0:
+            self.taData_trend_strat.highs_trail_4h_vec[:last_index] = talib.MAX(talibbars.high, self.highs_trail_4h_period)[-last_index:]
+            self.taData_trend_strat.lows_trail_4h_vec[:last_index] = talib.MIN(talibbars.low, self.lows_trail_4h_period)[-last_index:]
+        else:
+            self.taData_trend_strat.highs_trail_4h_vec = talib.MAX(talibbars.high,self.highs_trail_4h_period)[-self.max_4h_period:]
+            self.taData_trend_strat.lows_trail_4h_vec = talib.MIN(talibbars.low,self.lows_trail_4h_period)[-self.max_4h_period:]
+
+        # weekly:
+        len_weekly = len(talibbars.close_weekly)
+        ema_w_vec = talib.EMA(talibbars.close_weekly[-len_weekly:], timeperiod=self.ema_w_period)
+        # self.taData_trend_strat.ema_w_vec[last_index] = ema_w
+        self.taData_trend_strat.ema_w = ema_w_vec[-1]
+
         # Set the initialized flag to True
         self.taData_trend_strat.is_initialized = True
 
@@ -492,16 +512,16 @@ class TATrendStrategyIndicator(Indicator):
         atr_4h = talib.ATR(high[- self.atr_4h_period-1:],low[-self.atr_4h_period-1:], close[- self.atr_4h_period-1:], self.atr_4h_period)[-1]
         natr_4h = talib.NATR(high[-self.atr_4h_period-1:],low[-self.atr_4h_period-1:], close[-self.atr_4h_period-1:], self.atr_4h_period)[-1]
         natr_slow_4h = talib.NATR(high[- self.natr_4h_period_slow-1:],low[- self.natr_4h_period_slow-1:], close[- self.natr_4h_period_slow-1:], self.natr_4h_period_slow)[-1]
-        self.taData_trend_strat.atr_4h_vec[last_index] = atr_4h
+        #self.taData_trend_strat.atr_4h_vec[last_index] = atr_4h
         self.taData_trend_strat.atr_4h = atr_4h
-        self.taData_trend_strat.natr_4h_vec[last_index] = natr_4h
+        #self.taData_trend_strat.natr_4h_vec[last_index] = natr_4h
         self.taData_trend_strat.natr_4h = natr_4h
-        self.taData_trend_strat.natr_slow_4h_vec[last_index] = natr_slow_4h
+        #self.taData_trend_strat.natr_slow_4h_vec[last_index] = natr_slow_4h
         self.taData_trend_strat.natr_slow_4h = natr_slow_4h
 
         # Update RSI for 4H timeframe
-        rsi_4h = talib.RSI(close[-self.rsi_4h_period-1:], self.rsi_4h_period)[-1]
-        self.taData_trend_strat.rsi_4h_vec[last_index] = rsi_4h
+        #rsi_4h = talib.RSI(close[-self.rsi_4h_period-1:], self.rsi_4h_period)[-1]
+        #self.taData_trend_strat.rsi_4h_vec[last_index] = rsi_4h
 
     def update_daily_values(self, last_index):
         talibbars = self.taData_trend_strat.talibbars
@@ -512,36 +532,37 @@ class TATrendStrategyIndicator(Indicator):
 
         # Update RSI for daily timeframe
         rsi_daily = talib.RSI(close[-self.rsi_d_period-1:], self.rsi_d_period)[-1]
-        self.taData_trend_strat.rsi_d_vec[last_index] = rsi_daily
+        #self.taData_trend_strat.rsi_d_vec[last_index] = rsi_daily
+        self.taData_trend_strat.rsi_d = rsi_daily
 
     def update_weekly_values(self, last_index):
         talibbars = self.taData_trend_strat.talibbars
         close = talibbars.close_weekly
-        high = talibbars.high_weekly
-        low = talibbars.low_weekly
 
         # Update EMA for weekly timeframe
         if close is None or len(close) < self.max_w_period+1:
             return
         ema_w = talib.EMA(close[-self.ema_w_period:], timeperiod=self.ema_w_period)[-1]
-        self.taData_trend_strat.ema_w_vec[last_index] = self.taData_trend_strat.ema_w = ema_w
+        #self.taData_trend_strat.ema_w_vec[last_index] = ema_w
+        self.taData_trend_strat.ema_w = ema_w
 
         # Update RSI for weekly timeframe
         rsi_w = talib.RSI(close[-self.rsi_w_period-1:], timeperiod=self.rsi_w_period)[-1]
-        self.taData_trend_strat.rsi_w_vec[last_index] = rsi_w
+        #self.taData_trend_strat.rsi_w_vec[last_index] = rsi_w
+        self.taData_trend_strat.rsi_w = rsi_w
 
     def identify_trend(self):
         # Trend based on W-EMA and trails
-        if self.taData_trend_strat.rsi_w_vec[-1] is not None and self.taData_trend_strat.ema_w is not None:
-            if self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.lows_trail_4h_vec[-2] or \
-                    self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w:
+        if self.taData_trend_strat.rsi_w is not None and self.taData_trend_strat.ema_w is not None:
+            #if self.taData_trend_strat.talibbars.close_daily[-1] < self.taData_trend_strat.lows_trail_4h_vec[self.taData_trend_strat.last_4h_index-2] or \
+            if self.taData_trend_strat.talibbars.close_weekly[-1] < self.taData_trend_strat.ema_w:
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
 
                 nmb_required_candles_w = self.trend_w_period * self.bars_per_week
                 nmb_required_candles_d = self.trend_d_period * self.bars_per_day
                 self.bear_buffer = max(nmb_required_candles_w, nmb_required_candles_d)
                 self.ranging_buffer = self.ta_trend_var_1 * self.bars_per_day
-            elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.highs_trail_4h_vec[-2] or \
+            elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.highs_trail_4h_vec[self.taData_trend_strat.last_4h_index-2] or \
                     self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.ema_w:
                 self.bear_buffer -= 1
                 if self.bear_buffer <= 0:
