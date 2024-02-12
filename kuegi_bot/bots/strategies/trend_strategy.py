@@ -31,10 +31,10 @@ class TrendStrategy(StrategyWithTradeManagement):
     def __init__(self,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 1, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
-                 trend_d_period: int = 2, trend_w_period: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
+                 days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10,
                  plotIndicators: bool = False,
-                 trend_var_1: float = 1,
+                 trend_var_1: float = 0,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend:float = 1, risk_ranging: float = 1,
                  sl_upper_bb_std_fac: float = 1, sl_lower_bb_std_fac: float = 1,
@@ -57,9 +57,9 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.data_trend_strat = DataTrendStrategy()
         self.ta_trend_strat = TATrendStrategyIndicator(
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
-            lows_trail_4h_period = lows_trail_4h_period, trend_d_period = trend_d_period, trend_w_period = trend_w_period,
+            lows_trail_4h_period = lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_ranging = days_buffer_ranging,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, bbands_4h_period= bbands_4h_period, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
-            sl_lower_bb_std_fac = sl_lower_bb_std_fac, ta_trend_var_1 = trend_var_1, oversold_limit_w_rsi = 30, reset_level_of_oversold_rsi = 50
+            sl_lower_bb_std_fac = sl_lower_bb_std_fac, trend_var_1= trend_var_1, oversold_limit_w_rsi = 30, reset_level_of_oversold_rsi = 50
         )
         self.plotIndicators = plotIndicators
         # Risk
@@ -361,8 +361,8 @@ class TATrendStrategyIndicator(Indicator):
                  lows_trail_4h_period: int = 10,
                  rsi_4h_period: int = 14,
                  # daily periods
-                 trend_d_period: int = 2,
-                 trend_w_period: int = 0,
+                 days_buffer_bear: int = 2,
+                 days_buffer_ranging: int = 0,
                  rsi_d_period: int = 14,
                  # weekly periods
                  ema_w_period: int = 10,
@@ -373,12 +373,12 @@ class TATrendStrategyIndicator(Indicator):
                  sl_upper_bb_std_fac: float = 2.0,
                  sl_lower_bb_std_fac: float = 2.0,
                  # debug variables
-                 ta_trend_var_1: float = 0):
+                 trend_var_1: float = 0):
         super().__init__('TAtrend')
         # local input data
         self.taData_trend_strat = TAdataTrendStrategy()
         # debug variables
-        self.ta_trend_var_1 = ta_trend_var_1
+        self.trend_var_1 = trend_var_1
         # Trend identification parameters
         self.bull_buffer = 0
         self.bull_rsi_locked = False
@@ -400,16 +400,16 @@ class TATrendStrategyIndicator(Indicator):
         self.highs_trail_4h_period = highs_trail_4h_period
         self.lows_trail_4h_period = lows_trail_4h_period
         # Daily periods
-        self.trend_d_period = trend_d_period
+        self.days_buffer_bear = days_buffer_bear
         self.rsi_d_period = rsi_d_period
         # Weekly periods
-        self.trend_w_period = trend_w_period
+        self.days_buffer_ranging = days_buffer_ranging
         self.ema_w_period = ema_w_period
         self.rsi_w_period = rsi_w_period
         # Max period variables
         self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow, self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period)
-        self.max_d_period = max(self.trend_d_period, self.rsi_d_period)
-        self.max_w_period = max(self.trend_w_period, self.ema_w_period, self.rsi_w_period)
+        self.max_d_period = max(self.days_buffer_ranging, self.days_buffer_bear, self.rsi_d_period)
+        self.max_w_period = max(self.ema_w_period, self.rsi_w_period)
         self.max_4h_history_candles = max(self.max_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
         #self.initialize_arrays()
 
@@ -557,11 +557,8 @@ class TATrendStrategyIndicator(Indicator):
             #if self.taData_trend_strat.talibbars.close_daily[-1] < self.taData_trend_strat.lows_trail_4h_vec[self.taData_trend_strat.last_4h_index-2] or \
             if self.taData_trend_strat.talibbars.close_weekly[-1] < self.taData_trend_strat.ema_w:
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
-
-                nmb_required_candles_w = self.trend_w_period * self.bars_per_week
-                nmb_required_candles_d = self.trend_d_period * self.bars_per_day
-                self.bear_buffer = max(nmb_required_candles_w, nmb_required_candles_d)
-                self.ranging_buffer = self.ta_trend_var_1 * self.bars_per_day
+                self.bear_buffer = self.days_buffer_bear * self.bars_per_day
+                self.ranging_buffer = self.days_buffer_ranging * self.bars_per_day
             elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.highs_trail_4h_vec[self.taData_trend_strat.last_4h_index-2] or \
                     self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.ema_w:
                 self.bear_buffer -= 1
