@@ -278,7 +278,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.LONG,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
             #else:
             #    #if self.telegram is not None:
             #        #self.telegram.send_log("Upper trail crossed bullish: %s" % str(upper_trail_crossed))
@@ -300,7 +300,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.LONG,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
 
         # Long reclaimed BBands 1
         if self.longReclaimBBand:
@@ -325,7 +325,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.LONG,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
             #else:
             #    if self.telegram is not None:
             #        self.telegram.send_log("Sell-off level reached: %s" % str(self.sold_off_bband))
@@ -356,7 +356,7 @@ class StrategyOne(TrendStrategy):
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.LONG,
-                                              ExecutionType = "Limit")
+                                              ExecutionType = "Market")
             #    else:
             #        if self.telegram is not None:
             #            self.telegram.send_log("Sell-off level 2 reached: %s" % str(self.sold_off_bband_2))
@@ -384,7 +384,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.LONG,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
             #else:
             #    if self.telegram is not None:
             #        self.telegram.send_log("Sell-off level 3 reached: %s" % str(self.sold_off_bband_3))
@@ -405,7 +405,7 @@ class StrategyOne(TrendStrategy):
                                       open_positions=open_positions,
                                       bars=bars,
                                       direction=PositionDirection.LONG,
-                                      ExecutionType = "Limit")
+                                      ExecutionType = "Market")
 
         shorted = False
         # short break down from bband
@@ -429,7 +429,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions = open_positions,
                                           bars = bars,
                                           direction = PositionDirection.SHORT,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
             #else:
             #    if self.telegram is not None:
             #        self.telegram.send_log("Closed below lower BBand: %s" % str(closed_below_lower_bband))
@@ -457,7 +457,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions = open_positions,
                                           bars = bars,
                                           direction = PositionDirection.SHORT,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
             #else:
             #    if self.telegram is not None:
             #        self.telegram.send_log("Close overextended: %s" % str(close_overextended))
@@ -478,7 +478,7 @@ class StrategyOne(TrendStrategy):
                                       open_positions=open_positions,
                                       bars=bars,
                                       direction=PositionDirection.SHORT,
-                                      ExecutionType = "Limit")
+                                      ExecutionType = "Market")
 
         #if bars[1].low < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-2] and \
         #            self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR:# and \
@@ -513,7 +513,7 @@ class StrategyOne(TrendStrategy):
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.SHORT,
-                                          ExecutionType = "Limit")
+                                          ExecutionType = "Market")
             #else:
             #    if self.telegram is not None:
             #        self.telegram.send_log("Reached overbought bband: %s" % str(reached_overbought_bband))
@@ -531,7 +531,7 @@ class StrategyOne(TrendStrategy):
                                       open_positions=open_positions,
                                       bars=bars,
                                       direction=PositionDirection.SHORT,
-                                      ExecutionType = "Limit")
+                                      ExecutionType = "Market")
 
         # break out from swings
         depth = 2
@@ -564,7 +564,7 @@ class StrategyOne(TrendStrategy):
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.SHORT,
-                                              ExecutionType = "Limit")
+                                              ExecutionType = "Market")
             if False and self.data_strat_one.swingHigh is not None and not longed:
                 if self.data_strat_one.swingHigh < middleband + std * 1.5 and \
                         self.ta_data_trend_strat.marketRegime == MarketRegime.BULL:
@@ -574,7 +574,7 @@ class StrategyOne(TrendStrategy):
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.LONG,
-                                              ExecutionType = "Limit")
+                                              ExecutionType = "Market")
 
         if not longed and not shorted:
             self.logger.info("No new entries for now.")
