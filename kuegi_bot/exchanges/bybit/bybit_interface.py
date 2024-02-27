@@ -178,21 +178,48 @@ class ByBitInterface(ExchangeWithWS):
                     order.exchange_id = result['orderId']
 
     def internal_update_order(self, order: Order):
+        orderType = TradingBot.order_type_from_order_id(order.id)
         if order.trigger_price is not None:
-            self.handle_result(lambda:self.pybit.amend_order(
-                orderId=order.exchange_id,
-                category = "inverse",
-                symbol=self.symbol,
-                qty=strOrNone(int(abs(order.amount))),
-                triggerPrice=strOrNone(self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)),
-                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))).get("list"))
+            if self.last < order.trigger_price:
+                triggerDirection = 1
+            else:
+                triggerDirection = 2
+        if orderType == OrderType.ENTRY:
+            if order.trigger_price is not None:
+                self.handle_result(lambda:self.pybit.amend_order(
+                    orderId=order.exchange_id,
+                    category = "inverse",
+                    symbol=self.symbol,
+                    qty=strOrNone(int(abs(order.amount))),
+                    triggerPrice=strOrNone(self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)),
+                    price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))).get("list"))
+            else:
+                self.handle_result(lambda:self.pybit.amend_order(
+                    orderId=order.exchange_id,
+                    category = "inverse",
+                    symbol=self.symbol,
+                    qty=strOrNone(int(abs(order.amount))),
+                    price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,order.amount < 0))).get("list"))
+        elif orderType == OrderType.SL:
+            if order.trigger_price is not None:
+                # conditional order
+                result = self.handle_result(lambda: self.pybit.amend_order(
+                    orderId=order.exchange_id,
+                    side=("Buy" if order.amount > 0 else "Sell"),
+                    category="inverse",
+                    symbol=self.symbol,
+                    orderType="Market",
+                    slOrderType = "Market",
+                    qty=strOrNone(int(abs(order.amount))),
+                    triggerDirection=int(triggerDirection),
+                    triggerPrice=strOrNone(order.trigger_price),
+                    tpslMode = "Full",
+                    orderLinkId=order.id,
+                    timeInForce="GTC"))
+                if result is not None:
+                    order.exchange_id = result['orderId']
         else:
-            self.handle_result(lambda:self.pybit.amend_order(
-                orderId=order.exchange_id,
-                category = "inverse",
-                symbol=self.symbol,
-                qty=strOrNone(int(abs(order.amount))),
-                price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,order.amount < 0))).get("list"))
+            print("Case not covered")
 
     def get_current_liquidity(self) -> tuple:
         book =  self.handle_result(lambda:self.pybit.get_orderbook(symbol=self.symbol)).get("list")
