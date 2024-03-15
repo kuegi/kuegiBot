@@ -215,7 +215,7 @@ class ByBitInterface(ExchangeWithWS):
                     triggerPrice=strOrNone(order.trigger_price),
                     tpslMode = "Full",
                     orderLinkId=order.id,
-                    timeInForce="GTC"))
+                    timeInForce="GTC").get("list"))
                 if result is not None:
                     order.exchange_id = result['orderId']
         else:
@@ -554,7 +554,7 @@ class ByBitInterface(ExchangeWithWS):
                       low=float(b['low']), close=float(b['close']), volume=float(b['volume']))
         else: # bybit
             bar = Bar(tstamp = int(int(b[0])/1000), open=float(b[1]), high=float(b[2]),
-                      low=float(b[3]), close=float(b[4]), volume=0)
+                      low=float(b[3]), close=float(b[4]), volume=float(b[5]))
         #if 'timestamp' in b:
         #    bar.last_tick_tstamp = b['timestamp'] / 1000.0
         return bar

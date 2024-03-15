@@ -46,6 +46,12 @@ class BitfinexInterface(ExchangeWithWS):
             raise NotImplementedError
 
     @staticmethod
+    def barDictToBar(b):
+        bar = Bar(tstamp=int(int(b[0]) / 1000), open=float(b[1]), high=float(b[3]),
+                  low=float(b[4]), close=float(b[2]), volume=float(b[5]))
+        return bar
+
+    @staticmethod
     def recalcBar(bar:Bar):
         if "trades" not in bar.bot_data or len(bar.bot_data['trades']) == 0:
             return

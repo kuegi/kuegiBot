@@ -9,6 +9,7 @@ from kuegi_bot.exchanges.bybit_linear.bybitlinear_interface import ByBitLinearIn
 from kuegi_bot.exchanges.phemex.phemex_interface import PhemexInterface
 from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.exchanges.bitmex.bitmex_interface import BitmexInterface
+from kuegi_bot.exchanges.bitfinex.bitfinex_interface import BitfinexInterface
 from kuegi_bot.utils import log
 
 import plotly.graph_objects as go
@@ -70,7 +71,8 @@ known_history_files= {
     "bitstamp_btceur": 99,
     "bitstamp_etheur": 35,
     "bitstamp_xrpeur": 42,
-    "bitstamp_eurusd": 94
+    "bitstamp_eurusd": 94,
+    "bitfinex_BTCUSD": 93
     }
 
 
@@ -116,6 +118,11 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
             subbars.append(BitmexInterface.barDictToBar(b,wanted_tf))
         elif exchange == 'phemex':
             subbars.append(PhemexInterface.barArrayToBar(b,10000))
+        elif exchange == 'bitfinex':
+            subbars.append(BitfinexInterface.barDictToBar(b))
+        else:
+            sys.exit("exchange and/or symbol not found")
+
     subbars.reverse()
     return process_low_tf_bars(subbars, wanted_tf, start_offset_minutes)
 
