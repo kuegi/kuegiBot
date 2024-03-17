@@ -32,7 +32,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 1, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
-                 bbands_4h_period: int = 10,
+                 bbands_4h_period: int = 10, bband_history_size: int = 10,
                  plotIndicators: bool = False,
                  trend_var_1: float = 0,
                  # Risk
@@ -58,7 +58,8 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.ta_trend_strat = TATrendStrategyIndicator(
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
             lows_trail_4h_period = lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_ranging = days_buffer_ranging,
-            atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, bbands_4h_period= bbands_4h_period, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
+            atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, bbands_4h_period= bbands_4h_period,
+            bband_history_size = bband_history_size, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
             sl_lower_bb_std_fac = sl_lower_bb_std_fac, trend_var_1= trend_var_1, oversold_limit_w_rsi = 30, reset_level_of_oversold_rsi = 50
         )
         self.plotIndicators = plotIndicators
@@ -280,9 +281,11 @@ class TrendStrategy(StrategyWithTradeManagement):
 
 
 class BBands:
-    def __init__(self, middleband:float = None, std:float = None):
+    def __init__(self, middleband:float = None, middleband_vec = [], std:float = None, std_vec = []):
         self.middleband = middleband
+        self.middleband_vec = middleband_vec
         self.std = std
+        self.std_vec = std_vec
 
 
 '''class Talib_BBANDS(Indicator):
@@ -319,13 +322,13 @@ class TAdataTrendStrategy:
         self.talibbars = TAlibBars()
         self.marketRegime = MarketRegime.NONE
         # 4h arrays
-        self.bbands_4h = BBands(None, None)
+        self.bbands_4h = BBands(None, [],None, [])
         #self.bbands_talib = Talib_BBANDS(None, None, None)
-        #self.atr_4h_vec = None
+        self.atr_4h_vec = None
         self.atr_4h = None
-        #self.natr_4h_vec = None
+        self.natr_4h_vec = None
         self.natr_4h = None
-        #self.natr_slow_4h_vec = None
+        self.natr_slow_4h_vec = None
         self.natr_slow_4h = None
         self.highs_trail_4h_vec = None
         self.highs_trail_4h = None
@@ -353,6 +356,7 @@ class TATrendStrategyIndicator(Indicator):
                  timeframe: int = 240,
                  # 4h periods
                  bbands_4h_period: int = 10,
+                 bband_history_size: int = 10,
                  atr_4h_period: int = 10,
                  natr_4h_period_slow: int = 10,
                  highs_trail_4h_period: int = 10,
@@ -385,11 +389,12 @@ class TATrendStrategyIndicator(Indicator):
         self.bullish_reversal = False
         self.oversold_limit_w_rsi = oversold_limit_w_rsi
         self.reset_level_of_oversold_rsi = reset_level_of_oversold_rsi
-        # Constant enabler parametersbb
+        # Constant enabler parameters
         self.bars_per_week = int(60 * 24 * 7 / timeframe)
         self.bars_per_day = int(60 * 24 / timeframe)
         # 4H periods
         self.bbands_4h_period = bbands_4h_period
+        self.bband_history_size = bband_history_size
         self.atr_4h_period = atr_4h_period
         self.natr_4h_period_slow = natr_4h_period_slow
         self.rsi_4h_period = rsi_4h_period
@@ -405,7 +410,8 @@ class TATrendStrategyIndicator(Indicator):
         self.ema_w_period = ema_w_period
         self.rsi_w_period = rsi_w_period
         # Max period variables
-        self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow, self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period)
+        self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow,
+                                 self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period)+bband_history_size
         self.max_d_period = max(self.days_buffer_ranging, self.days_buffer_bear, self.rsi_d_period)
         self.max_w_period = max(self.ema_w_period, self.rsi_w_period)
         self.max_4h_history_candles = max(self.max_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
@@ -434,9 +440,9 @@ class TATrendStrategyIndicator(Indicator):
         # 4H arrays
         self.taData_trend_strat.highs_trail_4h_vec = np.full(self.max_4h_period, np.nan)
         self.taData_trend_strat.lows_trail_4h_vec = np.full(self.max_4h_period, np.nan)
-        #self.taData_trend_strat.atr_4h_vec = np.full(self.max_4h_period, np.nan)
-        #self.taData_trend_strat.natr_4h_vec = np.full(self.max_4h_period, np.nan)
-        #self.taData_trend_strat.natr_slow_4h_vec = np.full(self.max_4h_period, np.nan)
+        self.taData_trend_strat.atr_4h_vec = np.full(self.max_4h_period, np.nan)
+        self.taData_trend_strat.natr_4h_vec = np.full(self.max_4h_period, np.nan)
+        self.taData_trend_strat.natr_slow_4h_vec = np.full(self.max_4h_period, np.nan)
         #self.taData_trend_strat.rsi_4h_vec = np.full(self.max_4h_period, np.nan)
 
         # Daily arrays
@@ -474,7 +480,7 @@ class TATrendStrategyIndicator(Indicator):
             self.taData_trend_strat.mid_trail_4h = 0.5*(self.taData_trend_strat.highs_trail_4h - self.taData_trend_strat.lows_trail_4h) + self.taData_trend_strat.lows_trail_4h
 
         # Update Bollinger Bands arrays
-        a, b, c = talib.BBANDS(close[-self.bbands_4h_period-1:], timeperiod=self.bbands_4h_period, nbdevup=1, nbdevdn=1)
+        a, b, c = talib.BBANDS(close[-self.max_4h_period-1:], timeperiod=self.bbands_4h_period, nbdevup=1, nbdevdn=1)
         upperband = a[-1]
         self.taData_trend_strat.bbands_4h.middleband = b[-1]
         if not np.isnan(upperband) and not np.isnan(self.taData_trend_strat.bbands_4h.middleband):
@@ -482,13 +488,20 @@ class TATrendStrategyIndicator(Indicator):
         else:
             self.taData_trend_strat.bbands_4h.std = np.nan
 
+        self.taData_trend_strat.bbands_4h.middleband_vec = b
+        self.taData_trend_strat.bbands_4h.std_vec = a - b
+
         # Update atr_4h & natr_4h arrays
-        atr_4h = talib.ATR(high[- self.atr_4h_period-1:],low[-self.atr_4h_period-1:], close[- self.atr_4h_period-1:], self.atr_4h_period)[-1]
-        natr_4h = talib.NATR(high[-self.atr_4h_period-1:],low[-self.atr_4h_period-1:], close[-self.atr_4h_period-1:], self.atr_4h_period)[-1]
-        natr_slow_4h = talib.NATR(high[- self.natr_4h_period_slow-1:],low[- self.natr_4h_period_slow-1:], close[- self.natr_4h_period_slow-1:], self.natr_4h_period_slow)[-1]
-        self.taData_trend_strat.atr_4h = atr_4h
-        self.taData_trend_strat.natr_4h = natr_4h
-        self.taData_trend_strat.natr_slow_4h = natr_slow_4h
+        atr_4h_vec = talib.ATR(high[- self.max_4h_period-1:],low[-self.max_4h_period-1:], close[- self.max_4h_period-1:], self.atr_4h_period)
+        natr_4h_vec = talib.NATR(high[-self.max_4h_period-1:],low[-self.max_4h_period-1:], close[-self.max_4h_period-1:], self.atr_4h_period)
+        natr_slow_4h_vec = talib.NATR(high[- self.max_4h_period-1:],low[- self.max_4h_period-1:], close[- self.max_4h_period-1:], self.natr_4h_period_slow)
+        self.taData_trend_strat.atr_4h_vec = atr_4h_vec
+        self.taData_trend_strat.natr_4h_vec = natr_4h_vec
+        self.taData_trend_strat.natr_slow_4h_vec = natr_slow_4h_vec
+
+        self.taData_trend_strat.atr_4h = atr_4h_vec[-1]
+        self.taData_trend_strat.natr_4h = natr_4h_vec[-1]
+        self.taData_trend_strat.natr_slow_4h = natr_slow_4h_vec[-1]
 
         # Update RSI for 4H timeframe
         #rsi_4h = talib.RSI(close[-self.rsi_4h_period-1:], self.rsi_4h_period)[-1]

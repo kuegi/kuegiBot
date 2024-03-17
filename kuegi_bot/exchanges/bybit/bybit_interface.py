@@ -192,14 +192,14 @@ class ByBitInterface(ExchangeWithWS):
                     symbol=self.symbol,
                     qty=strOrNone(int(abs(order.amount))),
                     triggerPrice=strOrNone(self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)),
-                    price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))).get("list"))
+                    price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))))
             else:
                 self.handle_result(lambda:self.pybit.amend_order(
                     orderId=order.exchange_id,
                     category = "inverse",
                     symbol=self.symbol,
                     qty=strOrNone(int(abs(order.amount))),
-                    price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,order.amount < 0))).get("list"))
+                    price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,order.amount < 0))))
         elif orderType == OrderType.SL:
             if order.trigger_price is not None:
                 # conditional order
@@ -215,7 +215,7 @@ class ByBitInterface(ExchangeWithWS):
                     triggerPrice=strOrNone(order.trigger_price),
                     tpslMode = "Full",
                     orderLinkId=order.id,
-                    timeInForce="GTC").get("list"))
+                    timeInForce="GTC"))
                 if result is not None:
                     order.exchange_id = result['orderId']
         else:
