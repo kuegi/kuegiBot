@@ -4,8 +4,6 @@ import math
 from kuegi_bot.bots.strategies.strat_with_exit_modules import StrategyWithExitModulesAndFilter
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.utils.trading_classes import Bar, Account, Symbol, OrderType, Order, PositionStatus, Position
-from kuegi_bot.indicators.indicator import Indicator, calc_atr
-from kuegi_bot.bots.strategies.exit_modules import ExitModule
 
 
 class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
@@ -365,50 +363,4 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                                               amount=amount, trigger=trigger_price, limit=limit_price))
 
 
-class ATRrangeSL(ExitModule):
-    ''' trails the stop to "to a new position" when the price moves a given factor of the entry-risk in the right direction
-        "break even" includes a buffer (multiple of the entry-risk).
-    '''
 
-    def __init__(self, rangeFacTrigger, longRangefacSL, shortRangefacSL, rangeATRfactor: float = 0, atrPeriod: int = 10):
-        super().__init__()
-        self.rangeFacTrigger = rangeFacTrigger
-        self.longRangefacSL = longRangefacSL
-        self.shortRangefacSL = shortRangefacSL
-        self.rangeATRfactor = rangeATRfactor
-        self.atrPeriod = atrPeriod
-
-    def init(self, logger,symbol):
-        super().init(logger,symbol)
-        self.logger.info("init ATRrangeSL %.2f %.2f %.2f %.2f %i" % (self.rangeFacTrigger, self.longRangefacSL, self.shortRangefacSL, self.rangeATRfactor, self.atrPeriod))
-
-    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        # trail the stop to "break even" when the price move a given factor of the entry-risk in the right direction
-        ep = bars[0].high if position.amount > 0 else bars[0].low
-        newStop = order.trigger_price
-        direction = 1 if position.amount > 0 else -1
-        refRange = 0
-        atrId = "ATR_" + str(self.atrPeriod)
-        atr = Indicator.get_data_static(bars[1], atrId)
-        if atr is None:
-            atr = calc_atr(bars, offset=1, length= self.atrPeriod)
-            Indicator.write_data_static(bars[1], atr, atrId)
-        if self.rangeATRfactor > 0:
-            refRange = self.rangeATRfactor * atr
-        elif position.initial_stop is not None and position.wanted_entry is not None:
-            refRange = abs(position.initial_stop - position.wanted_entry)
-        else:
-            refRange = None
-
-        if newStop is not None and refRange is not None:
-            rangeSLfac = self.longRangefacSL if position.amount > 0 else self.shortRangefacSL
-            targetSL = position.wanted_entry + refRange * rangeSLfac * direction
-            triggerPrice = position.wanted_entry + refRange * self.rangeFacTrigger * direction
-            if ep < triggerPrice and position.amount < 0 and newStop > targetSL:
-                newStop = self.symbol.normalizePrice(targetSL, roundUp=position.amount < 0)
-            elif ep > (position.wanted_entry + refRange * self.rangeFacTrigger) and position.amount > 0 and newStop < targetSL:
-                newStop = self.symbol.normalizePrice(targetSL, roundUp=position.amount < 0)
-
-            if newStop > order.trigger_price and position.amount > 0 or newStop < order.trigger_price and position.amount < 0:
-                order.trigger_price = newStop
-                to_update.append(order)

@@ -8,6 +8,7 @@ from typing import List
 from kuegi_bot.indicators.indicator import Indicator, clean_range
 from kuegi_bot.utils.dotdict import dotdict
 from kuegi_bot.utils.trading_classes import Position, Bar, Symbol
+from kuegi_bot.indicators.indicator import Indicator, calc_atr
 
 
 class ExitModule:
@@ -345,3 +346,69 @@ class ParaTrail(ExitModule):
                 current.actualStop = prev.actualStop # not to loose it
             self.write_data(bar=currentBar, dataId=dataId, data=current)
             lastIdx -= 1
+
+
+class ATRrangeSL(ExitModule):
+    ''' trails the stop to "to a new position" when the price moves a given factor of the entry-risk in the right direction
+        "break even" includes a buffer (multiple of the entry-risk).
+    '''
+
+    def __init__(self, rangeFacTrigger, longRangefacSL, shortRangefacSL, rangeATRfactor: float = 0, atrPeriod: int = 10):
+        super().__init__()
+        self.rangeFacTrigger = rangeFacTrigger
+        self.longRangefacSL = longRangefacSL
+        self.shortRangefacSL = shortRangefacSL
+        self.rangeATRfactor = rangeATRfactor
+        self.atrPeriod = atrPeriod
+
+    def init(self, logger,symbol):
+        super().init(logger,symbol)
+        self.logger.info("init ATRrangeSL %.2f %.2f %.2f %.2f %i" % (self.rangeFacTrigger, self.longRangefacSL, self.shortRangefacSL, self.rangeATRfactor, self.atrPeriod))
+
+    def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
+        # trail the stop to "break even" when the price move a given factor of the entry-risk in the right direction
+
+        is_new_bar = False
+        if bars[0].open == bars[0].close:
+            is_new_bar = True
+
+        entry = position.wanted_entry
+        current_stop = order.trigger_price
+        skip_trailing = False
+
+        direction = 1 if position.amount > 0 else -1
+
+        if direction == 1:
+            if current_stop >= entry and not is_new_bar:
+                skip_trailing = True
+        else:
+            if current_stop <= entry and not is_new_bar:
+                skip_trailing = True
+
+        if not skip_trailing:
+            ep = bars[0].high if position.amount > 0 else bars[0].low
+            newStop = order.trigger_price
+            atrId = "ATR_" + str(self.atrPeriod)
+            atr = Indicator.get_data_static(bars[1], atrId)
+            if atr is None:
+                atr = calc_atr(bars, offset=1, length= self.atrPeriod)
+                Indicator.write_data_static(bars[1], atr, atrId)
+            if self.rangeATRfactor > 0:
+                refRange = self.rangeATRfactor * atr
+            elif position.initial_stop is not None and position.wanted_entry is not None:
+                refRange = abs(position.initial_stop - position.wanted_entry)
+            else:
+                refRange = None
+
+            if newStop is not None and refRange is not None:
+                rangeSLfac = self.longRangefacSL if position.amount > 0 else self.shortRangefacSL
+                targetSL = position.wanted_entry + refRange * rangeSLfac * direction
+                triggerPrice = position.wanted_entry + refRange * self.rangeFacTrigger * direction
+                if ep < triggerPrice and position.amount < 0 and newStop > targetSL:
+                    newStop = self.symbol.normalizePrice(targetSL, roundUp=position.amount < 0)
+                elif ep > (position.wanted_entry + refRange * self.rangeFacTrigger) and position.amount > 0 and newStop < targetSL:
+                    newStop = self.symbol.normalizePrice(targetSL, roundUp=position.amount < 0)
+
+                if newStop > order.trigger_price and position.amount > 0 or newStop < order.trigger_price and position.amount < 0:
+                    order.trigger_price = newStop
+                    to_update.append(order)
