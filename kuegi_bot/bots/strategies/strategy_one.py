@@ -500,7 +500,7 @@ class StrategyOne(TrendStrategy):
             natr_still_low = self.ta_data_trend_strat.natr_4h < self.min_natr_bb_bd
             third_lower_candle_close = bars[1].close < bars[2].close < bars[3].open
             candle_low_above_previous_trailing_low = bars[1].low > self.ta_data_trend_strat.lows_trail_4h_vec[-2]
-            condition_6 = abs(bars[1].close - bars[1].open) > atr * self.var_1
+            #condition_6 = abs(bars[1].close - bars[1].open) > atr * self.var_1
 
             if closed_below_lower_bband and natr_still_low and third_lower_candle_close and \
                     candle_low_above_previous_trailing_low and market_bearish:
