@@ -11,8 +11,7 @@ from typing import List
 from kuegi_bot.bots.MultiStrategyBot import MultiStrategyBot
 from kuegi_bot.bots.strategies.strategy_one import StrategyOne
 from kuegi_bot.bots.strategies.entry_filters import DayOfWeekFilter
-from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule, FixedPercentage
-from kuegi_bot.bots.strategies.strat_w_trade_man import ATRrangeSL
+from kuegi_bot.bots.strategies.exit_modules import SimpleBE, ParaTrail, ExitModule, FixedPercentage, ATRrangeSL
 from kuegi_bot.trade_engine import LiveTrading
 from kuegi_bot.utils import log
 from kuegi_bot.utils.telegram import TelegramBot
