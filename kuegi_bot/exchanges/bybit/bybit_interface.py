@@ -97,8 +97,8 @@ class ByBitInterface(ExchangeWithWS):
     def internal_cancel_order(self, order: Order):
         if order.exchange_id in self.orders.keys():
             self.orders[order.exchange_id].active = False
-        result = self.handle_result(lambda:self.pybit.cancel_order(category='inverse',order_id=order.exchange_id, symbol=self.symbol))
-        self.logger.info("cancel order result:: %s" % (str(result)))
+        result = self.handle_result(lambda:self.pybit.cancel_order(category='inverse',orderId=order.exchange_id, symbol=self.symbol))
+        self.logger.info("cancel order result: %s" % (str(result)))
 
     def internal_send_order(self, order: Order):
 
@@ -220,6 +220,7 @@ class ByBitInterface(ExchangeWithWS):
                     order.exchange_id = result['orderId']
         else:
             print("Case not covered")
+            self.logger.info("Case not covered")
 
     def get_current_liquidity(self) -> tuple:
         book =  self.handle_result(lambda:self.pybit.get_orderbook(symbol=self.symbol)).get("list")
