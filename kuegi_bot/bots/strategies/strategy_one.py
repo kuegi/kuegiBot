@@ -22,10 +22,6 @@ class DataStrategyOne:
         self.shortsAllowed = False
         self.longsAllowed = False
         self.longs_from_middleband_alowed = False
-        self.swingHigh = None
-        self.swingLow = None
-        #self.swingHighTaken = False
-        #self.swingLowTaken = False
 
 
 class StrategyOne(TrendStrategy):
@@ -36,7 +32,7 @@ class StrategyOne(TrendStrategy):
                  std_fac_sell_off: float = 1, std_fac_reclaim: float = 1,
                  std_fac_sell_off_3: float = 1, std_fac_reclaim_3: float = 1, std_fac_sell_off_4: float = 1, std_fac_reclaim_4: float = 1,
                  h_highs_trail_period: int = 1, h_lows_trail_period: int = 1, nmb_bars_entry: int = 1, const_trail_period: int = 4,
-                 shortBBandBreakdown: bool = False, shortTrailBreakdown: bool = False,
+                 shortTrailBreakdown: bool = False,
                  longReclaimBBand: bool = False, longTrailReversal: bool = False, longTrailBreakout: bool = False, short_entry_2: bool = False,
                  tradeSwinBreakouts: bool = False, tradeWithLimitOrders: bool = False,
                  longEMAbreakout: bool = False, short_entry_1: bool = False, entry_lower_bb_std_fac: float = 2.0,
@@ -96,7 +92,6 @@ class StrategyOne(TrendStrategy):
         self.nmb_bars_entry = nmb_bars_entry
         self.const_trail_period = const_trail_period
         self.tradeWithLimitOrders = tradeWithLimitOrders
-        self.shortBBandBreakdown = shortBBandBreakdown
         self.longReclaimBBand = longReclaimBBand
         self.longTrailReversal = longTrailReversal
         self.longTrailBreakout = longTrailBreakout
@@ -444,7 +439,7 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.SHORT,
                                            ExecutionType="Market")
 
-        # short 3: break down from lower trail
+        # short entry 3: break down from lower trail
         if self.shortTrailBreakdown and not shorted:
             trail_broke = (bars[1].close < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-3:-2]).all()
             opened_above_trail = (bars[1].open > self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-5:-2]).all()
@@ -460,69 +455,53 @@ class StrategyOne(TrendStrategy):
                                        direction=PositionDirection.SHORT,
                                        ExecutionType="Market")
 
-        # short entry 4: short break down from bband
-        if self.shortBBandBreakdown and not shorted:
-            closed_below_lower_bband = bars[1].close < (middleband - std * self.entry_lower_bb_std_fac)
-            natr_still_low = self.ta_data_trend_strat.natr_4h < self.min_natr_bb_bd
-            third_lower_candle_close = bars[1].close < bars[2].close < bars[3].open
-            candle_low_above_previous_trailing_low = bars[1].low > self.ta_data_trend_strat.lows_trail_4h_vec[-2]
-            #condition_6 = abs(bars[1].close - bars[1].open) > atr * self.var_1
-
-            if closed_below_lower_bband and natr_still_low and third_lower_candle_close and \
-                    candle_low_above_previous_trailing_low and market_bearish:
-                shorted = True
-                self.logger.info("Shorting breakdown from bollinger band.")
-                if self.telegram is not None:
-                    self.telegram.send_log("Shorting breakdown from bollinger band.")
-                self.open_new_position(entry=bars[0].close,
-                                       stop=max(bars[0].close + self.sl_atr_fac * atr, bars[2].high,
-                                                bars[1].high),
-                                       open_positions=open_positions,
-                                       bars=bars,
-                                       direction=PositionDirection.SHORT,
-                                       ExecutionType="Market")
-
-        # Bad: trade swing breakouts
+        # trade swing breakouts by market orders
         if self.tradeSwinBreakouts:
-            depth = 2
-            depthLows = 2
-            shift = depth + 2
-            foundSwingHigh = True
-            foundSwingLow = True
-            for i in range(1, depth):
-                if bars[shift + i].high > bars[shift].high or bars[shift - i].high > bars[shift].high:
-                    foundSwingHigh = False
+            depth = 40
+            foundSwingHigh = False
+            foundSwingLow = False
+            idxSwingHigh = 0
+            idxSwingLow = 0
+            for i in range(3, depth):
+                if bars[i+2].high < bars[i+1].high < bars[i].high > bars[i-1].high:
+                    foundSwingHigh = True
+                    idxSwingHigh = i
                     break
-            if foundSwingHigh:
-                self.data_strat_one.swingHigh = bars[shift].high
 
-            for i in range(1, depthLows):
-                if bars[shift - i].close < bars[shift].close or bars[shift + i].low < bars[shift].low:
-                    foundSwingLow = False
+            if foundSwingHigh:
+                close_values = [bar.close for bar in bars[2:idxSwingHigh]]
+                alreadyLonged = any(close > bars[idxSwingHigh].high for close in close_values)
+            else:
+                alreadyLonged = True
+
+            for i in range(3, depth):
+                if bars[i+3].low > bars[i+2].low > bars[i+1].low > bars[i].low < bars[i-1].low < bars[i-2].low:
+                    foundSwingLow = True
+                    idxSwingLow = i
                     break
             if foundSwingLow:
-                self.data_strat_one.swingLow = bars[shift].close
+                close_values = [bar.close for bar in bars[2:idxSwingLow]]
+                alreadyShorted = any(close < bars[idxSwingLow].low for close in close_values)
+            else:
+                alreadyShorted = True
 
-            if self.data_strat_one.swingLow is not None and not shorted:
-                if bars[1].close < self.data_strat_one.swingLow and \
-                        self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR and \
-                        self.ta_data_trend_strat.natr_4h < 1:
-                    self.data_strat_one.swingLow = None
-                    self.open_new_position(entry=bars[0].open,
-                                              stop=bars[0].open + self.sl_atr_fac * atr,
-                                              open_positions=open_positions,
-                                              bars=bars,
-                                              direction=PositionDirection.SHORT,
-                                              ExecutionType = "Market")
-            if False and self.data_strat_one.swingHigh is not None and not longed:
-                if self.data_strat_one.swingHigh < middleband + std * 1.5 and \
-                        market_bullish:
-                    self.data_strat_one.swingHigh = None
+            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and \
+                    self.ta_data_trend_strat.marketRegime == MarketRegime.BULL and \
+                    bars[1].close > bars[idxSwingHigh].high:
                     self.open_new_position(entry=bars[0].open,
                                               stop=bars[0].open - self.sl_atr_fac * atr,
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.LONG,
+                                              ExecutionType = "Market")
+
+            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged:
+                if bars[1].close < bars[idxSwingLow].low:
+                    self.open_new_position(entry=bars[0].close,
+                                              stop=bars[0].close + self.sl_atr_fac * atr,
+                                              open_positions=open_positions,
+                                              bars=bars,
+                                              direction=PositionDirection.SHORT,
                                               ExecutionType = "Market")
 
         if not longed and not shorted:
