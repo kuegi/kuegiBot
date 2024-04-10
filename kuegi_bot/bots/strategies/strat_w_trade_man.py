@@ -203,18 +203,6 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
             pos.status = PositionStatus.OPEN
             open_positions[posId] = pos
 
-    #def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        """super().add_to_plot(fig, bars, time)
-        lines = self.channel.get_number_of_lines()
-        styles = self.channel.get_line_styles()
-        names = self.channel.get_line_names()
-        offset = 1  # we take it with offset 1
-        self.logger.info("adding channel")
-        for idx in range(0, lines):
-            sub_data = list(map(lambda b: self.channel.get_data_for_plot(b)[idx], bars))
-            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[idx],
-                            name=self.channel.id + "_" + names[idx])"""
-
     def position_got_opened_or_changed(self, position, bars: List[Bar], account: Account, open_positions):
         other_id = TradingBot.get_other_direction_id(position.id)
         if other_id in open_positions.keys():

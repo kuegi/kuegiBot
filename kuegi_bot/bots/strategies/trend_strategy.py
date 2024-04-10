@@ -105,6 +105,97 @@ class TrendStrategy(StrategyWithTradeManagement):
     def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
         super().add_to_plot(fig, bars, time)
 
+        # plot trend indicator
+        use_shapes = False   # slow if true
+        plotBackgroundColor4Trend = False
+        if plotBackgroundColor4Trend and self.plotIndicators:
+            if use_shapes:# is slow
+                trend = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[3], bars))
+                time_short = []
+                trend_short = []
+                time_short.append(time[0])
+                trend_short.append(trend[0])
+                last_trend = trend[0]
+
+                for i, (t, d) in enumerate(zip(time, trend)):
+                    if d != last_trend:
+                        time_short.append(time[i])
+                        trend_short.append(d)
+                        last_trend = d
+
+                time_short.append(time[-1])
+                trend_short.append(trend[-1])
+
+                i = 1
+                while i < len(time_short):
+                    if trend_short[i-1] == 1:
+                        color = "lightgreen"
+                    elif trend_short[i-1] == -1:
+                        color = "orangered"
+                    elif trend_short[i-1] == 0:
+                        color = "steelblue"
+                    elif trend_short[i-1] == 2:
+                        color = "black"
+                    else:
+                        color = "blue"
+                    fig.add_vrect(x0=time_short[i-1], x1=time_short[i], fillcolor=color, opacity=0.3, layer="below", line_width=0)
+                    i+=1
+            else:# use traces (faster)
+                trend = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[3], bars))  # Trend
+                time_short = [time[0]]
+                trend_short = [trend[0]]
+                last_trend = trend[0]
+
+                for i, (t, d) in enumerate(zip(time, trend)):
+                    if d != last_trend:
+                        time_short.append(time[i - 1])
+                        trend_short.append(last_trend)
+                        time_short.append(time[i])
+                        trend_short.append(d)
+                        last_trend = d
+
+                time_short.append(time[-1])
+                trend_short.append(trend[-1])
+
+                # Initialize highest_high and lowest_low with the first bar's high and low
+                highest_high = bars[0].high
+                lowest_low = bars[0].low
+
+                # Iterate over the rest of the bars
+                for bar in bars[1:]:
+                    if bar.high > highest_high:
+                        highest_high = bar.high
+                    if bar.low < lowest_low:
+                        lowest_low = bar.low
+
+                color_map = {1: "rgba(144,238,144,0.3)", -1: "rgba(255,69,0,0.3)", 0: "rgba(70,130,180,0.3)",2: "rgba(0,0,0,0.3)"}
+                for i in range(1, len(time_short)):
+                    color = color_map.get(trend_short[i - 1], "rgba(0, 0, 255, 0.3)")
+
+                    # Add a trace for the upper boundary
+                    fig.add_trace(go.Scatter(
+                        x=[time_short[i - 1], time_short[i]],
+                        y=[highest_high, highest_high],
+                        mode='lines',
+                        line=dict(width=0, color='rgba(0, 0, 255, 0.3)'),
+                        fill=None,  # No fill for the upper boundary
+                        showlegend=False,
+                        hoverinfo='none'
+                    ))
+
+                    # Add a trace for the lower boundary
+                    fig.add_trace(go.Scatter(
+                        x=[time_short[i - 1], time_short[i]],
+                        y=[lowest_low, lowest_low],
+                        mode='lines',
+                        line=dict(width=0, color='rgba(0, 0, 255, 0.3)'),
+                        fill='tonexty',
+                        fillcolor=color,
+                        opacity=0.5,
+                        showlegend=False,
+                        hoverinfo='none'
+                    ))
+
         # get ta data settings
         styles = self.ta_trend_strat.get_line_styles()
         names = self.ta_trend_strat.get_line_names()
@@ -127,40 +218,6 @@ class TrendStrategy(StrategyWithTradeManagement):
                 sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[4], bars))   # midTrail
                 fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[4],
                                 name=self.ta_trend_strat.id + "_" + names[4])
-
-        # plot trend indicator
-        plotBackgroundColor4Trend = True #TODO: check for offset
-        if plotBackgroundColor4Trend and self.plotIndicators:
-            trend = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[3], bars))      # Trend
-            time_short = []
-            trend_short = []
-            time_short.append(time[0])
-            trend_short.append(trend[0])
-            last_trend = trend[0]
-
-            for i, (t, d) in enumerate(zip(time, trend)):
-                if d != last_trend:
-                    time_short.append(time[i])
-                    trend_short.append(d)
-                    last_trend = d
-
-            time_short.append(time[-1])
-            trend_short.append(trend[-1])
-
-            i = 1
-            while i < len(time_short):
-                if trend_short[i-1] == 1:
-                    color = "lightgreen"
-                elif trend_short[i-1] == -1:
-                    color = "orangered"
-                elif trend_short[i-1] == 0:
-                    color = "steelblue"
-                elif trend_short[i-1] == 2:
-                    color = "black"
-                else:
-                    color = "blue"
-                fig.add_vrect(x0=time_short[i-1], x1=time_short[i], fillcolor=color, opacity=0.3, layer="below", line_width=0)
-                i+=1
 
         # atr_4h
         plotATR = False
@@ -187,11 +244,6 @@ class TrendStrategy(StrategyWithTradeManagement):
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[10], bars))
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[10],
                             name=self.ta_trend_strat.id + "_" + names[10])
-
-        '''plotBBandsTalib = True
-        if plotBBandsTalib and self.plotIndicators:
-            styles.extend(self.ta_trend_strat.taData_trend_strat.bbands_talib.get_line_styles())
-            names.extend(self.ta_trend_strat.taData_trend_strat.bbands_talib.get_line_names())'''
 
     def calc_pos_size(self, risk, entry, exitPrice, atr: float = 0):
         delta = entry - exitPrice
