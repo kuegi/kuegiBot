@@ -61,7 +61,7 @@ known_history_files= {
     "bybit_ETHUSD":54,
     "bybit_XRPUSD":14,
     "bybit_BTCUSDM21":1,
-    "bybit-linear_BTCUSDT":39,
+    "bybit-linear_BTCUSDT":42,
     "bybit-linear_LINKUSDT":3,
     "bybit-linear_ETHUSDT":-1,
     "bybit-linear_LTCUSDT":3,
