@@ -36,7 +36,7 @@ limit = limits[exchange]
 
 urls = {
     "bybit": f"https://api.bybit.com/v5/market/kline?category=inverse&symbol={symbol}&interval=1&limit={limit}",
-    "bybit-linear": f"https://api.bybit.com/v5/market/mark-price-kline?category=linear&symbol={symbol}&interval=1&limit={limit}",
+    "bybit-linear": f"https://api.bybit.com/v5/market/kline?category=linear&symbol={symbol}&interval=1&limit={limit}",
     "bitstamp": f"https://www.bitstamp.net/api/v2/ohlc/{symbol}/?step=60&limit={limit}&exclude_current_candle={exclude_current_candle}",
     "kucoin-spot": f"https://api.kucoin.com/api/v1/market/candles?type=1min&symbol={symbol}",
     "kucoin-futures": f"https://api-futures.kucoin.com/api/v1/market/candles?type=1min&symbol={symbol}",
@@ -53,7 +53,7 @@ if exchange == 'bybit':
         sys.exit("symbol not found")
 elif exchange == "bybit-linear":
     if symbol == 'BTCUSDT':
-        start = 1585306800000
+        start = 1585526400000
     else:
         sys.exit("symbol not found")
 elif exchange == "bitstamp":
