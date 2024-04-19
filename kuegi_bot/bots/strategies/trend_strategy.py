@@ -247,7 +247,6 @@ class TrendStrategy(StrategyWithTradeManagement):
 
     def calc_pos_size(self, risk, entry, exitPrice, atr: float = 0):
         delta = entry - exitPrice
-        risk = self.risk_with_trend
 
         if (self.ta_trend_strat.taData_trend_strat.marketRegime == MarketRegime.BULL and delta > 0) or \
                 (self.ta_trend_strat.taData_trend_strat.marketRegime == MarketRegime.BEAR and delta < 0):
@@ -256,7 +255,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                 (self.ta_trend_strat.taData_trend_strat.marketRegime == MarketRegime.BULL and delta < 0):
             risk = self.risk_counter_trend
         else:
-            risk = self.risk_ranging
+            risk = self.risk_counter_trend
 
         if not self.symbol.isInverse:
             size = risk / delta
