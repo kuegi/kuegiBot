@@ -165,7 +165,7 @@ class ExchangeWithWS(ExchangeInterface):
     def __init__(self, settings, logger, ws: KuegiWebsocket, on_tick_callback=None, on_execution_callback=None):
         super().__init__(settings, logger, on_tick_callback, on_execution_callback)
         self.symbol = settings.SYMBOL
-        self.baseCurrency = settings.BASE
+        self.baseCoin = settings.BASE
         self.ws = ws
         self.last_order_sync= 0
 
@@ -189,11 +189,12 @@ class ExchangeWithWS(ExchangeInterface):
 
         if self.hasAuth():
             self.logger.info(
-                "starting with %.2f%s in wallet, %i orders, pos %.2f @ %.2f" % (self.positions[self.symbol].walletBalance,
-                                                                                self.baseCurrency,
-                                                                               len(self.orders),
-                                                                               self.positions[self.symbol].quantity,
-                                                                               self.positions[self.symbol].avgEntryPrice))
+                "starting with %.5f %s in wallet, %i orders, pos %.5f @ %.5f" % (
+                    self.positions[self.symbol].walletBalance,
+                    self.baseCoin,
+                    len(self.orders),
+                    self.positions[self.symbol].quantity,
+                    self.positions[self.symbol].avgEntryPrice))
             self.ws.subscribe_data_after_auth()
         else:
             self.ws.subscribe_realtime_data()

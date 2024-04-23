@@ -61,8 +61,8 @@ class ByBitLinearInterface(ExchangeWithWS):
             self.logger.debug(str(order))
 
     def initPositions(self):
-        api_wallet = self.handle_result(lambda: self.pybit.get_wallet_balance(coin=self.baseCurrency))
-        balance = api_wallet[self.baseCurrency]["wallet_balance"]
+        api_wallet = self.handle_result(lambda: self.pybit.get_wallet_balance(coin=self.baseCoin))
+        balance = api_wallet[self.baseCoin]["wallet_balance"]
         api_positions = self.handle_result(lambda: self.pybit.my_position(symbol=self.symbol))
         self.longPos = AccountPosition(self.symbol, 0, 0, balance)
         self.shortPos = AccountPosition(self.symbol, 0, 0, balance)

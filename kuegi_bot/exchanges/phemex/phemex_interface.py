@@ -63,7 +63,7 @@ class PhemexInterface(ExchangeWithWS):
             # snapshots and incremental are handled the same
             walletBalance = None
             for account in data['accounts']:
-                if account['currency'] == self.baseCurrency:
+                if account['currency'] == self.baseCoin:
                     walletBalance = account['accountBalanceEv'] / self.valueScale
 
             for pos in data['positions']:
@@ -77,11 +77,11 @@ class PhemexInterface(ExchangeWithWS):
                         self.logger.info("position changed %.2f -> %.2f" % (accountPos.quantity, pos["size"] * sizefac))
                     accountPos.quantity = pos["size"] * sizefac
                     accountPos.avgEntryPrice = entryPrice
-                    if pos['currency'] == self.baseCurrency and walletBalance is not None:
+                    if pos['currency'] == self.baseCoin and walletBalance is not None:
                         accountPos.walletBalance = walletBalance
                 else:
                     sizefac = -1 if pos["side"] == Client.SIDE_SELL else 1
-                    balance = walletBalance if pos['currency'] == self.baseCurrency else 0
+                    balance = walletBalance if pos['currency'] == self.baseCoin else 0
                     self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
                                                                     avgEntryPrice=entryPrice,
                                                                     quantity=pos["size"] * sizefac,
@@ -108,7 +108,7 @@ class PhemexInterface(ExchangeWithWS):
         self.logger.info("got %i orders on startup" % len(self.orders))
 
     def initPositions(self):
-        account = self.client.query_account_n_positions(self.baseCurrency)
+        account = self.client.query_account_n_positions(self.baseCoin)
         self.positions[self.symbol] = AccountPosition(self.symbol, 0, 0, 0)
         if account is not None:
             walletBalance = account['data']['account']['accountBalanceEv'] / self.valueScale
