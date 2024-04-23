@@ -197,7 +197,7 @@ class BackTest(OrderInterface):
         self.account.order_history.append(order)
         self.account.open_orders.remove(order)
         self.logger.debug(
-            "executed order %s | %.0f %.2f | %.2f@ %.1f" % (
+            "executed order %s | %.0f %.5f | %.5f@ %.1f" % (
                 order.id, self.account.usd_equity, self.account.open_position.quantity, order.executed_amount,
                 order.executed_price))
 

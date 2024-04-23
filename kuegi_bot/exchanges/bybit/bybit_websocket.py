@@ -42,12 +42,12 @@ class BybitWebsocket(KuegiWebsocket):
     MAX_DATA_CAPACITY = 200
     PRIVATE_TOPIC = ['position', 'execution', 'order']
 
-    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar):
+    def __init__(self, wsURLs, api_key, api_secret, logger, callback,symbol, minutesPerBar, category):
         self.data = {}
         self.symbol = symbol
         self.minutesPerBar = minutesPerBar
         privateURL = "wss://stream.bybit.com/v5/private?max_alive_time=5m."
-        publicURL = "wss://stream.bybit.com/v5/public/inverse"
+        publicURL = f"wss://stream.bybit.com/v5/public/{category}"
         super().__init__([privateURL], api_key, api_secret, logger, callback)
         self.public = PublicBybitWebSocket(publicURL, logger, self,symbol, minutesPerBar) #no auth for public
 

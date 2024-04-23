@@ -139,14 +139,14 @@ result = request_client.close_user_data_stream()
 '''
 
 #'''
-if settings.EXCHANGE == 'bybit':
+if settings.EXCHANGE in ['bybit', 'bybit-linear']:
     interface= ByBitInterface(settings= settings,logger= logger,on_tick_callback=onTick, on_execution_callback=onExecution)
     b= interface.pybit
     w= interface.ws
-elif settings.EXCHANGE == 'bybit-linear':
-    interface = ByBitLinearInterface(settings=settings, logger=logger, on_tick_callback=onTick)
-    b = interface.pybit
-    w = interface.ws
+#elif settings.EXCHANGE == 'bybit-linear':
+#    interface = ByBitLinearInterface(settings=settings, logger=logger, on_tick_callback=onTick)
+#    b = interface.pybit
+#    w = interface.ws
 else:
     interface= BitmexInterface(settings=settings,logger=logger,on_tick_callback=onTick)
 

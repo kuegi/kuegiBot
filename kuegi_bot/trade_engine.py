@@ -36,14 +36,14 @@ class LiveTrading(OrderInterface):
         #FIXME: implement on_execution for bitmex, binance and phemex
         if settings.EXCHANGE == 'bitmex':
             self.exchange = BitmexInterface(settings=settings, logger=self.logger, on_tick_callback=self.on_tick)
-        elif settings.EXCHANGE == 'bybit':
+        elif settings.EXCHANGE in ['bybit', 'bybit-linear']:
             self.exchange = ByBitInterface(settings=settings, logger=self.logger,
                                            on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
                                            on_execution_callback= trading_bot.on_execution)
-        elif settings.EXCHANGE == 'bybit-linear':
-            self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
-                                           on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
-                                           on_execution_callback= trading_bot.on_execution)
+        #elif settings.EXCHANGE == 'bybit-linear':
+        #    self.exchange = ByBitLinearInterface(settings=settings, logger=self.logger,
+        #                                   on_tick_callback=self.on_tick, on_api_error=self.on_api_error,
+        #                                   on_execution_callback= trading_bot.on_execution)
         else:
             self.logger.error("unkown exchange: " + settings.EXCHANGE)
             self.alive = False
@@ -69,8 +69,8 @@ class LiveTrading(OrderInterface):
                 if self.account.open_position is not None and self.account.open_position.avgEntryPrice is not None:
                     pos = "%.2f @ %.2f" % (
                     self.account.open_position.quantity, self.account.open_position.avgEntryPrice)
-                self.telegram_bot.send_log("%s loaded, ready to go with %.2f %s in wallet and pos %s" %
-                                           (self.id, self.account.equity, self.exchange.baseCurrency, pos))
+                self.telegram_bot.send_log("%s loaded, ready to go with %.5f %s in wallet and pos %s" %
+                                           (self.id, self.account.equity, self.exchange.baseCoin, pos))
         else:
             self.alive = False
 
@@ -145,9 +145,9 @@ class LiveTrading(OrderInterface):
                 price = ("%.1f" % o.executed_price) if o.executed_price is not None else None
                 if self.telegram_bot is not None:
                     if o.executed_amount != 0:
-                        self.telegram_bot.send_execution("%s on %s: %s %.2f@ %s" %
+                        self.telegram_bot.send_execution("%s on %s: %s %.5f@ %s" %
                                                      (exec_type.upper(), self.id, o.id, o.executed_amount, price))
-                    self.telegram_bot.send_log("%s on %s: %s %.2f@ %s" %
+                    self.telegram_bot.send_log("%s on %s: %s %.5f@ %s" %
                                                      (exec_type.upper(), self.id, o.id, o.executed_amount, price),o.id)
                 self.logger.info("order %s got %s @ %s" % (o.id, exec_type, price))
                 self.account.order_history.append(o)

@@ -104,14 +104,14 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
 
     subbars: List[Bar] = []
     for b in m1_bars:
-        if exchange == 'bybit':
+        if exchange in ['bybit', 'bybit-linear']:
             if b[1] is None:
                 continue
             subbars.append(ByBitInterface.barDictToBar(b))
-        elif exchange == 'bybit-linear':
-            if b[1] is None:
-                continue
-            subbars.append(ByBitLinearInterface.barDictToBar(b))
+        #elif exchange == 'bybit-linear':
+        #    if b[1] is None:
+        #        continue
+        #    subbars.append(ByBitLinearInterface.barDictToBar(b))
         elif exchange == 'bitmex':
             if b['open'] is None:
                 continue
