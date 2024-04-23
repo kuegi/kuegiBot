@@ -258,11 +258,11 @@ class TrendStrategy(StrategyWithTradeManagement):
             risk = self.risk_counter_trend
 
         if not self.symbol.isInverse:
-            size = risk / delta
+            amount = risk / delta
         else:
-            size = -risk / (1 / entry - 1 / (entry - delta))
-        size = self.symbol.normalizeSize(size)
-        return size
+            amount = -risk / (1 / entry - 1 / (entry - delta))
+        amount = self.symbol.normalizeSize(amount)
+        return amount
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
