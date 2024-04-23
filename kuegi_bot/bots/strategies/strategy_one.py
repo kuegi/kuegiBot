@@ -150,23 +150,6 @@ class StrategyOne(TrendStrategy):
     def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
         super().position_got_opened_or_changed(position, bars, account, open_positions)
 
-        # calculate current exposure
-        #unrealized_loss = 0
-        """if account.equity != 0:
-            for i in open_positions:
-                for k in open_positions[i].connectedOrders:
-                    orderType = TradingBot.order_type_from_order_id(k.id)
-                    if orderType == OrderType.SL:
-                        current_price = (1 / bars[0].close) if self.symbol.isInverse else bars[0].close
-                        stop_price = (1 / k.stop_price) if self.symbol.isInverse else k.stop_price
-                        trade_loss = abs(current_price - stop_price) * abs(k.amount)
-                        unrealized_loss += trade_loss
-                        break
-            unrealized_loss = unrealized_loss / account.equity
-
-        if unrealized_loss > 0.1:
-            return"""
-
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)
 
@@ -334,7 +317,7 @@ class StrategyOne(TrendStrategy):
             if sold_off_bband:
                 sell_off_level = middleband_vec[-1] - std_vec[-1] * self.std_fac_sell_off
                 reclaim_level = sell_off_level + std_vec[-1] * self.std_fac_reclaim
-                natr_still_low = self.ta_data_trend_strat.natr_4h < 0.8#self.max_natr_4_bb_reclaim
+                natr_still_low = self.ta_data_trend_strat.natr_4h < 0.8
                 if bars[1].close > reclaim_level and natr_still_low and not longed:
                     longed = True
                     self.logger.info("Longing bollinger bands reclaim 1.")
@@ -488,8 +471,8 @@ class StrategyOne(TrendStrategy):
             if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and \
                     self.ta_data_trend_strat.marketRegime == MarketRegime.BULL and \
                     bars[1].close > bars[idxSwingHigh].high:
-                    self.open_new_position(entry=bars[0].open,
-                                              stop=bars[0].open - self.sl_atr_fac * atr,
+                    self.open_new_position(entry=bars[0].close,
+                                              stop=bars[0].close - self.sl_atr_fac * atr,
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.LONG,
