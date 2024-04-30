@@ -151,7 +151,8 @@ class ByBitInterface(ExchangeWithWS):
                     triggerDirection = int(triggerDirection),
                     triggerPrice=strOrNone(order.trigger_price),
                     orderLinkId=order.id,
-                    timeInForce="GTC"))
+                    timeInForce="GTC",
+                    positionIdx = int(1) if order.amount > 0 else int(2)))
                 if result is not None:
                     order.exchange_id = result['orderId']
             else:
@@ -163,7 +164,8 @@ class ByBitInterface(ExchangeWithWS):
                     qty=strOrNone(abs(order.amount)),
                     price=strOrNone(order.limit_price),
                     orderLinkId=order.id,
-                    timeInForce="GTC"))
+                    timeInForce="GTC",
+                    positionIdx = int(1) if order.amount > 0 else int(2)))
                 if result is not None:
                     order.exchange_id = result['orderId']
         elif orderType == OrderType.SL:
@@ -180,7 +182,8 @@ class ByBitInterface(ExchangeWithWS):
                     triggerPrice=strOrNone(order.trigger_price),
                     tpslMode = "Full",
                     orderLinkId=order.id,
-                    timeInForce="GTC"))
+                    timeInForce="GTC",
+                    positionIdx = int(1) if order.amount > 0 else int(2)))
                 if result is not None:
                     order.exchange_id = result['orderId']
 
