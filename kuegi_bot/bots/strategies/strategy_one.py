@@ -469,9 +469,8 @@ class StrategyOne(TrendStrategy):
                 alreadyShorted = True
 
             if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and \
-                    self.ta_data_trend_strat.marketRegime == MarketRegime.BULL and \
                     bars[1].close > bars[idxSwingHigh].high:
-                    self.open_new_position(entry=bars[0].close,
+                self.open_new_position(entry=bars[0].close,
                                               stop=bars[0].close - self.sl_atr_fac * atr,
                                               open_positions=open_positions,
                                               bars=bars,
