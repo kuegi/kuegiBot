@@ -65,6 +65,8 @@ known_history_files= {
     "bybit-linear_LINKUSDT":3,
     "bybit-linear_ETHUSDT":-1,
     "bybit-linear_LTCUSDT":3,
+    "bybit-linear_MNTUSDT": 6,
+    "bybit-linear_HBARUSDT": 27,
     "binance_BTCUSDT": 9,
     "binanceSpot_BTCUSD": 28,
     "phemex_BTCUSD": 6,
