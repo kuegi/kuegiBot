@@ -174,8 +174,8 @@ class TemplateStrategy(TrendStrategy):
         else:
             return [bar.close, bar.close, bar.close, bar.close]
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        super().add_to_plot(fig, bars, time)
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_price_data_plot(fig, bars, time)
 
         # Plot TA-generated data
         offset = 0

@@ -127,8 +127,8 @@ class MACross(StrategyWithExitModulesAndFilter):
                                                   amount=-amount, trigger=stop, limit=None))
             pos.status = PositionStatus.OPEN
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        super().add_to_plot(fig, bars, time)
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_price_data_plot(fig, bars, time)
         styles = self.swings.get_line_styles()
         styles.extend(self.slowMA.get_line_styles())
         styles.extend(self.fastMA.get_line_styles())

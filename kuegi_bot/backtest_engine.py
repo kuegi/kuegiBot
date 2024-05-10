@@ -442,7 +442,7 @@ class BackTest(OrderInterface):
 
         return self
 
-    def plot_statistics_abs(self):
+    def plot_equity_stats(self):
         self.logger.info("creating statistics plot with absolut number")
         barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
         time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
@@ -484,7 +484,7 @@ class BackTest(OrderInterface):
         fig_abs = go.Figure(data = data_abs)
         fig_abs.show()
 
-    def prepare_plot(self):
+    def plot_price_data(self):
         barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
         self.logger.info("running timelines")
         time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
@@ -498,7 +498,7 @@ class BackTest(OrderInterface):
             data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
 
         self.logger.info("adding bot data")
-        self.bot.add_to_plot(fig, self.bars, time)
+        self.bot.add_to_price_data_plot(fig, self.bars, time)
 
         fig.update_layout(xaxis_rangeslider_visible=False)
         return fig

@@ -102,8 +102,8 @@ class TrendStrategy(StrategyWithTradeManagement):
     def get_ta_data_trend_strategy(self):
         return self.ta_trend_strat.taData_trend_strat
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        super().add_to_plot(fig, bars, time)
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_price_data_plot(fig, bars, time)
 
         # plot trend indicator
         use_shapes = False   # slow if true

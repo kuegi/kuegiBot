@@ -227,8 +227,8 @@ class ChannelStrategy(StrategyWithExitModulesAndFilter):
             pos.status = PositionStatus.OPEN
             open_positions[posId] = pos
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        super().add_to_plot(fig, bars, time)
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_price_data_plot(fig, bars, time)
         lines = self.channel.get_number_of_lines()
         styles = self.channel.get_line_styles()
         names = self.channel.get_line_names()

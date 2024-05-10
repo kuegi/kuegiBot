@@ -68,7 +68,7 @@ class Strategy:
     def consolidate_positions(self, is_new_bar, bars, account, open_positions_of_strat: dict):
         pass
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
         pass
 
     def with_telegram(self, telegram: TelegramBot):
@@ -210,7 +210,7 @@ class MultiStrategyBot(TradingBot):
         for strat in self.strategies:
             self.call_with_open_positions_for_strat(strat, lambda open_pos, all_open_pos: strat.consolidate_positions(self.is_new_bar, bars, account, open_pos))
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        super().add_to_plot(fig, bars, time)
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_price_data_plot(fig, bars, time)
         for strat in self.strategies:
-            strat.add_to_plot(fig, bars, time)
+            strat.add_to_price_data_plot(fig, bars, time)

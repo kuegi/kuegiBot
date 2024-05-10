@@ -176,6 +176,6 @@ b= BackTest(bot, bars_full, funding=funding, symbol=symbol,market_slipage_percen
 bot.create_performance_plot(bars).show()
 
 # chart with signals:
-b.prepare_plot().show()
+b.plot_price_data().show()
 
 #'''

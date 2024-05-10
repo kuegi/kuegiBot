@@ -866,7 +866,7 @@ class TradingBot:
         fig.update_layout(xaxis_rangeslider_visible=False)
         return fig
 
-    def add_to_plot(self, fig, bars, time):
+    def add_to_price_data_plot(self, fig, bars, time):
         self.logger.info("adding trades")
         # trades
 

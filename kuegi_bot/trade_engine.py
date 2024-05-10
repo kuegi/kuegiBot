@@ -261,7 +261,7 @@ class LiveTrading(OrderInterface):
         fig = go.Figure(data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name="XBTUSD")])
 
         self.logger.info("adding bot data")
-        self.bot.add_to_plot(fig, self.bars, time)
+        self.bot.add_to_price_data_plot(fig, self.bars, time)
 
         fig.update_layout(xaxis_rangeslider_visible=False)
         return fig

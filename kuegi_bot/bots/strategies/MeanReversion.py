@@ -167,8 +167,8 @@ class MeanReversion(StrategyWithExitModulesAndFilter):
                       limit=shortEntry))
 
 
-    def add_to_plot(self, fig: go.Figure, bars: List[Bar], time):
-        super().add_to_plot(fig, bars, time)
+    def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_price_data_plot(fig, bars, time)
         styles = self.mean.get_line_styles()
 
         names = self.mean.get_line_names()
