@@ -443,7 +443,7 @@ class BackTest(OrderInterface):
         return self
 
     def plot_equity_stats(self):
-        self.logger.info("creating statistics plot with absolut number")
+        self.logger.info("creating equity plot")
         barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
         time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
 
@@ -482,22 +482,51 @@ class BackTest(OrderInterface):
                            line=dict(color=colors[key], width=2))
             )
         fig_abs = go.Figure(data = data_abs)
-        fig_abs.show()
+        return fig_abs
 
-    def plot_price_data(self):
+    def plot_normalized_stats(self):
+        self.logger.info("creating plot with normalized indicators")
         barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
-        self.logger.info("running timelines")
+
         time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
         open = list(map(lambda b: b.open, self.bars))
         high = list(map(lambda b: b.high, self.bars))
         low = list(map(lambda b: b.low, self.bars))
         close = list(map(lambda b: b.close, self.bars))
 
-        self.logger.info("creating plot")
+        normalizing_factor = 100
+
+        # Normalize your price data
+        normalized_open = [o / max(open) * normalizing_factor for o in open]
+        normalized_high = [h / max(high) * normalizing_factor for h in high]
+        normalized_low = [l / max(low) * normalizing_factor for l in low]
+        normalized_close = [c / max(close) * normalizing_factor for c in close]
+
+        fig = go.Figure()
+        #    data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
+        fig.add_trace(go.Candlestick(x=time, open=normalized_open, high=normalized_high, low=normalized_low,
+                                     close=normalized_close, name=self.symbol.symbol, opacity=0.5))
+
+        self.logger.info("adding normalized indicators to price chart from strategy and bot")
+        self.bot.add_to_normalized_plot(fig, self.bars, time)
+        fig.update_layout(xaxis_rangeslider_visible=False)
+        fig.update_layout(hovermode='x')
+        return fig
+
+    def plot_price_data(self):
+        barcenter = (self.bars[0].tstamp - self.bars[1].tstamp) / 2
+        self.logger.info("creating price chart")
+        time = list(map(lambda b: datetime.fromtimestamp(b.tstamp + barcenter), self.bars))
+        open = list(map(lambda b: b.open, self.bars))
+        high = list(map(lambda b: b.high, self.bars))
+        low = list(map(lambda b: b.low, self.bars))
+        close = list(map(lambda b: b.close, self.bars))
+
+        #self.logger.info("creating plot")
         fig = go.Figure(
             data=[go.Candlestick(x=time, open=open, high=high, low=low, close=close, name=self.symbol.symbol)])
 
-        self.logger.info("adding bot data")
+        self.logger.info("adding strategy and bot data to price chart")
         self.bot.add_to_price_data_plot(fig, self.bars, time)
 
         fig.update_layout(xaxis_rangeslider_visible=False)

@@ -915,3 +915,6 @@ class TradingBot:
                 ))
 
         fig.update_shapes(dict(xref='x', yref='y'))
+
+    def add_to_normalized_plot(self, fig, bars, time):
+        self.logger.info("adding normalized indicators")

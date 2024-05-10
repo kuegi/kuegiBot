@@ -33,7 +33,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                  timeframe: int = 240, ema_w_period: int = 1, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10, bband_history_size: int = 10, rsi_4h_period: int = 10,
-                 plotIndicators: bool = False,
+                 plotIndicators: bool = False, plot_RSI: bool = False,
                  trend_var_1: float = 0,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend:float = 1, risk_ranging: float = 1,
@@ -64,6 +64,7 @@ class TrendStrategy(StrategyWithTradeManagement):
             rsi_4h_period = rsi_4h_period
         )
         self.plotIndicators = plotIndicators
+        self.plot_RSI = plot_RSI
         # Risk
         self.risk_with_trend = risk_with_trend
         self.risk_counter_trend = risk_counter_trend
@@ -244,6 +245,34 @@ class TrendStrategy(StrategyWithTradeManagement):
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[10], bars))
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[10],
                             name=self.ta_trend_strat.id + "_" + names[10])
+
+    def add_to_normalized_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_normalized_plot(fig, bars, time)
+
+        # get ta data settings
+        styles = self.ta_trend_strat.get_line_styles()
+        names = self.ta_trend_strat.get_line_names()
+        offset = 0
+
+        # ATR
+        sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[6], bars))  # fast natr_4h
+        fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[6],
+                        name=self.ta_trend_strat.id + "_" + names[6])
+        sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[7], bars))  # slow natr_4h
+        fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[7],
+                        name=self.ta_trend_strat.id + "_" + names[7])
+
+        # RSI
+        if self.plot_RSI:
+            sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[11], bars))  # 4H-RSI
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[11],
+                            name=self.ta_trend_strat.id + "_" + names[11])
+            sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[12], bars))  # D-RSI
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[12],
+                            name=self.ta_trend_strat.id + "_" + names[12])
+            sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[13], bars))  # W-RSI
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[13],
+                            name=self.ta_trend_strat.id + "_" + names[13])
 
     def calc_pos_size(self, risk, entry, exitPrice, atr: float = 0):
         delta = entry - exitPrice
@@ -629,7 +658,6 @@ class TATrendStrategyIndicator(Indicator):
         else:
             trend = 10
 
-        atr_close = self.taData_trend_strat.talibbars.close[-1] + self.taData_trend_strat.atr_4h if self.taData_trend_strat.atr_4h is not None else self.taData_trend_strat.talibbars.close[-1]
         if self.taData_trend_strat.bbands_4h.middleband is not None:
             upper_band = self.taData_trend_strat.bbands_4h.middleband + self.taData_trend_strat.bbands_4h.std * self.sl_upper_bb_4h_std_fac
             lower_band = self.taData_trend_strat.bbands_4h.middleband - self.taData_trend_strat.bbands_4h.std * self.sl_lower_bb_4h_std_fac
@@ -642,12 +670,15 @@ class TATrendStrategyIndicator(Indicator):
                      self.taData_trend_strat.lows_trail_4h,
                      trend,
                      self.taData_trend_strat.mid_trail_4h,
-                     atr_close,
-                     self.taData_trend_strat.natr_4h,
-                     self.taData_trend_strat.natr_slow_4h,
+                     self.taData_trend_strat.atr_4h if self.taData_trend_strat.atr_4h is not None else 0,
+                     self.taData_trend_strat.natr_4h if self.taData_trend_strat.natr_4h is not None else 0,
+                     self.taData_trend_strat.natr_slow_4h if self.taData_trend_strat.natr_slow_4h is not None else 0,
                      upper_band,
                      self.taData_trend_strat.bbands_4h.middleband,
-                     lower_band
+                     lower_band,
+                     self.taData_trend_strat.rsi_4h_vec[-1],
+                     self.taData_trend_strat.rsi_d,
+                     self.taData_trend_strat.rsi_w
                     ]
         self.write_data(bars[0], plot_data)  # [0] because we only know about it after the candle is closed and processed
 
@@ -657,16 +688,19 @@ class TATrendStrategyIndicator(Indicator):
                 "%1.fD-Low" % self.lows_trail_4h_period,
                 "Market Trend",
                 "MidTrail",
-                "1ATR+Close",
-                "1NATR",
-                "1slowNATR",
+                "ATR",
+                "NATR",
+                "slowNATR",
                 "%.1fSTD_upperband" % self.sl_upper_bb_4h_std_fac,  # Bollinger Bands SL
                 "middleband",  # Bollinger Bands
-                "%.1fSTD_lowerband" % self.sl_lower_bb_4h_std_fac  # Bollinger Bands SL
+                "%.1fSTD_lowerband" % self.sl_lower_bb_4h_std_fac,  # Bollinger Bands SL
+                "4H-RSI",                                           # 4H RSI
+                "D-RSI",                                            # D-RSI
+                "W-RSI"                                             # W-RSI
                 ]
 
     def get_number_of_lines(self):
-        return 11
+        return 14
 
     def get_line_styles(self):
         return [
@@ -675,12 +709,15 @@ class TATrendStrategyIndicator(Indicator):
             {"width": 1, "color": "red"},                           # D-Low
             {"width": 1, "color": "black"},                         # Trend
             {"width": 1, "color": "blue", "dash": "dot"},           # Mid-Trail
-            {"width": 1, "color": "purple", "dash": "dot"},         # atr_4h+Close
+            {"width": 1, "color": "purple", "dash": "dot"},         # atr_4h
             {"width": 1, "color": "black"},                         # natr_4h
             {"width": 1, "color": "blue"},                          # slowNATR
             {"width": 1, "color": "dodgerblue"},                    # BBands SL
             {"width": 1, "color": "dodgerblue", "dash": "dot"},     # BBands
-            {"width": 1, "color": "dodgerblue"}                     # BBands SL
+            {"width": 1, "color": "dodgerblue"},                    # BBands SL
+            {"width": 1, "color": "green"},                         # 4H RSI
+            {"width": 1, "color": "blue"},                          # D-RSI
+            {"width": 1, "color": "black"},                         # W-RSI
                ]
 
     def get_data_for_plot(self, bar: Bar):
@@ -688,6 +725,16 @@ class TATrendStrategyIndicator(Indicator):
         if plot_data is not None:
             return plot_data
         else:
-            return [bar.close, bar.close, bar.close, bar.close, bar.close, bar.close, bar.close, bar.close,
-                    bar.close, bar.close, bar.close                 # Bollinger Bands
+            return [bar.close,                                      # W-EMA
+                    bar.close,                                      # D-High
+                    bar.close,                                      # D-Low
+                    bar.close,                                      # Trend
+                    bar.close,                                      # Mid-Trail
+                    0,                                              # ATR
+                    0,                                              # NATR
+                    0,                                              # # slow NATR
+                    bar.close, bar.close, bar.close,                # Bollinger Bands
+                    0,                                              # 4H-RSI
+                    0,                                              # D-RSI
+                    0                                               # W-RSI
              ]

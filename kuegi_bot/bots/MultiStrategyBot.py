@@ -71,6 +71,9 @@ class Strategy:
     def add_to_price_data_plot(self, fig: go.Figure, bars: List[Bar], time):
         pass
 
+    def add_to_normalized_plot(self, fig: go.Figure, bars: List[Bar], time):
+        pass
+
     def with_telegram(self, telegram: TelegramBot):
         self.telegram = telegram
 
@@ -214,3 +217,8 @@ class MultiStrategyBot(TradingBot):
         super().add_to_price_data_plot(fig, bars, time)
         for strat in self.strategies:
             strat.add_to_price_data_plot(fig, bars, time)
+
+    def add_to_normalized_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_normalized_plot(fig, bars, time)
+        for strat in self.strategies:
+            strat.add_to_normalized_plot(fig, bars, time)

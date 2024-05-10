@@ -47,7 +47,7 @@ class StrategyOne(TrendStrategy):
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10,
-                 plotIndicators: bool = False,
+                 plotIndicators: bool = False, plot_RSI: bool = False,
                  trend_var_1: float = 1,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend: float = 1, risk_ranging: float = 1,
@@ -599,6 +599,9 @@ class StrategyOne(TrendStrategy):
             sub_data = list(map(lambda b: self.ta_strat_one.get_data_for_plot(b)[1], bars))  # 4H-Low
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[1],
                             name=self.ta_strat_one.id + "_" + names[1])
+
+    def add_to_normalized_plot(self, fig: go.Figure, bars: List[Bar], time):
+        super().add_to_normalized_plot(fig, bars, time)
 
 
 class DataTAStrategyOne:
