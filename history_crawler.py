@@ -54,6 +54,10 @@ if exchange == 'bybit':
 elif exchange == "bybit-linear":
     if symbol == 'BTCUSDT':
         start = 1585526400000
+    elif symbol == 'MNTUSDT':
+        start = 1698062401000
+    elif symbol == 'HBARUSDT':
+        start = 1635595201000
     else:
         sys.exit("symbol not found")
 elif exchange == "bitstamp":
