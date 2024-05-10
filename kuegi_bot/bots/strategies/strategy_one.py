@@ -67,7 +67,7 @@ class StrategyOne(TrendStrategy):
             lows_trail_4h_period= lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_ranging= days_buffer_ranging,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow,
             bbands_4h_period= bbands_4h_period, bband_history_size = bband_history_size, rsi_4h_period = rsi_4h_period,
-            plotIndicators = plotIndicators,
+            plotIndicators = plotIndicators, plot_RSI = plot_RSI,
             trend_var_1 = trend_var_1,
             # Risk
             risk_with_trend = risk_with_trend, risk_counter_trend = risk_counter_trend, risk_ranging = risk_ranging,
