@@ -231,24 +231,25 @@ class StrategyOne(TrendStrategy):
         std = self.ta_data_trend_strat.bbands_4h.std
         std_vec = self.ta_data_trend_strat.bbands_4h.std_vec
         atr = self.ta_data_trend_strat.atr_4h
-        middleband = self.ta_data_trend_strat.bbands_4h.middleband
+        #middleband = self.ta_data_trend_strat.bbands_4h.middleband
         middleband_vec = self.ta_data_trend_strat.bbands_4h.middleband_vec
         market_bullish = self.ta_data_trend_strat.marketRegime == MarketRegime.BULL
-        market_bearish = self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR
+        #market_bearish = self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR
         range_limit = len(middleband_vec)
 
         longed = False
         # Long trail breakout
         if self.longTrailBreakout and not longed:
-            upper_trail_crossed = bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[-2]
-            natr_still_low = self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo
-            if upper_trail_crossed and natr_still_low:
+            condition_1 = bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[-2]
+            condition_2 = self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo
+            close = bars[1].low if bars[1].close > bars[1].open else bars[1].low - 0.3*atr
+            if condition_1 and condition_2:
                 longed = True
                 self.logger.info("Longing trail.")
                 if self.telegram is not None:
                     self.telegram.send_log("Longing trail breakout.")
                 self.open_new_position(entry=bars[0].close,
-                                          stop=bars[0].close - self.sl_atr_fac * atr,
+                                          stop=close,#bars[0].close - self.sl_atr_fac * atr,#
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.LONG,
@@ -256,15 +257,15 @@ class StrategyOne(TrendStrategy):
 
         # Long EMA bullish reclaim/breakout
         if self.longEMAbreakout and not longed:
-            ema_crossed_upwards = bars[1].close > self.ta_trend_strat.taData_trend_strat.ema_w > bars[1].open
-            natr_still_low = self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo
-            if ema_crossed_upwards and natr_still_low:
+            condition_1 = bars[1].close > self.ta_trend_strat.taData_trend_strat.ema_w > bars[1].open
+            condition_2 = self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo
+            if condition_1 and condition_2:
                 longed = True
                 self.logger.info("Longing ema breakout.")
                 if self.telegram is not None:
                     self.telegram.send_log("Longing ema breakout.")
                 self.open_new_position(entry=bars[0].close,
-                                          stop=bars[0].close - self.sl_atr_fac * atr,
+                                          stop=bars[0].low - self.sl_atr_fac * atr,
                                           open_positions=open_positions,
                                           bars=bars,
                                           direction=PositionDirection.LONG,
@@ -388,7 +389,7 @@ class StrategyOne(TrendStrategy):
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting because above BBand and high-trail")
                 self.open_new_position(entry=bars[0].close,
-                                       stop=bars[0].close + self.sl_atr_fac * atr,
+                                       stop=bars[0].close + self.sl_atr_fac * atr,#
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.SHORT,
@@ -468,9 +469,13 @@ class StrategyOne(TrendStrategy):
             else:
                 alreadyShorted = True
 
-            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and \
-                    bars[1].close > bars[idxSwingHigh].high:
-                self.open_new_position(entry=bars[0].close,
+            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted:
+                condition_1 = 60 < self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < 80
+                if bars[1].close > bars[idxSwingHigh].high and condition_1:
+                    self.logger.info("Longing swing breakout.")
+                    if self.telegram is not None:
+                        self.telegram.send_log("Longing swing breakout.")
+                    self.open_new_position(entry=bars[0].close,
                                               stop=bars[0].close - self.sl_atr_fac * atr,
                                               open_positions=open_positions,
                                               bars=bars,
@@ -478,9 +483,13 @@ class StrategyOne(TrendStrategy):
                                               ExecutionType = "Market")
 
             if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged:
-                if bars[1].close < bars[idxSwingLow].low:
+                condition_1 = 35 < self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1]
+                if bars[1].close < bars[idxSwingLow].low and condition_1:
+                    self.logger.info("Shorting swing break.")
+                    if self.telegram is not None:
+                        self.telegram.send_log("Shorting swing break.")
                     self.open_new_position(entry=bars[0].close,
-                                              stop=bars[0].close + self.sl_atr_fac * atr,
+                                              stop=bars[1].high,
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.SHORT,
