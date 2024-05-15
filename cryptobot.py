@@ -78,7 +78,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     tradeSwinBreakouts=stratSettings.TRADE_SWING_BREAKOUT,
                                     # short entries
                                     short_entry_1=stratSettings.SHORT_ENTRY_1,
-                                    short_entry_2=stratSettings.SHORT_LOST_BBAND,
+                                    short_entry_2=stratSettings.SHORT_ENTRY_2,
                                     shortTrailBreakdown=stratSettings.SHORT_TRAIL_BREAKDOWN,
                                     # TrendStrategy
                                     timeframe=stratSettings.TIMEFRAME,

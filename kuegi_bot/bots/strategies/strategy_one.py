@@ -28,7 +28,7 @@ class StrategyOne(TrendStrategy):
     # Strategy description:
     def __init__(self,
                  # StrategyOne
-                 var_1: float = 1, var_2: float = 2,
+                 var_1: float = 0, var_2: float = 0,
                  std_fac_sell_off: float = 1, std_fac_reclaim: float = 1,
                  std_fac_sell_off_3: float = 1, std_fac_reclaim_3: float = 1, std_fac_sell_off_4: float = 1, std_fac_reclaim_4: float = 1,
                  h_highs_trail_period: int = 1, h_lows_trail_period: int = 1, nmb_bars_entry: int = 1, const_trail_period: int = 4,
@@ -48,7 +48,7 @@ class StrategyOne(TrendStrategy):
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10,
                  plotIndicators: bool = False, plot_RSI: bool = False,
-                 trend_var_1: float = 1,
+                 trend_var_1: float = 0,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend: float = 1, risk_ranging: float = 1,
                  # SL
