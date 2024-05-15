@@ -152,7 +152,7 @@ class ByBitInterface(ExchangeWithWS):
                     triggerPrice=strOrNone(order.trigger_price),
                     orderLinkId=order.id,
                     timeInForce="GTC",
-                    positionIdx = int(1) if order.amount > 0 else int(2)))
+                    positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
             else:
@@ -165,7 +165,7 @@ class ByBitInterface(ExchangeWithWS):
                     price=strOrNone(order.limit_price),
                     orderLinkId=order.id,
                     timeInForce="GTC",
-                    positionIdx = int(1) if order.amount > 0 else int(2)))
+                    positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
         elif orderType == OrderType.SL:
@@ -183,9 +183,21 @@ class ByBitInterface(ExchangeWithWS):
                     tpslMode = "Full",
                     orderLinkId=order.id,
                     timeInForce="GTC",
-                    positionIdx = int(1) if order.amount > 0 else int(2)))
+                    positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
+        else:
+            result = self.handle_result(lambda: self.pybit.place_order(
+                side=("Buy" if order.amount > 0 else "Sell"),
+                symbol=self.symbol,
+                category=self.category,
+                orderType="Market",
+                qty=strOrNone(abs(order.amount)),
+                orderLinkId=order.id,
+                timeInForce="GTC",
+                positionIdx=int(0)))
+            if result is not None:
+                order.exchange_id = result['orderId']
 
     def internal_update_order(self, order: Order):
         orderType = TradingBot.order_type_from_order_id(order.id)
