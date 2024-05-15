@@ -395,6 +395,7 @@ class ByBitInterface(ExchangeWithWS):
                             self.logger.info("got order execution: %s %.4f @ %.4f " % (
                                 execution['orderLinkId'], float(execution['execQty']) * sideMulti,
                                 float(execution['execPrice'])))
+                    self.updatePosition_internally()
                         #else:
                         #    self.logger.info("could not find the right order")
                 elif topic == 'position':
