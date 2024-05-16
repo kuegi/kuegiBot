@@ -488,12 +488,12 @@ class StrategyOne(TrendStrategy):
                     self.logger.info("Shorting swing break.")
                     if self.telegram is not None:
                         self.telegram.send_log("Shorting swing break.")
-                    self.open_new_position(entry=bars[0].close,
+                    '''self.open_new_position(entry=bars[0].close,
                                               stop=bars[1].high,
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.SHORT,
-                                              ExecutionType = "Market")
+                                              ExecutionType = "Market")'''
 
         if not longed and not shorted:
             self.logger.info("No new entries for now.")

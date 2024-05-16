@@ -554,7 +554,7 @@ class ByBitInterface(ExchangeWithWS):
         order.executed_amount = float(execution) * sideMulti
         #order.tstamp = parse_utc_timestamp(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])
         #order.tstamp = int(int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])/1000)
-        order.tstamp = int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])
+        order.tstamp = int(o['updatedTime'] if 'updatedTime' in o.keys() else o['createdTime'])/1000
         order.exchange_id = o["orderId"] if 'orderId' in o.keys() else o['stopOrderId']
         order.executed_price = None
         if 'cumExecValue' in o.keys() and 'cumExecQty' in o.keys() \
