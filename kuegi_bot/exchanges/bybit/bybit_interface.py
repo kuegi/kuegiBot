@@ -80,9 +80,14 @@ class ByBitInterface(ExchangeWithWS):
                 if pos["side"] == "Sell":
                     self.shortPos.avgEntryPrice = float(pos["avgPrice"])
                     self.shortPos.quantity = -1 * float(pos["size"])
-                else:
+                elif pos["side"] == "Buy":
                     self.longPos.avgEntryPrice = float(pos["avgPrice"])
                     self.longPos.quantity = float(pos["size"])
+                else:
+                    self.shortPos.avgEntryPrice = 0
+                    self.shortPos.quantity = 0
+                    self.longPos.avgEntryPrice = 0
+                    self.longPos.quantity = 0
         self.updatePosition_internally()
 
     def updatePosition_internally(self):
@@ -395,7 +400,6 @@ class ByBitInterface(ExchangeWithWS):
                             self.logger.info("got order execution: %s %.4f @ %.4f " % (
                                 execution['orderLinkId'], float(execution['execQty']) * sideMulti,
                                 float(execution['execPrice'])))
-                    self.updatePosition_internally()
                         #else:
                         #    self.logger.info("could not find the right order")
                 elif topic == 'position':
@@ -415,9 +419,16 @@ class ByBitInterface(ExchangeWithWS):
                             if pos["side"] == "Sell":
                                 self.shortPos.quantity = -float(pos['size'])
                                 self.shortPos.avgEntryPrice = float(pos['entryPrice'])
-                            else:
+                            elif pos["side"] == "Buy":
                                 self.longPos.quantity = float(pos['size'])
                                 self.longPos.avgEntryPrice = float(pos['entryPrice'])
+                            elif pos["side"] == "None":
+                                self.longPos.quantity = 0
+                                self.longPos.avgEntryPrice = 0
+                                self.shortPos.quantity = 0
+                                self.shortPos.avgEntryPrice = 0
+                            else:
+                                self.logger.info('WARNING: unknown value for side.')
 
                             self.updatePosition_internally()
 
