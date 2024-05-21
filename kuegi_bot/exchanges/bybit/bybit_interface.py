@@ -160,6 +160,7 @@ class ByBitInterface(ExchangeWithWS):
                     positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
+                    self.orders[order.exchange_id] = order
             else:
                 result =  self.handle_result(lambda:self.pybit.place_order(
                     side=("Buy" if order.amount > 0 else "Sell"),
@@ -173,6 +174,7 @@ class ByBitInterface(ExchangeWithWS):
                     positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
+                    self.orders[order.exchange_id] = order
         elif orderType == OrderType.SL:
             if order.trigger_price is not None:
                 # conditional order
