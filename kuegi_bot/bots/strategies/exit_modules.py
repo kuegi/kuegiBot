@@ -176,24 +176,49 @@ class MaxSLDiff(ExitModule):
 
 
 class TimedExit(ExitModule):
-    ''' trails the stop to a max dist in atr_4h from the extreme point
-    '''
+    ''' time based breakeven and exit '''
 
-    def __init__(self, minutes_till_exit:int= 240):
+    def __init__(self, longs_min_to_exit:int= 240, shorts_min_to_exit: int = 240, longs_min_to_breakeven: int = 2,
+                 shorts_min_to_breakeven: int = 2, atrPeriod: int = 14):
         super().__init__()
-        self.minutes_till_exit = minutes_till_exit
+        self.longs_min_to_exit = longs_min_to_exit
+        self.shorts_min_to_exit = shorts_min_to_exit
+        self.atrPeriod = atrPeriod
+        self.longs_min_to_breakeven = longs_min_to_breakeven
+        self.shorts_min_to_breakeven = shorts_min_to_breakeven
 
     def init(self, logger,symbol):
         super().init(logger,symbol)
-        self.logger.info(f"init timedExit {self.minutes_till_exit}" )
+        self.logger.info(vars(self))
+        #self.logger.info(f"init timedExit with {self.longs_min_to_exit}, {self.atrPeriod}")
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        current_tstamp= bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
-        if position is not None and position.entry_tstamp is not None\
-                and current_tstamp - position.entry_tstamp > self.minutes_till_exit*60:
-            order.trigger_price= None # make it market
-            order.limit_price= None
-            to_update.append(order)
+        if bars[0].open == bars[0].close: # new candle
+            current_tstamp = bars[0].last_tick_tstamp if bars[0].last_tick_tstamp is not None else bars[0].tstamp
+
+            if current_tstamp > position.entry_tstamp + self.longs_min_to_exit*60:
+                if position.amount > 0 and order.trigger_price < position.wanted_entry:       # longs
+                    if bars[0].close < position.wanted_entry:
+                        order.trigger_price = position.wanted_entry
+                        to_update.append(order)
+
+            if current_tstamp > position.entry_tstamp + self.longs_min_to_breakeven*60:
+                if position.amount > 0 and order.trigger_price < position.wanted_entry:       # longs
+                    if bars[0].close > position.wanted_entry:
+                        order.trigger_price = position.wanted_entry
+                        to_update.append(order)
+
+            if current_tstamp > position.entry_tstamp + self.shorts_min_to_exit * 60:
+                if position.amount < 0 and order.trigger_price > position.wanted_entry:       # shorts
+                    if bars[0].close > position.wanted_entry:
+                        order.trigger_price = position.wanted_entry
+                        to_update.append(order)
+
+            if current_tstamp > position.entry_tstamp + self.shorts_min_to_breakeven*60:
+                if position.amount < 0 and order.trigger_price > position.wanted_entry:       # shorts
+                    if bars[0].close < position.wanted_entry:
+                        order.trigger_price = position.wanted_entry
+                        to_update.append(order)
 
 
 class RsiExit(ExitModule):
@@ -373,6 +398,8 @@ class ATRrangeSL(ExitModule):
             is_new_bar = True
 
         entry = position.wanted_entry
+        if order.trigger_price is None:
+            return
         current_stop = order.trigger_price
         skip_trailing = False
 
