@@ -447,7 +447,7 @@ class StrategyOne(TrendStrategy):
             idxSwingHigh = 0
             idxSwingLow = 0
             for i in range(3, depth):
-                if bars[i+2].high < bars[i+1].high < bars[i].high > bars[i-1].high:
+                if bars[i+2].close < bars[i+1].close < bars[i].close > bars[i-1].close:
                     foundSwingHigh = True
                     idxSwingHigh = i
                     break
