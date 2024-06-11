@@ -622,12 +622,11 @@ class TATrendStrategyIndicator(Indicator):
     def identify_trend(self):
         # Trend based on W-EMA and trails
         if self.taData_trend_strat.rsi_w is not None and self.taData_trend_strat.ema_w is not None:
-            if self.taData_trend_strat.talibbars.close_weekly[-1] < self.taData_trend_strat.ema_w:
+            if self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w:
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
                 self.bear_buffer = self.days_buffer_bear * self.bars_per_day
                 self.ranging_buffer = self.days_buffer_ranging * self.bars_per_day
-            elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.highs_trail_4h_vec[-2] or \
-                    self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.ema_w:
+            elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.ema_w:#self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.highs_trail_4h_vec[-2] or \
                 self.bear_buffer -= 1
                 if self.bear_buffer <= 0:
                     self.ranging_buffer -= 1
