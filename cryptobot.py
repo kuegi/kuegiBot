@@ -68,7 +68,6 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     short_entry_2_std_fac=stratSettings.SHORT_ENTRY_2_STD_FAC,
                                     short_entry_2_std_fac_entry=stratSettings.SHORT_ENTRY_2_STD_FAC_ENTRY,
                                     short_entry_2_max_natr=stratSettings.SHORT_ENTRY_2_MAX_NATR,
-                                    short_entry_3_max_natr=stratSettings.SHORT_ENTRY_3_MAX_NATR,
                                     # long entries
                                     tradeWithLimitOrders=stratSettings.TRADE_LIMIT_ORDERS,
                                     longReclaimBBand=stratSettings.LONG_RECLAIM_BBAND,

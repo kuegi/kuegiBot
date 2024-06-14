@@ -42,7 +42,6 @@ class StrategyOne(TrendStrategy):
                  short_entry_2_std_fac_entry: float = 1, short_entry_1_max_natr: float = 1, short_entry_1_std_fac: float = 1,
                  short_entry_1_max_day_rsi: float = 50, short_entry_1_max_4h_rsi: float = 50,
                  short_entry_2_max_natr: float = 1, short_entry_2_min_natr: float = 1,
-                 short_entry_3_max_natr: float = 1,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
@@ -123,7 +122,6 @@ class StrategyOne(TrendStrategy):
         self.short_entry_2_std_fac_entry = short_entry_2_std_fac_entry
         self.short_entry_2_max_natr = short_entry_2_max_natr
         self.short_entry_2_min_natr = short_entry_2_min_natr
-        self.short_entry_3_max_natr = short_entry_3_max_natr
         self.overboughtBB = 0
         self.overboughtBB_entry = 0
         self.sl_atr_fac = sl_atr_fac
@@ -425,15 +423,14 @@ class StrategyOne(TrendStrategy):
 
         # short entry 3: break down from lower trail
         if self.shortTrailBreakdown and not shorted:
-            trail_broke = (bars[1].close < self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-3:-2]).all()
-            opened_above_trail = (bars[1].open > self.ta_strat_one.taData_strat_one.h_lows_trail_vec[-5:-2]).all()
-            natr_low = self.ta_data_trend_strat.natr_4h < self.short_entry_3_max_natr
-            if trail_broke and opened_above_trail and natr_low and not market_bullish:
+            trail_broke = (bars[1].close < self.ta_strat_one.taData_strat_one.h_body_lows_trail_vec[-40:-2]).all()
+            opened_above_trail = (bars[1].open > self.ta_strat_one.taData_strat_one.h_body_lows_trail_vec[-40:-2]).all()
+            if trail_broke and opened_above_trail:
                 self.logger.info("Shorting trail break.")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting trail break.")
                 self.open_new_position(entry=bars[0].open,
-                                       stop=bars[0].open + self.sl_atr_fac * atr,
+                                       stop=max(bars[1].high,bars[2].high, bars[3].high),
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.SHORT,
@@ -489,7 +486,7 @@ class StrategyOne(TrendStrategy):
                     if self.telegram is not None:
                         self.telegram.send_log("Shorting swing break.")
                     self.open_new_position(entry=bars[0].close,
-                                              stop=bars[1].high,
+                                              stop=max(bars[1].high, bars[2].high),
                                               open_positions=open_positions,
                                               bars=bars,
                                               direction=PositionDirection.SHORT,
@@ -616,6 +613,7 @@ class DataTAStrategyOne:
     def __init__(self):
         self.h_highs_trail_vec = None
         self.h_lows_trail_vec = None
+        self.h_body_lows_trail_vec = None
         self.h_highs_trail = None
         self.h_lows_trail = None
 
@@ -656,6 +654,7 @@ class TAStrategyOne(Indicator):
         # Trails
         self.taData_strat_one.h_highs_trail_vec = talib.MAX(self.ta_data_trend_strat.talibbars.high, self.h_highs_trail_period)
         self.taData_strat_one.h_lows_trail_vec = talib.MIN(self.ta_data_trend_strat.talibbars.low, self.h_lows_trail_period)
+        self.taData_strat_one.h_body_lows_trail_vec = talib.MIN(self.ta_data_trend_strat.talibbars.close, self.h_lows_trail_period)
 
         self.taData_strat_one.h_highs_trail = self.taData_strat_one.h_highs_trail_vec[-1] if not np.isnan(self.taData_strat_one.h_highs_trail_vec[-1]) else None
         self.taData_strat_one.h_lows_trail = self.taData_strat_one.h_lows_trail_vec[-1] if not np.isnan(self.taData_strat_one.h_lows_trail_vec[-1]) else None
