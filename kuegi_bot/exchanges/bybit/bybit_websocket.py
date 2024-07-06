@@ -46,10 +46,8 @@ class BybitWebsocket(KuegiWebsocket):
         self.data = {}
         self.symbol = symbol
         self.minutesPerBar = minutesPerBar
-        privateURL = "wss://stream.bybit.com/v5/private?max_alive_time=5m."
-        publicURL = f"wss://stream.bybit.com/v5/public/{category}"
-        super().__init__([privateURL], api_key, api_secret, logger, callback)
-        self.public = PublicBybitWebSocket(publicURL, logger, self,symbol, minutesPerBar) #no auth for public
+        super().__init__([wsURLs[0]], api_key, api_secret, logger, callback)
+        self.public = PublicBybitWebSocket(wsURLs[1], logger, self,symbol, minutesPerBar) #no auth for public
 
     def on_pong(self):
         self.ws.send(json.dumps({"op": "ping"}))

@@ -38,8 +38,15 @@ class ByBitInterface(ExchangeWithWS):
             self.category = 'spot'
         else:
             self.category = 'inverse'
+        if settings.IS_TEST:
+            privateURL = "wss://stream-testnet.bybit.com/v5/private?max_alive_time=5m"
+            publicURL = f"wss://stream-testnet.bybit.com/v5/public/{self.category}"
+        else:
+            privateURL = "wss://stream.bybit.com/v5/private?max_alive_time=5m"
+            publicURL = f"wss://stream.bybit.com/v5/public/{self.category}"
+        hosts = [privateURL, publicURL]
         super().__init__(settings, logger,
-                         ws=BybitWebsocket(wsURLs=None,
+                         ws=BybitWebsocket(wsURLs=hosts,
                                            api_key=settings.API_KEY,
                                            api_secret=settings.API_SECRET,
                                            logger=logger,
@@ -421,36 +428,29 @@ class ByBitInterface(ExchangeWithWS):
                             if pos["side"] == "Sell":
                                 self.shortPos.quantity = -float(pos['size'])
                                 self.shortPos.avgEntryPrice = float(pos['entryPrice'])
+                                sizefac = -1
                             elif pos["side"] == "Buy":
                                 self.longPos.quantity = float(pos['size'])
                                 self.longPos.avgEntryPrice = float(pos['entryPrice'])
+                                sizefac = 1
                             elif pos["side"] == "None":
                                 self.longPos.quantity = 0
                                 self.longPos.avgEntryPrice = 0
                                 self.shortPos.quantity = 0
                                 self.shortPos.avgEntryPrice = 0
+                                sizefac = 0
                             else:
                                 self.logger.info('WARNING: unknown value for side.')
+                                sizefac = 0
 
+                            if pos['symbol'] not in self.positions.keys():
+                                self.logger.info("Symbol was not in keys. Adding...")
+                                self.positions[pos['symbol']] = AccountPosition(pos['symbol'],
+                                                                                avgEntryPrice=float(pos["entryPrice"]),
+                                                                                quantity=float(pos["size"]) * sizefac,
+                                                                                walletBalance=float(pos['positionBalance']))
                             self.updatePosition_internally()
 
-
-                    #for pos in msgs:
-                    #    self.logger.info("pos message arrived: %s" % (str(pos)))
-                    #    sizefac = -1 if pos["side"] == "Sell" else 1
-                    #    if pos['symbol'] == self.symbol and self.positions[pos['symbol']].quantity != float(pos["size"]) * sizefac:
-                    #        self.logger.info("position changed %.2f -> %.2f" % ( self.positions[pos['symbol']].quantity, float(pos["size"]) * sizefac))
-                    #    if pos['symbol'] not in self.positions.keys():
-                    #        self.positions[pos['symbol']] = AccountPosition(pos['symbol'], avgEntryPrice=float(pos["entryPrice"]),
-                    #                                                        quantity=float(pos["size"]) * sizefac)#,
-                    #                                                        #walletBalance=float(pos['walletBalance']))
-                    #    else:
-                    #        self.logger.info("don´t know what to do")
-                    #        #pass
-                    #        #accountPos = self.positions[pos['symbol']]
-                    #        #accountPos.quantity = float(pos["size"]) * sizefac
-                    #        #accountPos.avgEntryPrice = float(pos["entryPrice"])
-                    #        #accountPos.walletBalance = float(pos['walletBalance'])
                 elif topic.startswith('kline.') and topic.endswith('.' + self.symbol):
                     for b in msgs:
                         #print('kline message: ')
