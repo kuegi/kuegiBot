@@ -311,12 +311,12 @@ class ParaTrail(ExitModule):
         return position.id + '_paraExit'
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
-        if position is None or order is None or order.stop_price is None:
+        if position is None or order is None or order.trigger_price is None:
             return
 
         self.update_bar_data(position, bars)
         data = self.get_data(bars[0],self.data_id(position))
-        newStop = order.stop_price
+        newStop = order.trigger_price
 
         # trail
         if data is not None and (data.stop - newStop) * position.amount > 0:
@@ -328,11 +328,11 @@ class ParaTrail(ExitModule):
         # if restart, the last actual is not set and we might miss increments cause of regular restarts.
         lastdata= self.get_data(bars[1],self.data_id(position))
         if lastdata is not None and lastdata.actualStop is None:
-            lastdata.actualStop= order.stop_price
+            lastdata.actualStop= order.trigger_price
             self.write_data(bar=bars[1], dataId=self.data_id(position), data=lastdata)
 
-        if math.fabs(newStop - order.stop_price) > 0.5*self.symbol.tickSize:
-            order.stop_price = newStop
+        if math.fabs(newStop - order.trigger_price) > 0.5*self.symbol.tickSize:
+            order.trigger_price = newStop
             to_update.append(order)
 
     def update_bar_data(self, position: Position, bars: List[Bar]):

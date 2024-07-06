@@ -64,7 +64,7 @@ function refresh() {
 
                 pos.connectedOrders.forEach(function(order) {
                     if(order.id.includes("_SL_")) {
-                        pos.currentStop= order.stop_price;
+                        pos.currentStop= order.trigger_price;
                         if(Math.abs(pos.amount) > 10) {
                             pos.worstCase= (1/pos.currentStop - 1/pos.filled_entry)/(1/pos.wanted_entry-1/pos.initial_stop);
                         } else {

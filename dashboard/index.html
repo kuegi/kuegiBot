@@ -152,7 +152,7 @@
                         bot.positions.forEach((position) => {
                             position.connectedOrders.forEach((order) => {
                                 if(order.id.includes('_SL_')) {
-                                    position.currentStop = order.stop_price
+                                    position.currentStop = order.trigger_price
                                     if(Math.abs(position.amount) > 100) {
                                         position.worstCase = (1 / position.currentStop - 1 / position.filled_entry) / (1 / position.wanted_entry - 1 / position.initial_stop)
                                     } else {
