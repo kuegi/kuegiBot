@@ -69,6 +69,19 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
             to_cancel.append(order)
             del open_positions[position.id]
 
+        # cancel entries not allowed
+        if orderType == OrderType.ENTRY and position.status == PositionStatus.PENDING:
+            if not hasattr(position, 'waitingToFillSince'):
+                position.waitingToFillSince = bars[0].tstamp
+            if (bars[0].tstamp - position.waitingToFillSince) > self.bars_till_cancel_triggered * (
+                    bars[0].tstamp - bars[1].tstamp):
+                # cancel
+                position.status = PositionStatus.MISSED
+                position.exit_tstamp = bars[0].tstamp
+                del open_positions[position.id]
+                self.logger.info("canceling not filled position: " + position.id)
+                to_cancel.append(order)
+
     def consolidate_positions(self, is_new_bar, bars, account, open_positions):
         if (not is_new_bar) or self.maxPositions is None or self.consolidate is False:
             return
