@@ -200,6 +200,7 @@ class ByBitInterface(ExchangeWithWS):
                     positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
+                    self.orders[order.exchange_id] = order
         else:
             result = self.handle_result(lambda: self.pybit.place_order(
                 side=("Buy" if order.amount > 0 else "Sell"),
@@ -212,6 +213,7 @@ class ByBitInterface(ExchangeWithWS):
                 positionIdx=int(0)))
             if result is not None:
                 order.exchange_id = result['orderId']
+                self.orders[order.exchange_id] = order
 
     def internal_update_order(self, order: Order):
         orderType = TradingBot.order_type_from_order_id(order.id)
@@ -409,8 +411,8 @@ class ByBitInterface(ExchangeWithWS):
                             self.logger.info("got order execution: %s %.4f @ %.4f " % (
                                 execution['orderLinkId'], float(execution['execQty']) * sideMulti,
                                 float(execution['execPrice'])))
-                        #else:
-                        #    self.logger.info("could not find the right order")
+                        else:
+                            self.logger.info("WARNING: could not find the right order!")
                 elif topic == 'position':
                     #print('position msg arrived:')
                     # {'bustPrice': '0.00', 'category': 'inverse', 'createdTime': '1627542388255',
