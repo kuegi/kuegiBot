@@ -195,9 +195,6 @@ class StrategyOne(TrendStrategy):
                 foundLong, foundShort = self.update_existing_entries(account, open_positions, longEntry, shortEntry,
                                                                      stopLong, stopShort, longAmount, shortAmount)
 
-                # decide if new entries are allowed
-                #self.new_entries_allowed(bars)
-
                 # Set entries if no orders are found and the market conditions allow it
                 # go LONG
                 if not foundLong and directionFilter >= 0 and self.ta_data_trend_strat.natr_4h < 0.8 and\
@@ -582,18 +579,6 @@ class StrategyOne(TrendStrategy):
             if trail[-i] < trail[-(i + 1)]:
                 lower_equal = False
         return lower_equal
-
-    def new_entries_allowed(self, bars):
-        self.data_strat_one.shortsAllowed = True
-        self.data_strat_one.longsAllowed = True
-        for i in range(1, self.nmb_bars_entry):
-            if self.ta_data_trend_strat.lows_trail_4h_vec[-i] != \
-                    self.ta_data_trend_strat.lows_trail_4h_vec[-(i + 1)]:
-                self.data_strat_one.shortsAllowed = False
-
-            if self.ta_data_trend_strat.highs_trail_4h_vec[-i] != \
-                    self.ta_data_trend_strat.highs_trail_4h_vec[-(i + 1)]:
-                self.data_strat_one.longsAllowed = False
 
     def manage_open_position(self, p, bars, account, pos_ids_to_cancel):
         super().manage_open_position(p, bars, account, pos_ids_to_cancel)

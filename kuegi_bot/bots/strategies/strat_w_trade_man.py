@@ -73,8 +73,8 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
         if orderType == OrderType.ENTRY and position.status == PositionStatus.PENDING:
             if not hasattr(position, 'waitingToFillSince'):
                 position.waitingToFillSince = bars[0].tstamp
-            if (bars[0].tstamp - position.waitingToFillSince) > self.bars_till_cancel_triggered * (
-                    bars[0].tstamp - bars[1].tstamp):
+            if ((bars[0].tstamp - position.waitingToFillSince) > self.bars_till_cancel_triggered * (
+                    bars[0].tstamp - bars[1].tstamp)) or (len(open_positions) >= self.maxPositions):
                 # cancel
                 position.status = PositionStatus.MISSED
                 position.exit_tstamp = bars[0].tstamp
