@@ -42,8 +42,6 @@ def start_bot(botSettings,telegram:TelegramBot=None):
             if stratId == "strategyOne":
                 strat = StrategyOne(# Strategy One
                                     # entry indicators
-                                    std_fac_sell_off_4=stratSettings.STD_FAC_SELL_OFF_4,
-                                    std_fac_reclaim_4=stratSettings.STD_FAC_RECLAIM_4,
                                     std_fac_sell_off=stratSettings.STD_FAC_SELL_OFF,
                                     std_fac_reclaim=stratSettings.STD_FAC_RECLAIM,
                                     std_fac_sell_off_3=stratSettings.STD_FAC_SELL_OFF_3,
@@ -60,24 +58,13 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     min_rsi_bd=stratSettings.MIN_RSI_BD,
                                     overbought_std_fac=stratSettings.OVERBOUGHT_STD_FAC,
                                     overbought_std_fac_entr=stratSettings.OVERBOUGHT_STD_FAC_ENTR,
-                                    max_natr_5_bb_reclaim=stratSettings.MAX_NATR_5_BB_RECLAIM,
-                                    short_entry_1_max_natr=stratSettings.SHORT_ENTRY_1_MAX_NATR,
                                     short_entry_1_std_fac=stratSettings.SHORT_ENTRY_1_STD_FAC,
-                                    short_entry_1_max_day_rsi=stratSettings.SHORT_ENTRY_1_MAX_DAY_RSI,
-                                    short_entry_1_max_4h_rsi=stratSettings.SHORT_ENTRY_1_MAX_4H_RSI,
-                                    short_entry_2_std_fac=stratSettings.SHORT_ENTRY_2_STD_FAC,
-                                    short_entry_2_std_fac_entry=stratSettings.SHORT_ENTRY_2_STD_FAC_ENTRY,
-                                    short_entry_2_max_natr=stratSettings.SHORT_ENTRY_2_MAX_NATR,
                                     # long entries
                                     tradeWithLimitOrders=stratSettings.TRADE_LIMIT_ORDERS,
-                                    longReclaimBBand=stratSettings.LONG_RECLAIM_BBAND,
                                     longTrailBreakout=stratSettings.LONG_TRAIL_BREAKOUT,
-                                    longEMAbreakout=stratSettings.LONG_EMA_BREAKOUT,
-                                    longTrailReversal=stratSettings.LONG_TRAIL_REVERSAL,
                                     tradeSwinBreakouts=stratSettings.TRADE_SWING_BREAKOUT,
                                     # short entries
                                     short_entry_1=stratSettings.SHORT_ENTRY_1,
-                                    short_entry_2=stratSettings.SHORT_ENTRY_2,
                                     shortTrailBreakdown=stratSettings.SHORT_TRAIL_BREAKDOWN,
                                     # TrendStrategy
                                     timeframe=stratSettings.TIMEFRAME,
