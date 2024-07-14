@@ -31,12 +31,10 @@ class StrategyOne(TrendStrategy):
                  var_1: float = 0, var_2: float = 0,
                  std_fac_sell_off: float = 1, std_fac_reclaim: float = 1,
                  std_fac_sell_off_3: float = 1, std_fac_reclaim_3: float = 1,
-                 h_highs_trail_period: int = 1, h_lows_trail_period: int = 1, nmb_bars_entry: int = 1, const_trail_period: int = 4,
+                 h_highs_trail_period: int = 1, h_lows_trail_period: int = 1,
                  shortTrailBreakdown: bool = False, longTrailBreakout: bool = False,
-                 tradeSwinBreakouts: bool = False, tradeWithLimitOrders: bool = False,short_entry_1: bool = False, entry_lower_bb_std_fac: float = 2.0,
-                 max_natr_4_trail_bo: float = 2, max_natr_4_bb_reclaim: float = 2, min_natr_bb_bd: float = 2,
-                 max_rsi_trail_rev: float = 50, min_rsi_bd: float = 50, overbought_std_fac: float = 5,
-                 overbought_std_fac_entr: float = 2,
+                 tradeSwinBreakouts: bool = False, tradeWithLimitOrders: bool = False,short_entry_1: bool = False,
+                 max_natr_4_trail_bo: float = 2, max_natr_4_bb_reclaim: float = 2,
                  short_entry_1_std_fac: float = 1,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
@@ -84,22 +82,14 @@ class StrategyOne(TrendStrategy):
         # Entry variables
         self.var_1 = var_1 # for backtesting
         self.var_2 = var_2 # for backtesting
-        self.nmb_bars_entry = nmb_bars_entry
-        self.const_trail_period = const_trail_period
         self.tradeWithLimitOrders = tradeWithLimitOrders
         self.longTrailBreakout = longTrailBreakout
         self.shortTrailBreakdown = shortTrailBreakdown
         self.tradeSwinBreakouts = tradeSwinBreakouts
         self.short_entry_1 = short_entry_1
         self.short_entry_1_std_fac = short_entry_1_std_fac
-        self.entry_lower_bb_std_fac = entry_lower_bb_std_fac
         self.max_natr_4_trail_bo = max_natr_4_trail_bo
         self.max_natr_4_bb_reclaim = max_natr_4_bb_reclaim
-        self.min_natr_bb_bd = min_natr_bb_bd
-        self.max_rsi_trail_rev = max_rsi_trail_rev
-        self.overbought_std_fac = overbought_std_fac
-        self.overbought_std_fac_entr = overbought_std_fac_entr
-        self.min_rsi_bd = min_rsi_bd
         self.std_fac_sell_off = std_fac_sell_off
         self.std_fac_reclaim = std_fac_reclaim
         self.std_fac_sell_off_3 = std_fac_sell_off_3
