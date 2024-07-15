@@ -55,6 +55,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     tradeWithLimitOrders=stratSettings.TRADE_LIMIT_ORDERS,
                                     longTrailBreakout=stratSettings.LONG_TRAIL_BREAKOUT,
                                     tradeSwinBreakouts=stratSettings.TRADE_SWING_BREAKOUT,
+                                    long_bband_reclaim=stratSettings.LONG_BBAND_RECLAIM,
                                     # short entries
                                     short_entry_1=stratSettings.SHORT_ENTRY_1,
                                     shortTrailBreakdown=stratSettings.SHORT_TRAIL_BREAKDOWN,
