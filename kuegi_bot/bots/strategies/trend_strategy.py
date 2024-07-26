@@ -284,7 +284,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                 (self.ta_trend_strat.taData_trend_strat.marketRegime == MarketRegime.BULL and delta < 0):
             risk = self.risk_counter_trend
         else:
-            risk = self.risk_counter_trend
+            risk = self.risk_ranging
 
         if not self.symbol.isInverse:
             amount = risk / delta
@@ -374,34 +374,6 @@ class BBands:
         self.middleband_vec = middleband_vec
         self.std = std
         self.std_vec = std_vec
-
-
-'''class Talib_BBANDS(Indicator):
-    def __init__(self, period: int = None, middleband:float = None, std:float = None):
-        super().__init__("BBands" + str(period))
-        self.period = period
-        self.middleband = middleband
-        self.std = std
-
-    def on_tick(self, bars: List[Bar]):
-        pass
-
-    def on_tick_talib(self, close: np.array, period: int):
-        # Update Bollinger Bands arrays
-        a, b, c = talib.BBANDS(close[-period - 1:], timeperiod=period, nbdevup=1,
-                               nbdevdn=1)
-        upperband = a[-1]
-        self.middleband = b[-1]
-        if not np.isnan(upperband) and not np.isnan(self.middleband):
-            self.std = upperband - self.middleband
-        else:
-            self.std = np.nan
-
-    def get_line_names(self):
-        return ["bbands_talib" + str(self.period)]
-
-    def get_line_styles(self):
-        return [{"width": 1, "color": "purple"}]'''
 
 
 class TAdataTrendStrategy:

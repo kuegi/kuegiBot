@@ -19,9 +19,6 @@ class DataStrategyOne:
         self.stopLong = None
         self.shortEntry = None
         self.stopShort = None
-        self.shortsAllowed = False
-        self.longsAllowed = False
-        self.longs_from_middleband_alowed = False
 
 
 class StrategyOne(TrendStrategy):
@@ -37,6 +34,7 @@ class StrategyOne(TrendStrategy):
                  long_bband_reclaim: bool = False,
                  max_natr_4_trail_bo: float = 2, max_natr_4_bb_reclaim: float = 2,
                  short_entry_1_std_fac: float = 1,
+                 shortsAllowed: bool = False, longsAllowed: bool = False,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
@@ -99,6 +97,8 @@ class StrategyOne(TrendStrategy):
         self.overboughtBB = 0
         self.overboughtBB_entry = 0
         self.sl_atr_fac = sl_atr_fac
+        self.shortsAllowed = shortsAllowed
+        self.longsAllowed = longsAllowed
 
     def myId(self):
         return "strategyOne"
@@ -183,12 +183,12 @@ class StrategyOne(TrendStrategy):
 
                 # Set entries if no orders are found and the market conditions allow it
                 # go LONG
-                if not foundLong and directionFilter >= 0 and self.ta_data_trend_strat.natr_4h < 0.8 and\
+                if not foundLong and self.longsAllowed and directionFilter >= 0 and self.ta_data_trend_strat.natr_4h < 0.8 and\
                     self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > 35 and\
                         self.ta_trend_strat.taData_trend_strat.rsi_d > 55:
                     self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLoss")
                 # go SHORT
-                if not foundShort and directionFilter <= 0 and shortEntry is not None:
+                if not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None:
                     pass
 
                 # Save parameters
@@ -203,7 +203,7 @@ class StrategyOne(TrendStrategy):
                 Indicator.write_data_static(bars[0], plot_data, self.myId())
 
         # long trail breakout
-        if self.longTrailBreakout and not longed:
+        if self.longTrailBreakout and not longed and self.longsAllowed:
             condition_1 = bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[-2]
             condition_2 = self.ta_data_trend_strat.natr_4h < self.max_natr_4_trail_bo
             close = bars[1].low if bars[1].close > bars[1].open else bars[1].low - 0.3*atr
@@ -241,8 +241,7 @@ class StrategyOne(TrendStrategy):
                 if resetted_bband_entry:
                     reset_bband_level = middleband_vec[-1] + std_vec[-1] * std_fac_reset
                     support_level = reset_bband_level - std_vec[-1] * support_level_bband_std_fac
-                    #natr_still_low = self.ta_data_trend_strat.natr_4h < max_natr_1_bb_reclaim
-                    if bars[1].close < support_level and not longed and market_bullish:# and natr_still_low:
+                    if bars[1].close < support_level and not longed and self.longsAllowed and market_bullish:
                         longed = True
                         self.logger.info("Longing bband support")
                         if self.telegram is not None:
@@ -273,7 +272,7 @@ class StrategyOne(TrendStrategy):
                     sell_off_level = middleband_vec[-1] - std_vec[-1] * self.std_fac_sell_off
                     reclaim_level = sell_off_level + std_vec[-1] * self.std_fac_reclaim
                     natr_still_low = self.ta_data_trend_strat.natr_4h < self.max_natr_4_bb_reclaim
-                    if bars[1].close > reclaim_level and natr_still_low and not longed:
+                    if bars[1].close > reclaim_level and natr_still_low and not longed and self.longsAllowed:
                         longed = True
                         self.logger.info("Longing bollinger bands reclaim 1.")
                         if self.telegram is not None:
@@ -303,7 +302,7 @@ class StrategyOne(TrendStrategy):
                 if sold_off_bband_3 and market_bullish:
                     natr_still_low = self.ta_data_trend_strat.natr_4h < self.max_natr_4_bb_reclaim
                     reclaim_level_3 = middleband_vec[-1] - std * abs(self.std_fac_sell_off_3 - self.std_fac_reclaim_3)
-                    if bars[1].close > reclaim_level_3 and natr_still_low and not longed:
+                    if bars[1].close > reclaim_level_3 and natr_still_low and not longed and self.longsAllowed:
                         longed = True
                         self.logger.info("Longing bollinger bands reclaim 3.")
                         if self.telegram is not None:
@@ -316,7 +315,7 @@ class StrategyOne(TrendStrategy):
                                                ExecutionType="Market")
 
         # short trail breakdown
-        if self.shortTrailBreakdown and not shorted:
+        if self.shortTrailBreakdown and not shorted and self.shortsAllowed:
             trail_broke = (bars[1].close < self.ta_strat_one.taData_strat_one.h_body_lows_trail_vec[-35:-2]).all()
             opened_above_trail = (bars[1].open > self.ta_strat_one.taData_strat_one.h_body_lows_trail_vec[-50:-2]).all()
             if trail_broke and opened_above_trail:
@@ -361,7 +360,7 @@ class StrategyOne(TrendStrategy):
             else:
                 alreadyShorted = True
 
-            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted:
+            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed:
                 condition_1 = 60 < self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < 80
                 if bars[1].close > bars[idxSwingHigh].high and condition_1:
                     self.logger.info("Longing swing breakout.")
@@ -375,7 +374,7 @@ class StrategyOne(TrendStrategy):
                                               direction=PositionDirection.LONG,
                                               ExecutionType = "Market")
 
-            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged:
+            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed:
                 condition_1 = 35 < self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1]
                 if bars[1].close < bars[idxSwingLow].low and condition_1:
                     self.logger.info("Shorting swing break.")
@@ -390,7 +389,7 @@ class StrategyOne(TrendStrategy):
                                               ExecutionType = "Market")
 
         # short entry 1
-        if self.short_entry_1 and not market_bullish and not shorted:
+        if self.short_entry_1 and not market_bullish and not shorted and self.shortsAllowed:
             condition_1 = bars[1].high > middleband_vec[-2] + std_vec[-2] * self.short_entry_1_std_fac
             condition_2 = bars[2].high > middleband_vec[-3] + std_vec[-3] * self.short_entry_1_std_fac
             condition_3 = (bars[1].high > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-3:-2]).any()
@@ -407,6 +406,14 @@ class StrategyOne(TrendStrategy):
                                        direction=PositionDirection.SHORT,
                                        ExecutionType="Market")
 
+        if not self.longsAllowed:
+            self.logger.info("Longs not allowed.")
+            if self.telegram is not None:
+                self.telegram.send_log("Longs not allowed.")
+        if not self.shortsAllowed:
+            self.logger.info("Shorts not allowed.")
+            if self.telegram is not None:
+                self.telegram.send_log("Shorts not allowed.")
         if not longed and not shorted:
             self.logger.info("No new entries for now.")
             if self.telegram is not None:

@@ -59,6 +59,9 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                                     # short entries
                                     short_entry_1=stratSettings.SHORT_ENTRY_1,
                                     shortTrailBreakdown=stratSettings.SHORT_TRAIL_BREAKDOWN,
+                                    # direction filter
+                                    longsAllowed=stratSettings.LONGS_ALLOWED,
+                                    shortsAllowed=stratSettings.SHORTS_ALLOWED,
                                     # TrendStrategy
                                     timeframe=stratSettings.TIMEFRAME,
                                     ema_w_period=stratSettings.EMA_W_PERIOD,
