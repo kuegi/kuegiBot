@@ -158,7 +158,7 @@ class ByBitInterface(ExchangeWithWS):
                     category=self.category,
                     symbol=self.symbol,
                     orderType=order_type,
-                    qty=strOrNone(abs(order.amount)),
+                    qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                     price=strOrNone(order.limit_price),
                     triggerDirection = int(triggerDirection),
                     triggerPrice=strOrNone(order.trigger_price),
@@ -174,7 +174,7 @@ class ByBitInterface(ExchangeWithWS):
                     symbol=self.symbol,
                     category = self.category,
                     orderType=order_type,
-                    qty=strOrNone(abs(order.amount)),
+                    qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                     price=strOrNone(order.limit_price),
                     orderLinkId=order.id,
                     timeInForce="GTC",
@@ -191,7 +191,7 @@ class ByBitInterface(ExchangeWithWS):
                     symbol=self.symbol,
                     orderType=order_type,
                     slOrderType = "Market",
-                    qty=strOrNone(abs(order.amount)),
+                    qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                     triggerDirection=int(triggerDirection),
                     triggerPrice=strOrNone(order.trigger_price),
                     tpslMode = "Full",
@@ -207,7 +207,7 @@ class ByBitInterface(ExchangeWithWS):
                 symbol=self.symbol,
                 category=self.category,
                 orderType="Market",
-                qty=strOrNone(abs(order.amount)),
+                qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                 orderLinkId=order.id,
                 timeInForce="GTC",
                 positionIdx=int(0)))
@@ -228,7 +228,7 @@ class ByBitInterface(ExchangeWithWS):
                     orderId=order.exchange_id,
                     category = self.category,
                     symbol=self.symbol,
-                    qty=strOrNone(abs(order.amount)),
+                    qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                     triggerPrice=strOrNone(self.symbol_info.normalizePrice(order.trigger_price, order.amount > 0)),
                     price=strOrNone(self.symbol_info.normalizePrice(order.limit_price, order.amount < 0))))
             else:
@@ -236,7 +236,7 @@ class ByBitInterface(ExchangeWithWS):
                     orderId=order.exchange_id,
                     category = self.category,
                     symbol=self.symbol,
-                    qty=strOrNone(abs(order.amount)),
+                    qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                     price=strOrNone(self.symbol_info.normalizePrice(order.limit_price,order.amount < 0))))
         elif orderType == OrderType.SL:
             if order.trigger_price is not None:
@@ -248,7 +248,7 @@ class ByBitInterface(ExchangeWithWS):
                     symbol=self.symbol,
                     orderType="Market",
                     slOrderType = "Market",
-                    qty=strOrNone(abs(order.amount)),
+                    qty=strOrNone(self.symbol_info.normalizeSize(abs(order.amount))),
                     triggerDirection=int(triggerDirection),
                     triggerPrice=strOrNone(order.trigger_price),
                     tpslMode = "Full",
