@@ -43,7 +43,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                  tp_at_middleband: bool = True, tp_on_opposite: bool = True, stop_at_new_entry: bool = False,
                  trail_sl_with_bband: bool = False, stop_short_at_middleband: bool = True, stop_at_trail: bool = False,
                  stop_at_lowerband: bool = False,
-                 atr_buffer_fac: float = 0, moving_sl_atr_fac: float = 5,
+                 atr_buffer_fac: float = 0, moving_sl_atr_fac: float = 5, ema_multiple_4_tp:float = 10,
                  # StrategyWithTradeManagement
                  maxPositions: int = 100, consolidate: bool = False, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
                  limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True
@@ -84,6 +84,7 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.stop_short_at_middleband = stop_short_at_middleband
         self.stop_at_trail = stop_at_trail
         self.stop_at_lowerband = stop_at_lowerband
+        self.ema_multiple_4_tp = ema_multiple_4_tp
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
@@ -229,9 +230,12 @@ class TrendStrategy(StrategyWithTradeManagement):
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[6], bars))   # fast natr_4h
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[6],
                             name=self.ta_trend_strat.id + "_" + names[6])
-            sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[7], bars))  # slow natr_4h
+            sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[7], bars))   # slow natr_4h
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[7],
                             name=self.ta_trend_strat.id + "_" + names[7])
+            sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[15], bars))  # atr_4h + Trail + close
+            fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[15],
+                            name=self.ta_trend_strat.id + "_" + names[15])
 
         # plot Bollinger Bands
         plotBBands = True
@@ -261,6 +265,9 @@ class TrendStrategy(StrategyWithTradeManagement):
         sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[7], bars))  # slow natr_4h
         fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[7],
                         name=self.ta_trend_strat.id + "_" + names[7])
+        sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[14], bars))  # natr + trail normalized
+        fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[14],
+                        name=self.ta_trend_strat.id + "_" + names[14])
 
         # RSI
         if self.plot_RSI:
@@ -335,7 +342,12 @@ class TrendStrategy(StrategyWithTradeManagement):
                             bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac < new_trigger_price:
                             new_trigger_price = bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac
                         if self.stop_at_trail:
-                            new_trigger_price = min(self.ta_trend_strat.taData_trend_strat.highs_trail_4h + self.ta_trend_strat.taData_trend_strat.atr_4h*12, new_trigger_price)
+                            new_trigger_price = min(self.ta_trend_strat.taData_trend_strat.highs_trail_4h + self.ta_trend_strat.taData_trend_strat.atr_4h*8, new_trigger_price)
+                        #if False:
+                        #    ema_multiple = self.ta_trend_strat.taData_trend_strat.ema_w * self.ta_trend_strat.trend_var_1
+                        #    d_rsi_low = 20 < self.ta_trend_strat.taData_trend_strat.rsi_d
+                        #    if bars[0].open < ema_multiple and d_rsi_low:
+                        #        new_trigger_price = bars[0].open
 
                     elif order.amount < 0:  # SL for LONGs
                         if self.stop_at_trail:
@@ -362,6 +374,11 @@ class TrendStrategy(StrategyWithTradeManagement):
                             new_trigger_price = max(self.ta_trend_strat.taData_trend_strat.bbands_4h.middleband, new_trigger_price)
                         if self.trail_sl_with_bband:
                             new_trigger_price = max(lower_band, new_trigger_price)
+                        if self.ema_multiple_4_tp != 0:
+                            ema_multiple = self.ta_trend_strat.taData_trend_strat.ema_w * self.ema_multiple_4_tp
+                            d_rsi_low = 90 < self.ta_trend_strat.taData_trend_strat.rsi_d
+                            if bars[0].open > ema_multiple and d_rsi_low:
+                                new_trigger_price = bars[0].open
 
                     if new_trigger_price != order.trigger_price:
                         order.trigger_price = new_trigger_price
@@ -391,6 +408,8 @@ class TAdataTrendStrategy:
         self.natr_slow_4h_vec = None
         self.natr_slow_4h = None
         self.highs_trail_4h_vec = None
+        self.natr_trail_mix = None
+        self.atr_trail_mix = None
         self.highs_trail_4h = None
         self.lows_trail_4h_vec = None
         self.lows_trail_4h = None
@@ -562,6 +581,11 @@ class TATrendStrategyIndicator(Indicator):
         self.taData_trend_strat.atr_4h = atr_4h_vec[-1]
         self.taData_trend_strat.natr_4h = natr_4h_vec[-1]
         self.taData_trend_strat.natr_slow_4h = natr_slow_4h_vec[-1]
+        self.taData_trend_strat.natr_trail_mix = (
+                (self.taData_trend_strat.natr_4h+
+                 ((self.taData_trend_strat.highs_trail_4h - self.taData_trend_strat.lows_trail_4h)/
+                 self.taData_trend_strat.highs_trail_4h)*self.trend_var_1)/2)
+        self.taData_trend_strat.atr_trail_mix = (self.taData_trend_strat.atr_4h + (self.taData_trend_strat.highs_trail_4h - self.taData_trend_strat.lows_trail_4h)/5)/2
 
         # Update RSI for 4H timeframe
         self.taData_trend_strat.rsi_4h_vec = talib.RSI(close[-self.rsi_4h_period-1:], self.rsi_4h_period)
@@ -649,7 +673,9 @@ class TATrendStrategyIndicator(Indicator):
                      lower_band,
                      self.taData_trend_strat.rsi_4h_vec[-1],
                      self.taData_trend_strat.rsi_d,
-                     self.taData_trend_strat.rsi_w
+                     self.taData_trend_strat.rsi_w,
+                     self.taData_trend_strat.natr_trail_mix if self.taData_trend_strat.natr_trail_mix is not None else 0,
+                     self.taData_trend_strat.atr_trail_mix if self.taData_trend_strat.atr_trail_mix is not None else 0
                     ]
         self.write_data(bars[0], plot_data)  # [0] because we only know about it after the candle is closed and processed
 
@@ -667,11 +693,13 @@ class TATrendStrategyIndicator(Indicator):
                 "%.1fSTD_lowerband" % self.sl_lower_bb_4h_std_fac,  # Bollinger Bands SL
                 "4H-RSI",                                           # 4H RSI
                 "D-RSI",                                            # D-RSI
-                "W-RSI"                                             # W-RSI
+                "W-RSI",                                            # W-RSI
+                "NATR + Trail",                                     # NATR + Trail normalized
+                "ATR + Trail"                                       # ATR + Trail
                 ]
 
     def get_number_of_lines(self):
-        return 14
+        return 16
 
     def get_line_styles(self):
         return [
@@ -689,6 +717,8 @@ class TATrendStrategyIndicator(Indicator):
             {"width": 1, "color": "green"},                         # 4H RSI
             {"width": 1, "color": "blue"},                          # D-RSI
             {"width": 1, "color": "black"},                         # W-RSI
+            {"width": 1, "color": "orange", "dash": "dot"},         # natr + trail normalized
+            {"width": 1, "color": "orange"},                        # atr + trail
                ]
 
     def get_data_for_plot(self, bar: Bar):
@@ -707,5 +737,7 @@ class TATrendStrategyIndicator(Indicator):
                     bar.close, bar.close, bar.close,                # Bollinger Bands
                     0,                                              # 4H-RSI
                     0,                                              # D-RSI
-                    0                                               # W-RSI
+                    0,                                              # W-RSI
+                    0,                                              # NATR + Trail
+                    0                                               # ATR + Trail
              ]
