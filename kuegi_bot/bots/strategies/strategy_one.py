@@ -53,6 +53,7 @@ class StrategyOne(TrendStrategy):
                  trail_sl_with_bband: bool = False, stop_short_at_middleband: bool = False, stop_at_trail: bool = False,
                  stop_at_lowerband: bool = False,
                  moving_sl_atr_fac: float = 5, sl_upper_bb_std_fac: float = 1, sl_lower_bb_std_fac: float = 1,
+                 ema_multiple_4_tp: float = 10,
                  # StrategyWithTradeManagement
                  maxPositions: int = 100, consolidate: bool = False, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
                  limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True
@@ -74,6 +75,7 @@ class StrategyOne(TrendStrategy):
             atr_buffer_fac = atr_buffer_fac, moving_sl_atr_fac = moving_sl_atr_fac,
             sl_upper_bb_std_fac = sl_upper_bb_std_fac, sl_lower_bb_std_fac = sl_lower_bb_std_fac,
             stop_short_at_middleband = stop_short_at_middleband, stop_at_trail = stop_at_trail, stop_at_lowerband = stop_at_lowerband,
+            ema_multiple_4_tp = ema_multiple_4_tp,
             # StrategyWithTradeManagement
             maxPositions = maxPositions, consolidate = consolidate, close_on_opposite = close_on_opposite, bars_till_cancel_triggered = bars_till_cancel_triggered,
             limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter
@@ -112,8 +114,6 @@ class StrategyOne(TrendStrategy):
         self.entry_4_natr = entry_4_natr
         self.entry_4_std_fac = entry_4_std_fac
         self.entry_4_std_fac_reclaim = entry_4_std_fac_reclaim
-        self.overboughtBB = 0
-        self.overboughtBB_entry = 0
         self.sl_atr_fac = sl_atr_fac
         self.shortsAllowed = shortsAllowed
         self.longsAllowed = longsAllowed
