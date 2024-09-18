@@ -290,8 +290,12 @@ class TrendStrategy(StrategyWithTradeManagement):
         elif (self.ta_trend_strat.taData_trend_strat.marketRegime == MarketRegime.BEAR and delta > 0) or \
                 (self.ta_trend_strat.taData_trend_strat.marketRegime == MarketRegime.BULL and delta < 0):
             risk = self.risk_counter_trend
+            if delta<0:
+                risk = risk/2  # less risk for shorts
         else:
             risk = self.risk_ranging
+            if delta<0:
+                risk = risk/2  # less risk for shorts
 
         if not self.symbol.isInverse:
             amount = risk / delta
