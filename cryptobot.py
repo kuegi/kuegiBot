@@ -114,6 +114,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     moving_sl_atr_fac=stratSettings.MOVING_SL_ATR_FAC,
                     sl_upper_bb_std_fac=stratSettings.SL_UPPER_BB_STD_FAC,
                     sl_lower_bb_std_fac=stratSettings.SL_LOWER_BB_STD_FAC,
+                    ema_multiple_4_tp=stratSettings.EMA_MULTIPLE_4_TP,
                     # StrategyWithTradeManagement
                     maxPositions=stratSettings.MAXPOSITIONS,
                     consolidate=stratSettings.CONSOLIDATE,
