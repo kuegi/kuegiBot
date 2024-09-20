@@ -202,6 +202,9 @@ class StrategyOne(TrendStrategy):
             totalWorstCase = totalWorstCase / self.risk_ref
             if totalWorstCase < 0:
                 self.logger.info("Too much active risk. No new entries.")
+                if self.telegram is not None:
+                    self.telegram.send_log("Too much active risk. No new entries.")
+                    self.telegram.send_log("totalWorstCase:" + str(totalWorstCase))
                 return
 
         self.logger.info("New bar. Checking for new entry options")
