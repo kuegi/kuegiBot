@@ -38,8 +38,8 @@ class StrategyOne(TrendStrategy):
                  entry_2_max_natr: float = 1, entry_2_min_rsi_4h: int = 50, entry_2_min_rsi_d:int = 80,
                  entry_3_atr_fac: float = 1, entry_5_natr: float = 2, entry_5_rsi_d: int = 40,
                  entry_5_atr_fac: float = 0.8, entry_5_trail_1_period: int = 10, entry_5_trail_2_period: int = 10,
-                 entry_6_rsi_4h: int = 30, entry_6_rsi_4h_max: int = 90,
-                 entry_6_atr_fac: float = 5, entry_6_rsi_4h_min: int = 30, entry_8: bool = False, entry_9:bool = False,
+                 entry_6_rsi_4h_max: int = 90, entry_6_max_natr: float = 2,
+                 entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
@@ -110,10 +110,9 @@ class StrategyOne(TrendStrategy):
         self.entry_5_atr_fac = entry_5_atr_fac
         self.entry_5_trail_1_period = entry_5_trail_1_period
         self.entry_5_trail_2_period = entry_5_trail_2_period
-        self.entry_6_rsi_4h = entry_6_rsi_4h
+        self.entry_6_max_natr = entry_6_max_natr
         self.entry_6_rsi_4h_max = entry_6_rsi_4h_max
         self.entry_6_atr_fac = entry_6_atr_fac
-        self.entry_6_rsi_4h_min = entry_6_rsi_4h_min
         self.entry_7_bb_fac = entry_7_bb_fac
         self.entry_7_atr_fac = entry_7_atr_fac
         self.entry_3_max_natr = entry_3_max_natr
@@ -375,9 +374,10 @@ class StrategyOne(TrendStrategy):
             else:
                 alreadyShorted = True
 
-            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed:
-                condition_1 = self.entry_6_rsi_4h < self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_6_rsi_4h_max
-                if bars[1].close > bars[idxSwingHigh].high and condition_1:
+            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed and not market_bullish:
+                condition_1 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_6_rsi_4h_max
+                condition_2 = natr_4h < self.entry_6_max_natr
+                if bars[1].close > bars[idxSwingHigh].high and condition_2 and condition_1:
                     self.logger.info("Longing swing breakout.")
                     if self.telegram is not None:
                         self.telegram.send_log("Longing swing breakout.")
@@ -390,8 +390,8 @@ class StrategyOne(TrendStrategy):
                                            ExecutionType = "Market")
 
             if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed:
-                condition_1 = self.entry_6_rsi_4h_min < self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1]
-                if bars[1].close < bars[idxSwingLow].low and condition_1:
+                condition_2 = bars[1].open > self.ta_data_trend_strat.ema_w
+                if bars[1].close < bars[idxSwingLow].low and condition_2:
                     self.logger.info("Shorting swing break.")
                     if self.telegram is not None:
                         self.telegram.send_log("Shorting swing break.")
@@ -520,7 +520,7 @@ class StrategyOne(TrendStrategy):
 
         if foundSwingHigh and not alreadyLonged and foundSwingLow and not alreadyShorted:
             # Calculate potential trade entries
-            longEntry = self.symbol.normalizePrice(bars[idxSwingHigh].high, roundUp=True)
+            longEntry = self.symbol.normalizePrice(bars[idxSwingHigh].high+self.ta_data_trend_strat.atr_4h*0.05, roundUp=True)
             shortEntry = self.symbol.normalizePrice(bars[idxSwingLow].low, roundUp=False)
 
             # Calculate stops

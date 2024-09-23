@@ -78,7 +78,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                 # cancel
                 position.status = PositionStatus.MISSED
                 position.exit_tstamp = bars[0].tstamp
-                del open_positions[position.id]
+                #del open_positions[position.id]
                 self.logger.info("canceling not filled position: " + position.id)
                 to_cancel.append(order)
 
