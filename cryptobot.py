@@ -43,7 +43,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                 strat = StrategyOne(
                     # Strategy One
                     # entry indicators
-                    risk_ref=stratSettings.RISK_REFERENCE,
+                    risk_ref=risk_reference,
                     reduceRisk=stratSettings.REDUCE_RISK,
                     entry_1_atr_fac=stratSettings.ENTRY_1_ATR_FAC,
                     entry_2_max_natr=stratSettings.ENTRY_2_MAX_NATR,
@@ -58,10 +58,9 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     entry_5_atr_fac=stratSettings.ENTRY_5_ATR_FAC,
                     entry_5_trail_1_period=stratSettings.ENTRY_5_TRAIL_1_PERIOD,
                     entry_5_trail_2_period=stratSettings.ENTRY_5_TRAIL_2_PERIOD,
-                    entry_6_rsi_4h=stratSettings.ENTRY_6_RSI_4H,
                     entry_6_rsi_4h_max=stratSettings.ENTRY_6_RSI_4H_MAX,
                     entry_6_atr_fac=stratSettings.ENTRY_6_ATR_FAC,
-                    entry_6_rsi_4h_min=stratSettings.ENTRY_6_RSI_MIN,
+                    entry_6_max_natr=stratSettings.ENTRY_6_MAX_NATR,
                     entry_7_std_fac=stratSettings.ENTRY_7_STD_FAC,
                     entry_7_bb_fac=stratSettings.ENTRY_7_BB_FAC,
                     entry_7_atr_fac=stratSettings.ENTRY_7_ATR_FAC,
