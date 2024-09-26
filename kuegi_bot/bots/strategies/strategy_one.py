@@ -36,7 +36,7 @@ class StrategyOne(TrendStrategy):
                  entry_7_std_fac: float = 1, entry_7_bb_fac:float=3, entry_7_atr_fac: float = 2.5,
                  shortsAllowed: bool = False, longsAllowed: bool = False,
                  entry_2_max_natr: float = 1, entry_2_min_rsi_4h: int = 50, entry_2_min_rsi_d:int = 80,
-                 entry_3_atr_fac: float = 1, entry_5_natr: float = 2, entry_5_rsi_d: int = 40,
+                 entry_3_atr_fac: float = 1, entry_5_natr: float = 2, entry_5_rsi_d: int = 40, entry_5_rsi_4h: int = 80,
                  entry_5_atr_fac: float = 0.8, entry_5_trail_1_period: int = 10, entry_5_trail_2_period: int = 10,
                  entry_6_rsi_4h_max: int = 90, entry_6_max_natr: float = 2,
                  entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False,
@@ -107,6 +107,7 @@ class StrategyOne(TrendStrategy):
         self.entry_3_atr_fac = entry_3_atr_fac
         self.entry_5_natr = entry_5_natr
         self.entry_5_rsi_d = entry_5_rsi_d
+        self.entry_5_rsi_4h = entry_5_rsi_4h
         self.entry_5_atr_fac = entry_5_atr_fac
         self.entry_5_trail_1_period = entry_5_trail_1_period
         self.entry_5_trail_2_period = entry_5_trail_2_period
@@ -332,7 +333,8 @@ class StrategyOne(TrendStrategy):
             opened_above_trail = (bars[1].open > self.ta_strat_one.taData_strat_one.h_body_lows_trail_vec[-self.entry_5_trail_2_period:-2]).all()
             condition_1 = natr_4h < self.entry_5_natr
             condition_2 = self.ta_trend_strat.taData_trend_strat.rsi_d < self.entry_5_rsi_d
-            if trail_broke and opened_above_trail and condition_2 and condition_1:
+            condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_5_rsi_4h
+            if trail_broke and opened_above_trail and condition_2 and condition_1 and condition_3:
                 self.logger.info("Shorting trail break.")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting trail break.")
