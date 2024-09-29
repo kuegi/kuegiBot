@@ -6,13 +6,14 @@ import numpy as np
 
 
 class TAlibBars(Indicator):
-    def __init__(self, close: List[float] = None, high: List[float] = None, low: List[float] = None, open: List[float] = None):
+    def __init__(self, close: List[float] = None, high: List[float] = None, low: List[float] = None, open: List[float] = None, volume: List[float] = None):
         super().__init__("TAlibBars")
         self.close = np.array(close) if close is not None else None
         self.high = np.array(high) if high is not None else None
         self.low = np.array(low) if low is not None else None
         self.open = np.array(open) if open is not None else None
         self.timestamps = None
+        self.volume = np.array(volume) if volume is not None else None
 
         # Initialize daily candles
         self.close_daily = None
@@ -37,6 +38,7 @@ class TAlibBars(Indicator):
             self.high = np.append(self.high, bars[1].high)
             self.low = np.append(self.low, bars[1].low)
             self.open = np.append(self.open, bars[1].open)
+            self.volume = np.append(self.volume, bars[1].volume)
 
             self._update_daily_candles(bars[1].tstamp)
             self._update_weekly_candles(bars[1].tstamp)
@@ -54,10 +56,13 @@ class TAlibBars(Indicator):
         high = np.array([bar.high for bar in reversed(bars[1:])])
         low = np.array([bar.low for bar in reversed(bars[1:])])
         open = np.array([bar.open for bar in reversed(bars[1:])])
+        volume = np.array([bar.volume for bar in reversed(bars[1:])])
+
         self.close = close
         self.high = high
         self.low = low
         self.open = open
+        self.volume = volume
         self.set_timestamps(bars)
 
         # daily & weekly

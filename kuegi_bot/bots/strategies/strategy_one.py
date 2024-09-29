@@ -25,25 +25,27 @@ class StrategyOne(TrendStrategy):
     # Strategy description:
     def __init__(self,
                  # StrategyOne
-                 var_1: float = 0, var_2: float = 0, risk_ref: float = 1, reduceRisk: bool = False,
+                 var_1: float = 0, var_2: float = 0, risk_ref: float = 1, reduceRisk: bool = False, max_r: float = 20,
                  entry_4_std_fac: float = 1, entry_4_std_fac_reclaim: float = 1,
                  h_highs_trail_period: int = 1, h_lows_trail_period: int = 1,
                  entry_5: bool = False, entry_3: bool = False,
                  entry_6: bool = False, entry_2: bool = False, entry_7: bool = False,
-                 entry_1:bool = False, entry_1_atr_fac: float = 1,
+                 entry_1:bool = False, entry_1_atr_fac: float = 1, entry_1_vol_fac: float = 2.0,
                  entry_4: bool = False,
-                 entry_3_max_natr: float = 2,
+                 entry_3_max_natr: float = 2, entry_3_vol_fac: float = 2.0,
                  entry_7_std_fac: float = 1, entry_7_bb_fac:float=3, entry_7_atr_fac: float = 2.5,
                  shortsAllowed: bool = False, longsAllowed: bool = False,
                  entry_2_max_natr: float = 1, entry_2_min_rsi_4h: int = 50, entry_2_min_rsi_d:int = 80,
                  entry_3_atr_fac: float = 1, entry_5_natr: float = 2, entry_5_rsi_d: int = 40, entry_5_rsi_4h: int = 80,
                  entry_5_atr_fac: float = 0.8, entry_5_trail_1_period: int = 10, entry_5_trail_2_period: int = 10,
+                 entry_5_vol_fac: float = 2.0,
                  entry_6_rsi_4h_max: int = 90, entry_6_max_natr: float = 2,
                  entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False,
+                 entry_8_vol_fac: float = 2.0,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
-                 bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10,
+                 bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
                  plotIndicators: bool = False, plot_RSI: bool = False,
                  trend_var_1: float = 0,
                  # Risk
@@ -65,6 +67,7 @@ class StrategyOne(TrendStrategy):
             lows_trail_4h_period= lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_ranging= days_buffer_ranging,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow,
             bbands_4h_period= bbands_4h_period, bband_history_size = bband_history_size, rsi_4h_period = rsi_4h_period,
+            volume_sma_4h_period =volume_sma_4h_period,
             plotIndicators = plotIndicators, plot_RSI = plot_RSI,
             trend_var_1 = trend_var_1,
             # Risk
@@ -88,6 +91,7 @@ class StrategyOne(TrendStrategy):
         # Entry variables
         self.var_1 = var_1 # for backtesting
         self.var_2 = var_2 # for backtesting
+        self.max_r = max_r
         self.entry_1 = entry_1
         self.entry_2 = entry_2
         self.entry_3 = entry_3
@@ -101,16 +105,19 @@ class StrategyOne(TrendStrategy):
         self.risk_ref = risk_ref
         self.reduceRisk = reduceRisk
         self.entry_1_atr_fac = entry_1_atr_fac
+        self.entry_1_vol_fac = entry_1_vol_fac
         self.entry_2_max_natr = entry_2_max_natr
         self.entry_2_min_rsi_4h = entry_2_min_rsi_4h
         self.entry_2_min_rsi_d = entry_2_min_rsi_d
         self.entry_3_atr_fac = entry_3_atr_fac
+        self.entry_3_vol_fac = entry_3_vol_fac
         self.entry_5_natr = entry_5_natr
         self.entry_5_rsi_d = entry_5_rsi_d
         self.entry_5_rsi_4h = entry_5_rsi_4h
         self.entry_5_atr_fac = entry_5_atr_fac
         self.entry_5_trail_1_period = entry_5_trail_1_period
         self.entry_5_trail_2_period = entry_5_trail_2_period
+        self.entry_5_vol_fac = entry_5_vol_fac
         self.entry_6_max_natr = entry_6_max_natr
         self.entry_6_rsi_4h_max = entry_6_rsi_4h_max
         self.entry_6_atr_fac = entry_6_atr_fac
@@ -119,6 +126,7 @@ class StrategyOne(TrendStrategy):
         self.entry_3_max_natr = entry_3_max_natr
         self.entry_4_std_fac = entry_4_std_fac
         self.entry_4_std_fac_reclaim = entry_4_std_fac_reclaim
+        self.entry_8_vol_fac = entry_8_vol_fac
         self.sl_atr_fac = sl_atr_fac
         self.shortsAllowed = shortsAllowed
         self.longsAllowed = longsAllowed
@@ -200,7 +208,7 @@ class StrategyOne(TrendStrategy):
                             totalWorstCase += (worstCase*initialRisk)
 
             totalWorstCase = totalWorstCase / self.risk_ref
-            if totalWorstCase < 0:
+            if totalWorstCase < - self.max_r:
                 self.logger.info("Too much active risk. No new entries.")
                 if self.telegram is not None:
                     self.telegram.send_log("Too much active risk. No new entries.")
@@ -237,7 +245,8 @@ class StrategyOne(TrendStrategy):
                 talibbars.high_daily[-1] > self.ta_data_trend_strat.highs_trail_4h_vec[-7]
             )
             condition_3 = not market_bullish
-            if condition_1 and condition_2 and condition_3:
+            condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_1_vol_fac < self.ta_data_trend_strat.volume_4h
+            if condition_1 and condition_2 and condition_3 and condition_4:
                 self.logger.info("Shorting daily sfp")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting daily sfp")
@@ -284,8 +293,9 @@ class StrategyOne(TrendStrategy):
         if self.entry_3 and not longed and self.longsAllowed:
             condition_1 = bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[-2]
             condition_2 = natr_4h < self.entry_3_max_natr
+            condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_3_vol_fac > self.ta_data_trend_strat.volume_4h
             close = bars[1].low if bars[1].close > bars[1].open else bars[1].low - self.entry_3_atr_fac * atr_trail_mix
-            if condition_1 and condition_2:
+            if condition_1 and condition_2 and condition_4:
                 longed = True
                 self.logger.info("Longing trail.")
                 if self.telegram is not None:
@@ -334,7 +344,8 @@ class StrategyOne(TrendStrategy):
             condition_1 = natr_4h < self.entry_5_natr
             condition_2 = self.ta_trend_strat.taData_trend_strat.rsi_d < self.entry_5_rsi_d
             condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_5_rsi_4h
-            if trail_broke and opened_above_trail and condition_2 and condition_1 and condition_3:
+            condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_5_vol_fac < self.ta_data_trend_strat.volume_4h
+            if trail_broke and opened_above_trail and condition_2 and condition_1 and condition_3 and condition_4:
                 self.logger.info("Shorting trail break.")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting trail break.")
@@ -439,7 +450,8 @@ class StrategyOne(TrendStrategy):
                            bars[6].close > bars[1].close and
                            bars[7].close > bars[1].close and
                            bars[8].close > bars[1].close)
-            if condition_1 and condition_2:
+            condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_8_vol_fac > self.ta_data_trend_strat.volume_4h
+            if condition_1 and condition_2 and condition_4:
                 self.logger.info("Shorting rapid sell-off")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting rapid sell-off")
