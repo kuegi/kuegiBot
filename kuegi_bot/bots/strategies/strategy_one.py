@@ -254,11 +254,12 @@ class StrategyOne(TrendStrategy):
         std_vec = self.ta_data_trend_strat.bbands_4h.std_vec
         atr = self.ta_data_trend_strat.atr_4h
         atr_trail_mix = self.ta_data_trend_strat.atr_trail_mix
-        natr_trail_mix = self.ta_data_trend_strat.natr_trail_mix
         natr_4h = self.ta_data_trend_strat.natr_4h
-        # middleband = self.ta_data_trend_strat.bbands_4h.middleband
+        middleband = self.ta_data_trend_strat.bbands_4h.middleband
         middleband_vec = self.ta_data_trend_strat.bbands_4h.middleband_vec
         market_bullish = self.ta_data_trend_strat.marketRegime == MarketRegime.BULL
+        market_bearish = self.ta_data_trend_strat.marketRegime == MarketRegime.BEAR
+        market_ranging = self.ta_data_trend_strat.marketRegime == MarketRegime.RANGING
         range_limit = len(middleband_vec)
 
         # short daily sfp

@@ -597,7 +597,7 @@ class TATrendStrategyIndicator(Indicator):
         self.taData_trend_strat.natr_trail_mix = (
                 (self.taData_trend_strat.natr_4h+
                  ((self.taData_trend_strat.highs_trail_4h - self.taData_trend_strat.lows_trail_4h)/
-                 self.taData_trend_strat.highs_trail_4h)*self.trend_var_1)/2)
+                 self.taData_trend_strat.highs_trail_4h))/2)
         self.taData_trend_strat.atr_trail_mix = (self.taData_trend_strat.atr_4h + (self.taData_trend_strat.highs_trail_4h - self.taData_trend_strat.lows_trail_4h)/5)/2
 
         # Update RSI for 4H timeframe
