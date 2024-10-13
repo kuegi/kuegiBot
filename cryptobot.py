@@ -133,6 +133,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     close_on_opposite=stratSettings.CLOSE_ON_OPPOSITE,
                     bars_till_cancel_triggered=stratSettings.BARS_TILL_CANCEL_TRIGGERED,
                     limit_entry_offset_perc=stratSettings.LIMIT_ENTRY_OFFSET_PERC,
+                    tp_fac=stratSettings.TP_FAC,
                     delayed_cancel=stratSettings.DELAYED_CANCEL,
                     cancel_on_filter=stratSettings.CANCEL_ON_FILTER
                     )
