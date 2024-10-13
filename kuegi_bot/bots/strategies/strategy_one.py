@@ -33,15 +33,17 @@ class StrategyOne(TrendStrategy):
                  entry_1:bool = False, entry_1_atr_fac: float = 1, entry_1_vol_fac: float = 2.0,
                  entry_4: bool = False,
                  entry_3_max_natr: float = 2, entry_3_vol_fac: float = 2.0,
-                 entry_7_std_fac: float = 1, entry_7_bb_fac:float=3, entry_7_atr_fac: float = 2.5,
+                 entry_7_std_fac: float = 1, entry_7_4h_rsi: float = 2.5, entry_7_vol_fac: float = 2,
                  shortsAllowed: bool = False, longsAllowed: bool = False,
                  entry_2_max_natr: float = 1, entry_2_min_rsi_4h: int = 50, entry_2_min_rsi_d:int = 80,
                  entry_3_atr_fac: float = 1, entry_5_natr: float = 2, entry_5_rsi_d: int = 40, entry_5_rsi_4h: int = 80,
                  entry_5_atr_fac: float = 0.8, entry_5_trail_1_period: int = 10, entry_5_trail_2_period: int = 10,
                  entry_5_vol_fac: float = 2.0,
                  entry_6_rsi_4h_max: int = 90, entry_6_max_natr: float = 2,
-                 entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False,
+                 entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False, entry_10: bool = False,
                  entry_8_vol_fac: float = 2.0,
+                 entry_9_std: float = 1, entry_9_4h_rsi: int = 50, entry_9_atr: float = 2,
+                 entry_10_natr: float = 2,
                  tp_fac_strat_one: float = 0,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
@@ -102,7 +104,7 @@ class StrategyOne(TrendStrategy):
         self.entry_8 = entry_8
         self.entry_7 = entry_7
         self.entry_9 = entry_9
-        self.entry_7_std_fac = entry_7_std_fac
+        self.entry_10 = entry_10
         self.risk_ref = risk_ref
         self.reduceRisk = reduceRisk
         self.entry_1_atr_fac = entry_1_atr_fac
@@ -112,6 +114,9 @@ class StrategyOne(TrendStrategy):
         self.entry_2_min_rsi_d = entry_2_min_rsi_d
         self.entry_3_atr_fac = entry_3_atr_fac
         self.entry_3_vol_fac = entry_3_vol_fac
+        self.entry_3_max_natr = entry_3_max_natr
+        self.entry_4_std_fac = entry_4_std_fac
+        self.entry_4_std_fac_reclaim = entry_4_std_fac_reclaim
         self.entry_5_natr = entry_5_natr
         self.entry_5_rsi_d = entry_5_rsi_d
         self.entry_5_rsi_4h = entry_5_rsi_4h
@@ -122,12 +127,14 @@ class StrategyOne(TrendStrategy):
         self.entry_6_max_natr = entry_6_max_natr
         self.entry_6_rsi_4h_max = entry_6_rsi_4h_max
         self.entry_6_atr_fac = entry_6_atr_fac
-        self.entry_7_bb_fac = entry_7_bb_fac
-        self.entry_7_atr_fac = entry_7_atr_fac
-        self.entry_3_max_natr = entry_3_max_natr
-        self.entry_4_std_fac = entry_4_std_fac
-        self.entry_4_std_fac_reclaim = entry_4_std_fac_reclaim
+        self.entry_7_4h_rsi = entry_7_4h_rsi
+        self.entry_7_std_fac = entry_7_std_fac
+        self.entry_7_vol_fac = entry_7_vol_fac
         self.entry_8_vol_fac = entry_8_vol_fac
+        self.entry_9_4h_rsi = entry_9_4h_rsi
+        self.entry_9_std = entry_9_std
+        self.entry_9_atr = entry_9_atr
+        self.entry_10_natr = entry_10_natr
         self.sl_atr_fac = sl_atr_fac
         self.shortsAllowed = shortsAllowed
         self.longsAllowed = longsAllowed
@@ -413,7 +420,7 @@ class StrategyOne(TrendStrategy):
             else:
                 alreadyShorted = True
 
-            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed and not market_bullish:
+            if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed:
                 condition_1 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_6_rsi_4h_max
                 condition_2 = natr_4h < self.entry_6_max_natr
                 if bars[1].close > bars[idxSwingHigh].high and condition_2 and condition_1:
@@ -428,7 +435,7 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.LONG,
                                            ExecutionType = "Market")
 
-            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed:
+            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed and market_bearish:
                 condition_2 = bars[1].open > self.ta_data_trend_strat.ema_w
                 if bars[1].close < bars[idxSwingLow].low and condition_2:
                     self.logger.info("Shorting swing break.")
@@ -443,25 +450,27 @@ class StrategyOne(TrendStrategy):
                                               ExecutionType = "Market")
 
         # short entry 7
-        if self.entry_7 and not market_bullish and not shorted and self.shortsAllowed:
-            condition_1 = bars[1].high > middleband_vec[-2] + std_vec[-2] * self.entry_7_std_fac
-            condition_2 = bars[2].high > middleband_vec[-3] + std_vec[-3] * self.entry_7_std_fac
-            condition_3 = (bars[1].high > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-3:-2]).any()
-            condition_4 = middleband_vec[-2] + std_vec[-2] * self.entry_7_bb_fac > bars[1].close
-            if (condition_1 or condition_2) and condition_3 and condition_4:
-                self.logger.info("Shorting SFP")
+        if self.entry_7 and not shorted and self.shortsAllowed:
+            condition_1 = bars[2].high > bars[1].high
+            condition_2 = bars[2].high > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-3]
+            condition_4 = bars[2].close < bars[2].open
+            condition_7 = self.ta_data_trend_strat.volume_sma_4h_vec[-3] < self.ta_data_trend_strat.volume_4h * self.entry_7_vol_fac
+            condition_8 = bars[1].open > middleband + std * self.entry_7_std_fac
+            condition_9 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_7_4h_rsi
+            if condition_1 and condition_2 and condition_4 and condition_7 and condition_8 and condition_9:
+                self.logger.info("Shorting 4H SFP")
                 if self.telegram is not None:
-                    self.telegram.send_log("Shorting SFP")
+                    self.telegram.send_log("Shorting 4H SFP")
                 shorted = True
                 self.open_new_position(entry=bars[0].close,
-                                       stop=bars[0].close + atr_trail_mix * self.entry_7_atr_fac,
+                                       stop=max(bars[2].high, bars[1].high, bars[3].high),
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.SHORT,
                                        ExecutionType="Market")
 
         # short entry 8
-        if self.entry_8 and not market_bullish and not shorted and self.shortsAllowed:
+        if self.entry_8 and not shorted and self.shortsAllowed:
             condition_1 = (bars[1].high > bars[2].high and
                            bars[1].high > bars[3].high and
                            bars[1].high > bars[4].high and
@@ -493,18 +502,34 @@ class StrategyOne(TrendStrategy):
         if self.entry_9 and not shorted and self.shortsAllowed and not market_bullish:
             condition_1 = bars[1].low < self.ta_data_trend_strat.lows_trail_4h_vec[-2] < bars[1].close < bars[1].open
             condition_2 = bars[1].open < bars[2].open
-            condition_3 = bars[1].close > middleband_vec[-2] - std_vec[-2] * 2.5
-            condition_4 = 45 > self.ta_trend_strat.taData_trend_strat.rsi_d > 25
-            if condition_1 and condition_2 and condition_3 and condition_4:
+            condition_3 = bars[1].close > middleband_vec[-2] - std_vec[-2] * self.entry_9_std
+            condition_5 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_9_4h_rsi
+            if condition_1 and condition_2 and condition_3 and condition_5:
                 self.logger.info("Shorting short trail tap")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting short trail tap")
                 shorted = True
                 self.open_new_position(entry=bars[0].close,
-                                       stop=bars[0].close + atr * 0.85,
+                                       stop=bars[1].high + self.entry_9_atr * atr,
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.SHORT,
+                                       ExecutionType="Market")
+
+        # long confirmed trail breakout
+        if self.entry_10 and not longed and self.longsAllowed and not market_bearish:
+            condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
+            condition_2 = natr_4h < self.entry_10_natr
+            if condition_1 and condition_2:
+                longed = True
+                self.logger.info("Longing confirmed trail breakout.")
+                if self.telegram is not None:
+                    self.telegram.send_log("Longing confirmed trail breakout.")
+                self.open_new_position(entry=bars[0].close,
+                                       stop=min(bars[1].low,bars[2].low,bars[3].low),
+                                       open_positions=open_positions,
+                                       bars=bars,
+                                       direction=PositionDirection.LONG,
                                        ExecutionType="Market")
 
         if not self.longsAllowed:
