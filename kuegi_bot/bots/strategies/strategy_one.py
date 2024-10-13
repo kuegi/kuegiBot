@@ -42,6 +42,7 @@ class StrategyOne(TrendStrategy):
                  entry_6_rsi_4h_max: int = 90, entry_6_max_natr: float = 2,
                  entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False,
                  entry_8_vol_fac: float = 2.0,
+                 tp_fac_strat_one: float = 0,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
@@ -59,7 +60,7 @@ class StrategyOne(TrendStrategy):
                  ema_multiple_4_tp: float = 10,
                  # StrategyWithTradeManagement
                  maxPositions: int = 100, consolidate: bool = False, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
-                 limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True
+                 limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True, tp_fac:float = 0
                  ):
         super().__init__(
             # TrendStrategy
@@ -82,7 +83,7 @@ class StrategyOne(TrendStrategy):
             ema_multiple_4_tp = ema_multiple_4_tp,
             # StrategyWithTradeManagement
             maxPositions = maxPositions, consolidate = consolidate, close_on_opposite = close_on_opposite, bars_till_cancel_triggered = bars_till_cancel_triggered,
-            limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter
+            limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter, tp_fac = tp_fac
             )
         self.ta_data_trend_strat = TAdataTrendStrategy()
         self.data_strat_one = DataStrategyOne()
@@ -130,6 +131,7 @@ class StrategyOne(TrendStrategy):
         self.sl_atr_fac = sl_atr_fac
         self.shortsAllowed = shortsAllowed
         self.longsAllowed = longsAllowed
+        self.tp_fac_strat_one = tp_fac_strat_one
 
     def myId(self):
         return "strategyOne"
@@ -152,6 +154,29 @@ class StrategyOne(TrendStrategy):
 
     def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
         super().position_got_opened_or_changed(position, bars, account, open_positions)
+
+        gotTp = False
+        for order in account.open_orders:
+            orderType = TradingBot.order_type_from_order_id(order.id)
+            posId = TradingBot.position_id_from_order_id(order.id)
+            if self.tp_fac_strat_one > 0 and orderType == OrderType.TP and posId == position.id:
+                gotTp = True
+                amount = self.symbol.normalizeSize(-position.current_open_amount + order.executed_amount)
+                if abs(order.amount - amount) > self.symbol.lotSize / 2:
+                    order.amount = amount
+                    self.order_interface.update_order(order)
+
+        if self.tp_fac_strat_one > 0 and not gotTp:
+            condition_1 = position.amount < 0
+            condition_2 = (self.ta_trend_strat.taData_trend_strat.talibbars.open[-1] <
+                           self.ta_data_trend_strat.bbands_4h.middleband - self.ta_data_trend_strat.bbands_4h.std * 2)
+            condition_3 = self.ta_data_trend_strat.rsi_d < 40
+            if condition_1 and (condition_3 or condition_2):
+                ref = position.filled_entry - position.initial_stop
+                tp = max(0.0,position.filled_entry + ref * self.tp_fac_strat_one)
+                order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,type=OrderType.TP),
+                              limit=tp,amount=-position.amount)
+                self.order_interface.send_order(order)
 
     def manage_open_order(self, order, position, bars, to_update, to_cancel, open_positions):
         super().manage_open_order(order, position, bars, to_update, to_cancel, open_positions)

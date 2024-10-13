@@ -46,12 +46,14 @@ class TrendStrategy(StrategyWithTradeManagement):
                  atr_buffer_fac: float = 0, moving_sl_atr_fac: float = 5, ema_multiple_4_tp:float = 10,
                  # StrategyWithTradeManagement
                  maxPositions: int = 100, consolidate: bool = False, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
-                 limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True
+                 limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True,
+                 tp_fac: float = 0
                  ):
         super().__init__(
             # StrategyWithTradeManagement
             maxPositions = maxPositions, consolidate = consolidate, close_on_opposite = close_on_opposite, bars_till_cancel_triggered = bars_till_cancel_triggered,
-            limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter)
+            limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter,
+            tp_fac = tp_fac)
 
         # local variables
         self.data_trend_strat = DataTrendStrategy()

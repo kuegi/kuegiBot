@@ -246,7 +246,7 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
 
         if self.tp_fac > 0 and not gotTp:
             ref = position.filled_entry - position.initial_stop
-            tp = max(0,position.filled_entry + ref * self.tp_fac)
+            tp = max(0.0,position.filled_entry + ref * self.tp_fac)
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id,type=OrderType.TP),
                           limit=tp,amount=-position.amount)
             self.order_interface.send_order(order)
