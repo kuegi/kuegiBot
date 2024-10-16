@@ -150,7 +150,7 @@ class ByBitInterface(ExchangeWithWS):
                 triggerDirection = 2
 
         orderType = TradingBot.order_type_from_order_id(order.id)
-        if orderType == OrderType.ENTRY:
+        if orderType == OrderType.ENTRY or orderType == OrderType.TP:
             if order.trigger_price is not None:
                 # conditional order
                 result = self.handle_result(lambda:self.pybit.place_order(
@@ -222,7 +222,7 @@ class ByBitInterface(ExchangeWithWS):
                 triggerDirection = 1
             else:
                 triggerDirection = 2
-        if orderType == OrderType.ENTRY:
+        if orderType == OrderType.ENTRY or orderType == OrderType.TP:
             if order.trigger_price is not None:
                 self.handle_result(lambda:self.pybit.amend_order(
                     orderId=order.exchange_id,
