@@ -308,6 +308,8 @@ class StrategyOne(TrendStrategy):
                 condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_d > self.entry_2_min_rsi_d
                 if (not foundLong and self.longsAllowed and directionFilter >= 0 and
                         condition_1 and condition_2 and condition_3):
+                    if self.telegram is not None:
+                        self.telegram.send_log("Sending StopLimit")
                     self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLimit")
                 # go SHORT
                 if not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None:
