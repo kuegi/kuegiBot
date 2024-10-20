@@ -32,7 +32,7 @@ class StrategyOne(TrendStrategy):
                  entry_6: bool = False, entry_2: bool = False, entry_7: bool = False,
                  entry_1:bool = False, entry_1_atr_fac: float = 1, entry_1_vol_fac: float = 2.0,
                  entry_4: bool = False,
-                 entry_3_max_natr: float = 2, entry_3_vol_fac: float = 2.0,
+                 entry_3_max_natr: float = 2, entry_3_vol_fac: float = 2.0, entry_3_rsi_4h: int = 50,
                  entry_7_std_fac: float = 1, entry_7_4h_rsi: float = 2.5, entry_7_vol_fac: float = 2,
                  shortsAllowed: bool = False, longsAllowed: bool = False,
                  entry_2_max_natr: float = 1, entry_2_min_rsi_4h: int = 50, entry_2_min_rsi_d:int = 80,
@@ -43,7 +43,7 @@ class StrategyOne(TrendStrategy):
                  entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False, entry_10: bool = False,
                  entry_8_vol_fac: float = 2.0,
                  entry_9_std: float = 1, entry_9_4h_rsi: int = 50, entry_9_atr: float = 2,
-                 entry_10_natr: float = 2,
+                 entry_10_natr: float = 2, entry_10_rsi_4h: int = 50,
                  tp_fac_strat_one: float = 0,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
@@ -115,6 +115,7 @@ class StrategyOne(TrendStrategy):
         self.entry_3_atr_fac = entry_3_atr_fac
         self.entry_3_vol_fac = entry_3_vol_fac
         self.entry_3_max_natr = entry_3_max_natr
+        self.entry_3_rsi_4h = entry_3_rsi_4h
         self.entry_4_std_fac = entry_4_std_fac
         self.entry_4_std_fac_reclaim = entry_4_std_fac_reclaim
         self.entry_5_natr = entry_5_natr
@@ -135,6 +136,7 @@ class StrategyOne(TrendStrategy):
         self.entry_9_std = entry_9_std
         self.entry_9_atr = entry_9_atr
         self.entry_10_natr = entry_10_natr
+        self.entry_10_rsi_4h = entry_10_rsi_4h
         self.sl_atr_fac = sl_atr_fac
         self.shortsAllowed = shortsAllowed
         self.longsAllowed = longsAllowed
@@ -326,9 +328,10 @@ class StrategyOne(TrendStrategy):
         if self.entry_3 and not longed and self.longsAllowed:
             condition_1 = bars[1].high > self.ta_data_trend_strat.highs_trail_4h_vec[-2]
             condition_2 = natr_4h < self.entry_3_max_natr
+            condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_3_rsi_4h
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_3_vol_fac > self.ta_data_trend_strat.volume_4h
             close = bars[1].low if bars[1].close > bars[1].open else bars[1].low - self.entry_3_atr_fac * atr_trail_mix
-            if condition_1 and condition_2 and condition_4:
+            if condition_1 and condition_2 and condition_3 and condition_4:
                 longed = True
                 self.logger.info("Longing trail.")
                 if self.telegram is not None:
@@ -520,7 +523,8 @@ class StrategyOne(TrendStrategy):
         if self.entry_10 and not longed and self.longsAllowed and not market_bearish:
             condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
             condition_2 = natr_4h < self.entry_10_natr
-            if condition_1 and condition_2:
+            condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h
+            if condition_1 and condition_2 and condition_3:
                 longed = True
                 self.logger.info("Longing confirmed trail breakout.")
                 if self.telegram is not None:
