@@ -503,12 +503,12 @@ class TATrendStrategyIndicator(Indicator):
         self.ema_w_period = ema_w_period
         self.rsi_w_period = rsi_w_period
         # Max period variables
+        self.max_d_period = max(self.days_buffer_ranging, self.days_buffer_bear, self.rsi_d_period+1)
+        self.max_w_period = max(self.ema_w_period, self.rsi_w_period+1)
         self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow,
                                  self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period,
-                                 self.volume_sma_4h_period) + bband_history_size
-        self.max_d_period = max(self.days_buffer_ranging, self.days_buffer_bear, self.rsi_d_period)
-        self.max_w_period = max(self.ema_w_period, self.rsi_w_period)
-        self.max_4h_history_candles = max(self.max_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
+                                 self.volume_sma_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
+        self.max_4h_history_candles = self.max_4h_period
 
     def on_tick(self, bars: List[Bar]):
         # Run TA calculations
