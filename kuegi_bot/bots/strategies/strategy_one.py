@@ -315,15 +315,13 @@ class StrategyOne(TrendStrategy):
                 condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_d > self.entry_2_min_rsi_d
                 if (not foundLong and self.longsAllowed and directionFilter >= 0 and
                         condition_1 and condition_2 and condition_3):
-                    if self.telegram is not None:
-                        self.telegram.send_log("Sending StopLimit")
                     self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLimit")
                 # go SHORT
                 if not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None:
                     pass
 
                 # Save parameters
-                self.data_strat_one.longEntry = longEntry
+                '''self.data_strat_one.longEntry = longEntry
                 self.data_strat_one.shortEntry = shortEntry
                 self.data_strat_one.stopLong = stopLong
                 self.data_strat_one.stopShort = stopShort
@@ -331,7 +329,7 @@ class StrategyOne(TrendStrategy):
                 # Write Data to plot
                 plot_data = [self.data_strat_one.longEntry, self.data_strat_one.stopLong,
                              self.data_strat_one.shortEntry, self.data_strat_one.stopShort]
-                Indicator.write_data_static(bars[0], plot_data, self.myId())
+                Indicator.write_data_static(bars[0], plot_data, self.myId())'''
 
         # long trail breakout
         if self.entry_3 and not longed and self.longsAllowed:
@@ -440,8 +438,9 @@ class StrategyOne(TrendStrategy):
                     if self.telegram is not None:
                         self.telegram.send_log("Longing swing breakout.")
                     longed = True
+                    sl = bars[1].low if bars[1].close > bars[1].open else bars[1].low - self.entry_6_atr_fac * atr_trail_mix
                     self.open_new_position(entry=bars[0].close,
-                                           stop=bars[0].close - atr_trail_mix * self.entry_6_atr_fac,
+                                           stop=sl,#bars[0].close - atr_trail_mix * self.entry_6_atr_fac,
                                            open_positions=open_positions,
                                            bars=bars,
                                            direction=PositionDirection.LONG,
