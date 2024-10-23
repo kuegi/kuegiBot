@@ -413,6 +413,7 @@ class ByBitInterface(ExchangeWithWS):
                                 float(execution['execPrice'])))
                         else:
                             self.logger.info("WARNING: could not find the right order!")
+                            self.logger.info("Order ID: " + str(execution['orderId']))
                 elif topic == 'position':
                     #print('position msg arrived:')
                     # {'bustPrice': '0.00', 'category': 'inverse', 'createdTime': '1627542388255',
