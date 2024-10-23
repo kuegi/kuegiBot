@@ -636,7 +636,7 @@ class TATrendStrategyIndicator(Indicator):
         rsi_w = talib.RSI(close[-self.rsi_w_period-1:], timeperiod=self.rsi_w_period)[-1]
         self.taData_trend_strat.rsi_w = rsi_w
 
-    def identify_trend(self):
+    def identify_trend_original(self):
         # Trend based on W-EMA and trails
         if self.taData_trend_strat.rsi_w is not None and self.taData_trend_strat.ema_w is not None:
             if self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w:
@@ -661,6 +661,80 @@ class TATrendStrategyIndicator(Indicator):
                     self.taData_trend_strat.marketRegime = MarketRegime.BEAR
         else:
             self.taData_trend_strat.marketRegime = MarketRegime.NONE
+
+    def identify_trend(self):
+        """
+        Identifies market regime by analyzing historical data to determine buffer states.
+        Uses 4H timeframe for all calculations including EMA.
+        """
+        # Calculate buffer lengths
+        bear_buffer_length = self.days_buffer_bear * self.bars_per_day
+        ranging_buffer_length = self.days_buffer_ranging * self.bars_per_day
+        max_buffer_length = bear_buffer_length + ranging_buffer_length
+        period = self.ema_w_period * 7 * 6 - 6 # Convert weeks to 4H periods
+
+        # Get price data and calculate EMA
+        close = self.taData_trend_strat.talibbars.close
+        lows = self.taData_trend_strat.talibbars.low
+
+        # Calculate EMA using the required lookback period plus buffer lengths
+        lookback_data = close[-(max_buffer_length + period):]
+        w_ema_on_4H_vec = talib.EMA(lookback_data, timeperiod=period)
+
+        # Immediate BEAR check using aligned latest values
+        if lows[-1] < w_ema_on_4H_vec[-1]:
+            self.taData_trend_strat.marketRegime = MarketRegime.BEAR
+            return
+
+        # Initialize counts for reconstructing buffer values
+        bear_countdown = 0  # How many bars since bear buffer started counting
+        ranging_countdown = 0  # How many bars since ranging buffer started counting
+        found_bearish = False
+
+        # Get the relevant sections of price data aligned with EMA length
+        ema_length = len(w_ema_on_4H_vec)
+        closes_section = close[-ema_length:]
+        lows_section = lows[-ema_length:]
+
+        # Walk backwards through history starting from second-to-last bar
+        for i in range(ema_length - 2, -1, -1):
+            if lows_section[i] < w_ema_on_4H_vec[i]:
+                found_bearish = True
+                break
+
+            # Count how many bars would have decremented each buffer
+            if closes_section[i] > w_ema_on_4H_vec[i]:
+                bear_countdown += 1
+                if bear_countdown >= bear_buffer_length:
+                    ranging_countdown += 1  # Bear buffer depleted, decrease ranging buffer
+            else:  # closes_section[i] <= w_ema_on_4H_vec[i] and lows_section[i] >= w_ema_on_4H_vec[i]
+                ranging_countdown += 1  # This bar would have only decreased ranging buffer
+
+        # Calculate effective buffer values
+        if found_bearish:
+            effective_bear_buffer = max(0, bear_buffer_length - bear_countdown)
+            if bear_countdown >= bear_buffer_length:
+                effective_ranging_buffer = max(0, ranging_buffer_length - ranging_countdown)
+            else:
+                effective_ranging_buffer = ranging_buffer_length
+        else:
+            # No bearish signal found in history - buffers must be depleted
+            effective_bear_buffer = 0
+            effective_ranging_buffer = 0
+
+        # Determine current regime based on current bar and reconstructed buffer values
+        if close[-1] > w_ema_on_4H_vec[-1]:
+            if effective_bear_buffer > 0:
+                self.taData_trend_strat.marketRegime = MarketRegime.BEAR
+            elif effective_ranging_buffer > 0:
+                self.taData_trend_strat.marketRegime = MarketRegime.RANGING
+            else:
+                self.taData_trend_strat.marketRegime = MarketRegime.BULL
+        else:  # close[-1] <= w_ema_on_4H_vec[-1] and lows[-1] >= w_ema_on_4H_vec[-1]
+            if effective_ranging_buffer > 0:
+                self.taData_trend_strat.marketRegime = MarketRegime.BEAR
+            else:
+                self.taData_trend_strat.marketRegime = MarketRegime.RANGING
 
     def write_data_for_plot(self, bars: List[Bar]):
         if self.taData_trend_strat.marketRegime == MarketRegime.BULL:
