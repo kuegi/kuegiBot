@@ -45,11 +45,13 @@ class StrategyOne(TrendStrategy):
                  entry_9_std: float = 1, entry_9_4h_rsi: int = 50, entry_9_atr: float = 2,
                  entry_10_natr: float = 2, entry_10_rsi_4h: int = 50,
                  tp_fac_strat_one: float = 0,
+                 plotStrategyOneData: bool = False, plotTrailsStatOne: bool = False,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
-                 plotIndicators: bool = False, plot_RSI: bool = False,
+                 plotIndicators: bool = False, plot_RSI: bool = False, use_shapes: bool = False, plotBackgroundColor4Trend: bool = False,
+                 plotTrailsAndEMAs: bool = False, plotBBands:bool=False,plotATR:bool=False,
                  trend_var_1: float = 0,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend: float = 1, risk_ranging: float = 1,
@@ -83,6 +85,9 @@ class StrategyOne(TrendStrategy):
             sl_upper_bb_std_fac = sl_upper_bb_std_fac, sl_lower_bb_std_fac = sl_lower_bb_std_fac,
             stop_short_at_middleband = stop_short_at_middleband, stop_at_trail = stop_at_trail, stop_at_lowerband = stop_at_lowerband,
             ema_multiple_4_tp = ema_multiple_4_tp,
+            # Plots
+            use_shapes = use_shapes, plotBackgroundColor4Trend = plotBackgroundColor4Trend, plotTrailsAndEMAs=plotTrailsAndEMAs,
+            plotBBands = plotBBands, plotATR=plotATR,
             # StrategyWithTradeManagement
             maxPositions = maxPositions, consolidate = consolidate, close_on_opposite = close_on_opposite, bars_till_cancel_triggered = bars_till_cancel_triggered,
             limit_entry_offset_perc = limit_entry_offset_perc, delayed_cancel = delayed_cancel, cancel_on_filter = cancel_on_filter, tp_fac = tp_fac
@@ -141,6 +146,8 @@ class StrategyOne(TrendStrategy):
         self.shortsAllowed = shortsAllowed
         self.longsAllowed = longsAllowed
         self.tp_fac_strat_one = tp_fac_strat_one
+        self.plotStrategyOneData = plotStrategyOneData
+        self.plotTrailsStatOne = plotTrailsStatOne
 
     def myId(self):
         return "strategyOne"
@@ -662,8 +669,7 @@ class StrategyOne(TrendStrategy):
         offset = 0
 
         # Plot Strategy-generated Data
-        plotStrategyData = False
-        if plotStrategyData:
+        if self.plotStrategyOneData and self.plotIndicators:
             sub_data = list(map(lambda b: self.get_data_for_plot(b)[0], bars))
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line={"width": 1, "color": "cyan"},
                             name=self.myId() + "_" + "Long_Entry")
@@ -683,8 +689,7 @@ class StrategyOne(TrendStrategy):
         names = self.ta_strat_one.get_line_names()
         offset = 0
 
-        plotTrails = True
-        if plotTrails and self.plotIndicators:
+        if self.plotTrailsStatOne and self.plotIndicators:
             sub_data = list(map(lambda b: self.ta_strat_one.get_data_for_plot(b)[0], bars))  # 4H-High
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[0],
                             name=self.ta_strat_one.id + "_" + names[0])

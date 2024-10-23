@@ -44,6 +44,9 @@ class TrendStrategy(StrategyWithTradeManagement):
                  trail_sl_with_bband: bool = False, stop_short_at_middleband: bool = True, stop_at_trail: bool = False,
                  stop_at_lowerband: bool = False,
                  atr_buffer_fac: float = 0, moving_sl_atr_fac: float = 5, ema_multiple_4_tp:float = 10,
+                 # Plots
+                 use_shapes: bool = False, plotBackgroundColor4Trend: bool = False, plotTrailsAndEMAs: bool = False,
+                 plotBBands: bool = False, plotATR:bool = False,
                  # StrategyWithTradeManagement
                  maxPositions: int = 100, consolidate: bool = False, close_on_opposite: bool = False, bars_till_cancel_triggered: int = 3,
                  limit_entry_offset_perc: float = -0.1, delayed_cancel: bool = False, cancel_on_filter: bool = True,
@@ -87,6 +90,12 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.stop_at_trail = stop_at_trail
         self.stop_at_lowerband = stop_at_lowerband
         self.ema_multiple_4_tp = ema_multiple_4_tp
+        # Plots
+        self.use_shapes = use_shapes
+        self.plotBackgroundColor4Trend = plotBackgroundColor4Trend
+        self.plotTrailsAndEMAs = plotTrailsAndEMAs
+        self.plotBBands = plotBBands
+        self.plotATR = plotATR
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
@@ -110,10 +119,8 @@ class TrendStrategy(StrategyWithTradeManagement):
         super().add_to_price_data_plot(fig, bars, time)
 
         # plot trend indicator
-        use_shapes = False   # slow if true
-        plotBackgroundColor4Trend = False
-        if plotBackgroundColor4Trend and self.plotIndicators:
-            if use_shapes:# is slow
+        if self.plotBackgroundColor4Trend and self.plotIndicators:
+            if self.use_shapes:# is slow
                 trend = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[3], bars))
                 time_short = []
                 trend_short = []
@@ -206,8 +213,7 @@ class TrendStrategy(StrategyWithTradeManagement):
         offset = 0
 
         # plot ta data
-        plotTrailsAndEMAs = True
-        if plotTrailsAndEMAs and self.plotIndicators:
+        if self.plotTrailsAndEMAs and self.plotIndicators:
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[0], bars))   # W-EMA
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[0],
                             name=self.ta_trend_strat.id + "_" + names[0])
@@ -224,8 +230,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                                 name=self.ta_trend_strat.id + "_" + names[4])
 
         # atr_4h
-        plotATR = False
-        if plotATR and self.plotIndicators:
+        if self.plotATR and self.plotIndicators:
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[5], bars))   # atr_4h + close
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[5],
                             name=self.ta_trend_strat.id + "_" + names[5])
@@ -240,8 +245,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                             name=self.ta_trend_strat.id + "_" + names[15])
 
         # plot Bollinger Bands
-        plotBBands = True
-        if plotBBands and self.plotIndicators:
+        if self.plotBBands and self.plotIndicators:
             sub_data = list(map(lambda b: self.ta_trend_strat.get_data_for_plot(b)[8], bars))
             fig.add_scatter(x=time, y=sub_data[offset:], mode='lines', line=styles[8],
                             name=self.ta_trend_strat.id + "_" + names[8])
