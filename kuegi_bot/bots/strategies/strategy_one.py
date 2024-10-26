@@ -446,7 +446,7 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.LONG,
                                            ExecutionType = "Market")
 
-            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed and not market_bullish:# and market_bearish:
+            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed and not market_bullish:
                 condition_2 = bars[1].open > self.ta_data_trend_strat.ema_w
                 if bars[1].close < bars[idxSwingLow].low and condition_2:
                     self.logger.info("Shorting swing break.")
@@ -538,7 +538,7 @@ class StrategyOne(TrendStrategy):
                 if self.telegram is not None:
                     self.telegram.send_log("Longing confirmed trail breakout.")
                 self.open_new_position(entry=bars[0].close,
-                                       stop=min(bars[1].low,bars[2].low,bars[3].low),
+                                       stop=bars[1].low,
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.LONG,
