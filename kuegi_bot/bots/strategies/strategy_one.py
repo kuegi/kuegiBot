@@ -48,10 +48,10 @@ class StrategyOne(TrendStrategy):
                  plotStrategyOneData: bool = False, plotTrailsStatOne: bool = False,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
-                 days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
+                 days_buffer_bear: int = 2, days_buffer_bull: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
                  plotIndicators: bool = False, plot_RSI: bool = False, use_shapes: bool = False, plotBackgroundColor4Trend: bool = False,
-                 plotTrailsAndEMAs: bool = False, plotBBands:bool=False,plotATR:bool=False,
+                 plotTrailsAndEMAs: bool = False, plotBBands:bool=False, plotATR:bool=False, trend_atr_fac: float = 0.5,
                  trend_var_1: float = 0,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend: float = 1, risk_ranging: float = 1,
@@ -69,8 +69,8 @@ class StrategyOne(TrendStrategy):
         super().__init__(
             # TrendStrategy
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
-            lows_trail_4h_period= lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_ranging= days_buffer_ranging,
-            atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow,
+            lows_trail_4h_period= lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_bull= days_buffer_bull,
+            atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, trend_atr_fac = trend_atr_fac,
             bbands_4h_period= bbands_4h_period, bband_history_size = bband_history_size, rsi_4h_period = rsi_4h_period,
             volume_sma_4h_period =volume_sma_4h_period,
             plotIndicators = plotIndicators, plot_RSI = plot_RSI,
@@ -440,13 +440,13 @@ class StrategyOne(TrendStrategy):
                     longed = True
                     sl = bars[1].low if bars[1].close > bars[1].open else bars[1].low - self.entry_6_atr_fac * atr_trail_mix
                     self.open_new_position(entry=bars[0].close,
-                                           stop=sl,#bars[0].close - atr_trail_mix * self.entry_6_atr_fac,
+                                           stop=sl,
                                            open_positions=open_positions,
                                            bars=bars,
                                            direction=PositionDirection.LONG,
                                            ExecutionType = "Market")
 
-            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed and market_bearish:
+            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed and not market_bullish:# and market_bearish:
                 condition_2 = bars[1].open > self.ta_data_trend_strat.ema_w
                 if bars[1].close < bars[idxSwingLow].low and condition_2:
                     self.logger.info("Shorting swing break.")
@@ -528,7 +528,7 @@ class StrategyOne(TrendStrategy):
                                        ExecutionType="Market")
 
         # long confirmed trail breakout
-        if self.entry_10 and not longed and self.longsAllowed and not market_bearish:
+        if self.entry_10 and not longed and self.longsAllowed:
             condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
             condition_2 = natr_4h < self.entry_10_natr
             condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h

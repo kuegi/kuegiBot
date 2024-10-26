@@ -31,9 +31,9 @@ class TrendStrategy(StrategyWithTradeManagement):
     def __init__(self,
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 1, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
-                 days_buffer_bear: int = 2, days_buffer_ranging: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
+                 days_buffer_bear: int = 2, days_buffer_bull: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
                  bbands_4h_period: int = 10, bband_history_size: int = 10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
-                 plotIndicators: bool = False, plot_RSI: bool = False,
+                 plotIndicators: bool = False, plot_RSI: bool = False, trend_atr_fac: float = 0.5,
                  trend_var_1: float = 0,
                  # Risk
                  risk_with_trend: float = 1, risk_counter_trend:float = 1, risk_ranging: float = 1,
@@ -62,11 +62,11 @@ class TrendStrategy(StrategyWithTradeManagement):
         self.data_trend_strat = DataTrendStrategy()
         self.ta_trend_strat = TATrendStrategyIndicator(
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
-            lows_trail_4h_period = lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_ranging = days_buffer_ranging,
+            lows_trail_4h_period = lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_bull= days_buffer_bull,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, bbands_4h_period= bbands_4h_period,
             bband_history_size = bband_history_size, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
             sl_lower_bb_std_fac = sl_lower_bb_std_fac, trend_var_1= trend_var_1, oversold_limit_w_rsi = 30, reset_level_of_oversold_rsi = 50,
-            rsi_4h_period = rsi_4h_period, volume_sma_4h_period= volume_sma_4h_period
+            rsi_4h_period = rsi_4h_period, volume_sma_4h_period= volume_sma_4h_period, trend_atr_fac = trend_atr_fac
         )
         self.plotIndicators = plotIndicators
         self.plot_RSI = plot_RSI
@@ -456,7 +456,8 @@ class TATrendStrategyIndicator(Indicator):
                  volume_sma_4h_period: int = 100,
                  # daily periods
                  days_buffer_bear: int = 2,
-                 days_buffer_ranging: int = 0,
+                 days_buffer_bull: int = 0,
+                 trend_atr_fac: float = 0.5,
                  rsi_d_period: int = 14,
                  # weekly periods
                  ema_w_period: int = 10,
@@ -478,6 +479,7 @@ class TATrendStrategyIndicator(Indicator):
         self.bull_rsi_locked = False
         self.ranging_buffer = 0
         self.bear_buffer = 0
+        self.trend_atr_fac = trend_atr_fac
         self.bullish_reversal = False
         self.oversold_limit_w_rsi = oversold_limit_w_rsi
         self.reset_level_of_oversold_rsi = reset_level_of_oversold_rsi
@@ -499,11 +501,11 @@ class TATrendStrategyIndicator(Indicator):
         self.days_buffer_bear = days_buffer_bear
         self.rsi_d_period = rsi_d_period
         # Weekly periods
-        self.days_buffer_ranging = days_buffer_ranging
+        self.days_buffer_bull = days_buffer_bull
         self.ema_w_period = ema_w_period
         self.rsi_w_period = rsi_w_period
         # Max period variables
-        self.max_d_period = max(self.days_buffer_ranging, self.days_buffer_bear, self.rsi_d_period+1)
+        self.max_d_period = max(self.days_buffer_bull, self.days_buffer_bear, self.rsi_d_period + 1)
         self.max_w_period = max(self.ema_w_period, self.rsi_w_period+1)
         self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow,
                                  self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period,
@@ -642,7 +644,7 @@ class TATrendStrategyIndicator(Indicator):
             if self.taData_trend_strat.talibbars.low[-1] < self.taData_trend_strat.ema_w:
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
                 self.bear_buffer = self.days_buffer_bear * self.bars_per_day
-                self.ranging_buffer = self.days_buffer_ranging * self.bars_per_day
+                self.ranging_buffer = self.days_buffer_bull * self.bars_per_day
             elif self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.ema_w:#self.taData_trend_strat.talibbars.close[-1] > self.taData_trend_strat.highs_trail_4h_vec[-2] or \
                 self.bear_buffer -= 1
                 if self.bear_buffer <= 0:
@@ -662,16 +664,16 @@ class TATrendStrategyIndicator(Indicator):
         else:
             self.taData_trend_strat.marketRegime = MarketRegime.NONE
 
-    def identify_trend(self):
+    def identify_trend_stateless(self):
         """
         Identifies market regime by analyzing historical data to determine buffer states.
         Uses 4H timeframe for all calculations including EMA.
         """
         # Calculate buffer lengths
         bear_buffer_length = self.days_buffer_bear * self.bars_per_day
-        ranging_buffer_length = self.days_buffer_ranging * self.bars_per_day
+        ranging_buffer_length = self.days_buffer_bull * self.bars_per_day
         max_buffer_length = bear_buffer_length + ranging_buffer_length
-        period = self.ema_w_period * 7 * 6 - 6 # Convert weeks to 4H periods
+        period = self.ema_w_period * 7 * 6 -6#self.trend_var_1 # Convert weeks to 4H periods
 
         # Get price data and calculate EMA
         close = self.taData_trend_strat.talibbars.close
@@ -735,6 +737,40 @@ class TATrendStrategyIndicator(Indicator):
                 self.taData_trend_strat.marketRegime = MarketRegime.BEAR
             else:
                 self.taData_trend_strat.marketRegime = MarketRegime.RANGING
+
+    def identify_trend(self):
+        high_break = False
+        low_break = False
+        bull_buffer_length = self.days_buffer_bull * self.bars_per_day
+        bear_buffer_length = self.days_buffer_bear * self.bars_per_day
+
+        i = 1
+        delta= self.taData_trend_strat.atr_4h * self.trend_atr_fac
+        while i < len(self.taData_trend_strat.highs_trail_4h_vec)-1:
+            if self.taData_trend_strat.highs_trail_4h_vec[-i] > self.taData_trend_strat.highs_trail_4h_vec[-i - 1]+delta:
+                high_break = True
+                break
+            elif self.taData_trend_strat.lows_trail_4h_vec[-i] < self.taData_trend_strat.lows_trail_4h_vec[-i - 1]:
+                low_break = True
+                break
+            i += 1
+
+        if i < bull_buffer_length and high_break:
+            self.taData_trend_strat.marketRegime = MarketRegime.BULL
+        elif i < bear_buffer_length and low_break:
+            self.taData_trend_strat.marketRegime = MarketRegime.BEAR
+        else:
+            self.taData_trend_strat.marketRegime = MarketRegime.RANGING
+
+        closes = self.taData_trend_strat.talibbars.close
+        mid_line = self.taData_trend_strat.lows_trail_4h_vec[-1] + 0.5 * (self.taData_trend_strat.highs_trail_4h_vec[-1] - self.taData_trend_strat.lows_trail_4h_vec[-1])
+        if self.taData_trend_strat.marketRegime == MarketRegime.BEAR and closes[-1] > mid_line:
+            pass
+        elif self.taData_trend_strat.marketRegime == MarketRegime.BULL and closes[-1] < mid_line:
+            self.taData_trend_strat.marketRegime = MarketRegime.RANGING
+
+        if closes[-1] < mid_line:
+            self.taData_trend_strat.marketRegime = MarketRegime.BEAR
 
     def write_data_for_plot(self, bars: List[Bar]):
         if self.taData_trend_strat.marketRegime == MarketRegime.BULL:
