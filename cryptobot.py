@@ -100,6 +100,7 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     lows_trail_4h_period=stratSettings.LOWS_TRAIL_4H_PERIOD,
                     days_buffer_bear=stratSettings.DAYS_BUFFER_BEAR,
                     days_buffer_bull=stratSettings.DAYS_BUFFER_BULL,
+                    trend_atr_fac=stratSettings.TREND_ATR_FAC,
                     atr_4h_period=stratSettings.ATR_4H_PERIOD,
                     natr_4h_period_slow=stratSettings.NATR_4H_PERIOD_SLOW,
                     bbands_4h_period=stratSettings.BBANDS_4H_PERIOD,
