@@ -36,6 +36,7 @@ class StrategyOne(TrendStrategy):
                  entry_7_std_fac: float = 1, entry_7_4h_rsi: float = 2.5, entry_7_vol_fac: float = 2,
                  shortsAllowed: bool = False, longsAllowed: bool = False,
                  entry_2_max_natr: float = 1, entry_2_min_rsi_4h: int = 50, entry_2_min_rsi_d:int = 80,
+                 entry_2_min_natr: float = 1, entry_2_min_rsi_4h_short:int=50,entry_2_min_rsi_d_short:int=50,
                  entry_3_atr_fac: float = 1, entry_5_natr: float = 2, entry_5_rsi_d: int = 40, entry_5_rsi_4h: int = 80,
                  entry_5_atr_fac: float = 0.8, entry_5_trail_1_period: int = 10, entry_5_trail_2_period: int = 10,
                  entry_5_vol_fac: float = 2.0,
@@ -115,8 +116,11 @@ class StrategyOne(TrendStrategy):
         self.entry_1_atr_fac = entry_1_atr_fac
         self.entry_1_vol_fac = entry_1_vol_fac
         self.entry_2_max_natr = entry_2_max_natr
+        self.entry_2_min_natr = entry_2_min_natr
         self.entry_2_min_rsi_4h = entry_2_min_rsi_4h
+        self.entry_2_min_rsi_4h_short = entry_2_min_rsi_4h_short
         self.entry_2_min_rsi_d = entry_2_min_rsi_d
+        self.entry_2_min_rsi_d_short = entry_2_min_rsi_d_short
         self.entry_3_atr_fac = entry_3_atr_fac
         self.entry_3_vol_fac = entry_3_vol_fac
         self.entry_3_max_natr = entry_3_max_natr
@@ -317,8 +321,13 @@ class StrategyOne(TrendStrategy):
                         condition_1 and condition_2 and condition_3):
                     self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLimit")
                 # go SHORT
-                if not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None:
-                    pass
+                condition_4 = natr_4h > self.entry_2_min_natr
+                condition_5 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_2_min_rsi_4h_short
+                condition_6 = self.ta_trend_strat.taData_trend_strat.rsi_d > self.entry_2_min_rsi_d_short
+                condition_7 = market_bearish
+                if (not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None and
+                        condition_4 and condition_5 and condition_6 and condition_7):
+                    self.open_new_position(PositionDirection.SHORT, bars, stopShort, open_positions, shortEntry,"StopLimit")
 
                 # Save parameters
                 '''self.data_strat_one.longEntry = longEntry
@@ -564,10 +573,10 @@ class StrategyOne(TrendStrategy):
         foundSwingLow = False
         idxSwingHigh = 0
         idxSwingLow = 0
-        for i in range(2, depth):
+        for i in range(3, depth):
             condition_1 = bars[i + 2].close < bars[i].close
             condition_2 = bars[i + 1].close < bars[i].close
-            condition_3 = bars[i].close > bars[i - 1].close
+            condition_3 = bars[i-2].close < bars[i].close > bars[i - 1].close
             condition_5 = bars[i + 3].close < bars[i].close
             if condition_1 and condition_2 and condition_3 and condition_5:
                 foundSwingHigh = True
@@ -583,9 +592,8 @@ class StrategyOne(TrendStrategy):
         for i in range(5, depth):
             cond_1 = bars[i + 2].close > bars[i + 1].close
             cond_2 = bars[i + 1].close > bars[i].close
-            cond_3 = bars[i].close < bars[i - 1].close
-            cond_4 = cond_1 and cond_2 and cond_3
-            if cond_4:
+            cond_3 = bars[i - 2].close > bars[i].close < bars[i - 1].close
+            if cond_1 and cond_2 and cond_3:
                 foundSwingLow = True
                 idxSwingLow = i
                 break
@@ -598,7 +606,7 @@ class StrategyOne(TrendStrategy):
         if foundSwingHigh and not alreadyLonged and foundSwingLow and not alreadyShorted:
             # Calculate potential trade entries
             longEntry = self.symbol.normalizePrice(bars[idxSwingHigh].high+self.ta_data_trend_strat.atr_4h*0.05, roundUp=True)
-            shortEntry = self.symbol.normalizePrice(bars[idxSwingLow].low, roundUp=False)
+            shortEntry = self.symbol.normalizePrice(bars[idxSwingLow].low-self.ta_data_trend_strat.atr_4h*0.05, roundUp=False)
 
             # Calculate stops
             stopLong = longEntry - self.ta_data_trend_strat.atr_4h * self.sl_atr_fac
