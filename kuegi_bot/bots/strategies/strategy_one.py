@@ -317,8 +317,9 @@ class StrategyOne(TrendStrategy):
                 condition_1 = natr_4h < self.entry_2_max_natr
                 condition_2 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_2_min_rsi_4h
                 condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_d > self.entry_2_min_rsi_d
+                condition_8 = not market_bearish
                 if (not foundLong and self.longsAllowed and directionFilter >= 0 and
-                        condition_1 and condition_2 and condition_3):
+                        condition_1 and condition_2 and condition_3 and condition_8):
                     self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLimit")
                 # go SHORT
                 condition_4 = natr_4h > self.entry_2_min_natr
@@ -442,7 +443,8 @@ class StrategyOne(TrendStrategy):
             if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed:
                 condition_1 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_6_rsi_4h_max
                 condition_2 = natr_4h < self.entry_6_max_natr
-                if bars[1].close > bars[idxSwingHigh].high and condition_2 and condition_1:
+                condition_3 = not market_bearish
+                if bars[1].close > bars[idxSwingHigh].high and condition_2 and condition_1 and condition_3:
                     self.logger.info("Longing swing breakout.")
                     if self.telegram is not None:
                         self.telegram.send_log("Longing swing breakout.")
