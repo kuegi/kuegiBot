@@ -290,7 +290,7 @@ class StrategyOne(TrendStrategy):
                 talibbars.high_daily[-1] > self.ta_data_trend_strat.highs_trail_4h_vec[-6] or
                 talibbars.high_daily[-1] > self.ta_data_trend_strat.highs_trail_4h_vec[-7]
             )
-            condition_3 = not market_bullish
+            condition_3 = market_bearish
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_1_vol_fac < self.ta_data_trend_strat.volume_4h
             if condition_1 and condition_2 and condition_3 and condition_4:
                 self.logger.info("Shorting daily sfp")
@@ -309,25 +309,30 @@ class StrategyOne(TrendStrategy):
             longEntry, shortEntry, stopLong, stopShort, longAmount, shortAmount, alreadyLonged, alreadyShorted = self.calc_entry_and_exit(bars)
 
             if longEntry is not None and shortEntry is not None:
-                foundLong, foundShort = self.update_existing_entries(account, open_positions, longEntry, shortEntry,
-                                                                     stopLong, stopShort, longAmount, shortAmount)
-
-                # Set entries if no orders are found and the market conditions allow it
-                # go LONG
                 condition_1 = natr_4h < self.entry_2_max_natr
                 condition_2 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_2_min_rsi_4h
                 condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_d > self.entry_2_min_rsi_d
-                condition_8 = not market_bearish
-                if (not foundLong and self.longsAllowed and directionFilter >= 0 and
-                        condition_1 and condition_2 and condition_3 and condition_8):
-                    self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLimit")
-                # go SHORT
+                condition_8 = market_bullish
+                bullish_conditions = condition_1 and condition_2 and condition_3 and condition_8
+
                 condition_4 = natr_4h > self.entry_2_min_natr
                 condition_5 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_2_min_rsi_4h_short
                 condition_6 = self.ta_trend_strat.taData_trend_strat.rsi_d > self.entry_2_min_rsi_d_short
                 condition_7 = market_bearish
-                if (not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None and
-                        condition_4 and condition_5 and condition_6 and condition_7):
+                bearish_conditions = condition_4 and condition_5 and condition_6 and condition_7
+
+                foundLong = False
+                foundShort = False
+                if bullish_conditions or bearish_conditions:
+                    foundLong, foundShort = self.update_existing_entries(account, open_positions, longEntry, shortEntry,
+                                                                     stopLong, stopShort, longAmount, shortAmount)
+                # Set entries if no orders are found and the market conditions allow it
+                # go LONG
+                if not foundLong and self.longsAllowed and directionFilter >= 0 and bullish_conditions:
+                    self.open_new_position(PositionDirection.LONG, bars, stopLong, open_positions, longEntry,"StopLimit")
+
+                # go SHORT
+                if not foundShort and self.shortsAllowed and directionFilter <= 0 and shortEntry is not None and bearish_conditions:
                     self.open_new_position(PositionDirection.SHORT, bars, stopShort, open_positions, shortEntry,"StopLimit")
 
                 # Save parameters
@@ -348,7 +353,8 @@ class StrategyOne(TrendStrategy):
             condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_3_rsi_4h
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_3_vol_fac > self.ta_data_trend_strat.volume_4h
             close = bars[1].low if bars[1].close > bars[1].open else bars[1].low - self.entry_3_atr_fac * atr_trail_mix
-            if condition_1 and condition_2 and condition_3 and condition_4:
+            condition_5 = not market_bearish
+            if condition_1 and condition_2 and condition_3 and condition_4:# and condition_5:
                 longed = True
                 self.logger.info("Longing trail.")
                 if self.telegram is not None:
@@ -398,7 +404,8 @@ class StrategyOne(TrendStrategy):
             condition_2 = self.ta_trend_strat.taData_trend_strat.rsi_d < self.entry_5_rsi_d
             condition_3 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_5_rsi_4h
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_5_vol_fac < self.ta_data_trend_strat.volume_4h
-            if trail_broke and opened_above_trail and condition_2 and condition_1 and condition_3 and condition_4:
+            condition_5 = not market_bullish#market_bearish
+            if trail_broke and opened_above_trail and condition_2 and condition_1 and condition_3 and condition_4:# and condition_5:
                 self.logger.info("Shorting trail break.")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting trail break.")
@@ -443,7 +450,7 @@ class StrategyOne(TrendStrategy):
             if foundSwingHigh and foundSwingLow and not longed and not alreadyLonged and not alreadyShorted and self.longsAllowed:
                 condition_1 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] > self.entry_6_rsi_4h_max
                 condition_2 = natr_4h < self.entry_6_max_natr
-                condition_3 = not market_bearish
+                condition_3 = market_bullish
                 if bars[1].close > bars[idxSwingHigh].high and condition_2 and condition_1 and condition_3:
                     self.logger.info("Longing swing breakout.")
                     if self.telegram is not None:
@@ -457,9 +464,10 @@ class StrategyOne(TrendStrategy):
                                            direction=PositionDirection.LONG,
                                            ExecutionType = "Market")
 
-            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed and not market_bullish:
+            if foundSwingLow and foundSwingHigh and not shorted and not alreadyShorted and not alreadyLonged and self.shortsAllowed:
                 condition_2 = bars[1].open > self.ta_data_trend_strat.ema_w
-                if bars[1].close < bars[idxSwingLow].low and condition_2:
+                condition_3 = not market_bullish#not needed
+                if bars[1].close < bars[idxSwingLow].low and condition_2:# and condition_3:
                     self.logger.info("Shorting swing break.")
                     if self.telegram is not None:
                         self.telegram.send_log("Shorting swing break.")
@@ -479,7 +487,8 @@ class StrategyOne(TrendStrategy):
             condition_7 = self.ta_data_trend_strat.volume_sma_4h_vec[-3] < self.ta_data_trend_strat.volume_4h * self.entry_7_vol_fac
             condition_8 = bars[1].open > middleband + std * self.entry_7_std_fac
             condition_9 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_7_4h_rsi
-            if condition_1 and condition_2 and condition_4 and condition_7 and condition_8 and condition_9:
+            condition_10 = not market_bullish#market_bearish
+            if condition_1 and condition_2 and condition_4 and condition_7 and condition_8 and condition_9:# and condition_10:
                 self.logger.info("Shorting 4H SFP")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting 4H SFP")
@@ -508,7 +517,8 @@ class StrategyOne(TrendStrategy):
                            bars[7].close > bars[1].close and
                            bars[8].close > bars[1].close)
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_8_vol_fac > self.ta_data_trend_strat.volume_4h
-            if condition_1 and condition_2 and condition_4:
+            condition_5 = not market_bullish#market_bearish
+            if condition_1 and condition_2 and condition_4:# and condition_5:
                 self.logger.info("Shorting rapid sell-off")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting rapid sell-off")
@@ -521,12 +531,13 @@ class StrategyOne(TrendStrategy):
                                        ExecutionType="Market")
 
         # short entry 9
-        if self.entry_9 and not shorted and self.shortsAllowed and not market_bullish:
+        if self.entry_9 and not shorted and self.shortsAllowed:
             condition_1 = bars[1].low < self.ta_data_trend_strat.lows_trail_4h_vec[-2] < bars[1].close < bars[1].open
             condition_2 = bars[1].open < bars[2].open
             condition_3 = bars[1].close > middleband_vec[-2] - std_vec[-2] * self.entry_9_std
             condition_5 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_9_4h_rsi
-            if condition_1 and condition_2 and condition_3 and condition_5:
+            condition_6 = not market_bullish#market_bearish
+            if condition_1 and condition_2 and condition_3 and condition_5:# and condition_6:
                 self.logger.info("Shorting short trail tap")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting short trail tap")
@@ -543,7 +554,8 @@ class StrategyOne(TrendStrategy):
             condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
             condition_2 = natr_4h < self.entry_10_natr
             condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h
-            if condition_1 and condition_2 and condition_3:
+            condition_4 = not market_bearish#market_bullish
+            if condition_1 and condition_2 and condition_3 and condition_4:
                 longed = True
                 self.logger.info("Longing confirmed trail breakout.")
                 if self.telegram is not None:
