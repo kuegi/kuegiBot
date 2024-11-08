@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 import talib
 
-from kuegi_bot.bots.strategies.trend_strategy import TrendStrategy, TAdataTrendStrategy, MarketRegime, BBands
+from kuegi_bot.bots.strategies.trend_strategy import TrendStrategy, TAdataTrendStrategy, MarketRegime, MarketDynamic, BBands
 from kuegi_bot.bots.trading_bot import TradingBot, PositionDirection
 from kuegi_bot.indicators.indicator import Indicator
 from kuegi_bot.indicators.talibbars import TAlibBars
@@ -518,7 +518,8 @@ class StrategyOne(TrendStrategy):
                            bars[8].close > bars[1].close)
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_8_vol_fac > self.ta_data_trend_strat.volume_4h
             condition_5 = not market_bullish#market_bearish
-            if condition_1 and condition_2 and condition_4:# and condition_5:
+            condition_6 = self.ta_trend_strat.taData_trend_strat.marketDynamic == MarketDynamic.RANGING
+            if condition_1 and condition_2 and condition_4 and condition_6:# and condition_5:
                 self.logger.info("Shorting rapid sell-off")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting rapid sell-off")
@@ -537,7 +538,8 @@ class StrategyOne(TrendStrategy):
             condition_3 = bars[1].close > middleband_vec[-2] - std_vec[-2] * self.entry_9_std
             condition_5 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_9_4h_rsi
             condition_6 = not market_bullish#market_bearish
-            if condition_1 and condition_2 and condition_3 and condition_5:# and condition_6:
+            condition_7 = self.ta_trend_strat.taData_trend_strat.marketDynamic == MarketDynamic.RANGING
+            if condition_1 and condition_2 and condition_3 and condition_5 and condition_7:# and condition_6:
                 self.logger.info("Shorting short trail tap")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting short trail tap")

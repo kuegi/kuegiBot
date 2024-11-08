@@ -17,7 +17,13 @@ class MarketRegime(Enum):
     BULL = "BULL"
     BEAR = "BEAR"
     RANGING = "RANGING"
-    NONE = "UNDEFINED"
+    NONE = "NONE"
+
+
+class MarketDynamic(Enum):
+    TRENDING = "TRENDING"
+    RANGING = "RANGING"
+    NONE = "NONE"
 
 
 class DataTrendStrategy:
@@ -408,6 +414,7 @@ class TAdataTrendStrategy:
         ''' TA-data of the Trend Strategy '''
         self.talibbars = TAlibBars()
         self.marketRegime = MarketRegime.NONE
+        self.marketDynamic = MarketDynamic.NONE
         # 4h arrays
         self.bbands_4h = BBands(None, [],None, [])
         #self.bbands_talib = Talib_BBANDS(None, None, None)
@@ -771,6 +778,25 @@ class TATrendStrategyIndicator(Indicator):
 
         if closes[-1] < mid_line:
             self.taData_trend_strat.marketRegime = MarketRegime.BEAR
+
+        self.identifyMarketDynamics()
+
+    def identifyMarketDynamics(self):
+        # Average Directional Movement Index
+        self.taData_trend_strat.marketDynamic = MarketDynamic.TRENDING
+        talibbars = self.taData_trend_strat.talibbars
+        close = talibbars.close
+        high = talibbars.high
+        low = talibbars.low
+        period = 30
+        adx = talib.ADX(high, low, close, period)[-1]
+        if not np.isnan(adx):
+            if adx > 20:
+                self.taData_trend_strat.marketDynamic = MarketDynamic.TRENDING
+            else:
+                self.taData_trend_strat.marketDynamic = MarketDynamic.RANGING
+        else:
+            self.taData_trend_strat.marketDynamic = MarketDynamic.NONE
 
     def write_data_for_plot(self, bars: List[Bar]):
         if self.taData_trend_strat.marketRegime == MarketRegime.BULL:
