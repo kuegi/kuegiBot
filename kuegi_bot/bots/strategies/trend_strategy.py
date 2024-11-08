@@ -359,11 +359,6 @@ class TrendStrategy(StrategyWithTradeManagement):
                             new_trigger_price = bars[1].low + self.ta_trend_strat.taData_trend_strat.atr_4h * self.moving_sl_atr_fac
                         if self.stop_at_trail:
                             new_trigger_price = min(self.ta_trend_strat.taData_trend_strat.highs_trail_4h + self.ta_trend_strat.taData_trend_strat.atr_4h*8, new_trigger_price)
-                        #if False:
-                        #    ema_multiple = self.ta_trend_strat.taData_trend_strat.ema_w * self.ta_trend_strat.trend_var_1
-                        #    d_rsi_low = 20 < self.ta_trend_strat.taData_trend_strat.rsi_d
-                        #    if bars[0].open < ema_multiple and d_rsi_low:
-                        #        new_trigger_price = bars[0].open
 
                     elif order.amount < 0:  # SL for LONGs
                         if self.stop_at_trail:
