@@ -352,19 +352,18 @@ class StrategyOne(TrendStrategy):
             condition_2 = natr_4h < self.entry_3_max_natr
             condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_3_rsi_4h
             condition_4 = self.ta_data_trend_strat.volume_sma_4h_vec[-1] * self.entry_3_vol_fac > self.ta_data_trend_strat.volume_4h
-            close = bars[1].low if bars[1].close > bars[1].open else bars[1].low - self.entry_3_atr_fac * atr_trail_mix
-            condition_5 = not market_bearish
             if condition_1 and condition_2 and condition_3 and condition_4:# and condition_5:
                 longed = True
-                self.logger.info("Longing trail.")
+                self.logger.info("Longing trail breakout by StopLimit.")
                 if self.telegram is not None:
-                    self.telegram.send_log("Longing trail breakout.")
-                self.open_new_position(entry=bars[0].close,
-                                          stop=close,
-                                          open_positions=open_positions,
-                                          bars=bars,
-                                          direction=PositionDirection.LONG,
-                                          ExecutionType = "Market")
+                    self.telegram.send_log("Longing trail breakout by StopLimit.")
+                delta = -0.2 * atr
+                self.open_new_position(entry=bars[0].close + delta,
+                                       stop=bars[1].low + delta,
+                                       open_positions=open_positions,
+                                       bars=bars,
+                                       direction=PositionDirection.LONG,
+                                       ExecutionType="StopLimit")
 
         # Long strength when certain BBand levels are reclaimed
         if self.entry_4:
@@ -411,7 +410,7 @@ class StrategyOne(TrendStrategy):
                     self.telegram.send_log("Shorting trail break.")
                 shorted = True
                 self.open_new_position(entry=bars[0].close,
-                                       stop=bars[0].close + atr_trail_mix * self.entry_5_atr_fac,
+                                       stop=min(bars[1].high,bars[0].close + atr_trail_mix * self.entry_5_atr_fac),
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.SHORT,
@@ -568,6 +567,16 @@ class StrategyOne(TrendStrategy):
                                        bars=bars,
                                        direction=PositionDirection.LONG,
                                        ExecutionType="Market")
+                delta = -0.4 * atr
+                self.logger.info("Sending additional long.")
+                if self.telegram is not None:
+                    self.telegram.send_log("Sending additional long.")
+                self.open_new_position(entry=bars[1].high + delta,
+                                       stop=bars[1].low + delta,
+                                       open_positions=open_positions,
+                                       bars=bars,
+                                       direction=PositionDirection.LONG,
+                                       ExecutionType="StopLimit")
 
         if not self.longsAllowed:
             self.logger.info("Longs not allowed.")
