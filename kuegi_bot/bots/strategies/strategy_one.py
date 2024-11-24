@@ -303,6 +303,38 @@ class StrategyOne(TrendStrategy):
                                        direction=PositionDirection.SHORT,
                                        ExecutionType="Market")
 
+        # long confirmed trail breakout
+        if self.entry_10 and not longed and self.longsAllowed:
+            ath = (self.ta_trend_strat.taData_trend_strat.talibbars.close[-1] == max(self.ta_trend_strat.taData_trend_strat.talibbars.close)).all()
+            condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
+            condition_2 = natr_4h < self.entry_10_natr
+            condition_2b = natr_4h < 1.9
+            condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h
+            condition_4 = not market_bearish  # market_bullish
+            conditions_set_1 = condition_1 and condition_2 and condition_3 and condition_4
+            conditions_set_2 = condition_1 and condition_2b and ath and condition_3 and condition_4
+            if conditions_set_1 or conditions_set_2:
+                longed = True
+                self.logger.info("Longing confirmed trail breakout.")
+                if self.telegram is not None:
+                    self.telegram.send_log("Longing confirmed trail breakout.")
+                self.open_new_position(entry=bars[0].close,
+                                       stop=bars[1].low,
+                                       open_positions=open_positions,
+                                       bars=bars,
+                                       direction=PositionDirection.LONG,
+                                       ExecutionType="Market")
+                delta = -0.5 * atr
+                self.logger.info("Sending additional long.")
+                if self.telegram is not None:
+                    self.telegram.send_log("Sending additional long.")
+                self.open_new_position(entry=bars[1].close + delta,
+                                       stop=bars[1].low + delta,
+                                       open_positions=open_positions,
+                                       bars=bars,
+                                       direction=PositionDirection.LONG,
+                                       ExecutionType="StopLimit")
+
         # limit order - entries
         if self.entry_2:
             # Calculate potential trade entries
@@ -549,34 +581,6 @@ class StrategyOne(TrendStrategy):
                                        bars=bars,
                                        direction=PositionDirection.SHORT,
                                        ExecutionType="Market")
-
-        # long confirmed trail breakout
-        if self.entry_10 and not longed and self.longsAllowed:
-            condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
-            condition_2 = natr_4h < self.entry_10_natr
-            condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h
-            condition_4 = not market_bearish#market_bullish
-            if condition_1 and condition_2 and condition_3 and condition_4:
-                longed = True
-                self.logger.info("Longing confirmed trail breakout.")
-                if self.telegram is not None:
-                    self.telegram.send_log("Longing confirmed trail breakout.")
-                self.open_new_position(entry=bars[0].close,
-                                       stop=bars[1].low,
-                                       open_positions=open_positions,
-                                       bars=bars,
-                                       direction=PositionDirection.LONG,
-                                       ExecutionType="Market")
-                delta = -0.4 * atr
-                self.logger.info("Sending additional long.")
-                if self.telegram is not None:
-                    self.telegram.send_log("Sending additional long.")
-                self.open_new_position(entry=bars[1].high + delta,
-                                       stop=bars[1].low + delta,
-                                       open_positions=open_positions,
-                                       bars=bars,
-                                       direction=PositionDirection.LONG,
-                                       ExecutionType="StopLimit")
 
         if not self.longsAllowed:
             self.logger.info("Longs not allowed.")
