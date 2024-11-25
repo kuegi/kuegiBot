@@ -310,7 +310,7 @@ class StrategyOne(TrendStrategy):
             condition_2 = natr_4h < self.entry_10_natr
             condition_2b = natr_4h < 1.9
             condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h
-            condition_4 = not market_bearish  # market_bullish
+            condition_4 = not market_bearish
             conditions_set_1 = condition_1 and condition_2 and condition_3 and condition_4
             conditions_set_2 = condition_1 and condition_2b and ath and condition_3 and condition_4
             if conditions_set_1 or conditions_set_2:
@@ -319,17 +319,17 @@ class StrategyOne(TrendStrategy):
                 if self.telegram is not None:
                     self.telegram.send_log("Longing confirmed trail breakout.")
                 self.open_new_position(entry=bars[0].close,
-                                       stop=bars[1].low,
+                                       stop=bars[1].low-atr*0.2,
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.LONG,
                                        ExecutionType="Market")
-                delta = -0.5 * atr
                 self.logger.info("Sending additional long.")
                 if self.telegram is not None:
                     self.telegram.send_log("Sending additional long.")
-                self.open_new_position(entry=bars[1].close + delta,
-                                       stop=bars[1].low + delta,
+                entry = bars[1].close - 0.5 * atr
+                self.open_new_position(entry=entry,
+                                       stop=entry - atr,
                                        open_positions=open_positions,
                                        bars=bars,
                                        direction=PositionDirection.LONG,
