@@ -56,7 +56,7 @@ class ByBitInterface(ExchangeWithWS):
 
     def initPositions(self):
         balance= -1
-        wallet= self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="CONTRACT",coin=self.symbol_info.basecoin))
+        wallet= self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="UNIFIED",coin=self.symbol_info.basecoin))
         for coin in wallet[0]['coin']:
             if coin['coin'] == self.symbol_info.basecoin:
                 balance= float(coin['walletBalance'])
@@ -131,12 +131,12 @@ class ByBitInterface(ExchangeWithWS):
     def get_bars(self, timeframe_minutes, start_offset_minutes, min_bars_needed=600) -> List[Bar]:
         tf = 1 if timeframe_minutes <= 60 else 60
         apibars =  self.handle_result(lambda:self.pybit.get_kline(
-            **{'categoriy':'inverse','symbol': self.symbol, 'interval': str(tf), 'limit': '1000'}))
+            **{'category':'inverse','symbol': self.symbol, 'interval': str(tf), 'limit': '1000'}))
         # get more history to fill enough (currently 200 H4 bars.
         for idx in range(1+ math.ceil((min_bars_needed*timeframe_minutes)/(tf*1000))):
             end = int(apibars[-1][0])-1
             bars1 =  self.handle_result(lambda:self.pybit.get_kline(
-                **{'categoriy':'inverse','symbol': self.symbol, 'interval': str(tf), 'end': str(end), 'limit': '1000'}))
+                **{'category':'inverse','symbol': self.symbol, 'interval': str(tf), 'end': str(end), 'limit': '1000'}))
             apibars = apibars +bars1
 
         subbars = []
@@ -342,10 +342,10 @@ class ByBitInterface(ExchangeWithWS):
     @staticmethod
     def orderDictToOrder(o):
         sideMulti = 1 if o["side"] == "Buy" else -1
-        stop = float(o['triggerPrice']) if 'triggerPrice' in o.keys() else None
+        stop = float(o['triggerPrice']) if 'triggerPrice' in o.keys() and len(o['triggerPrice']) else None
         order = Order(orderId=o["orderLinkId"],
                       stop=float(stop) if stop is not None else None,
-                      limit=float(o["price"]) if 'price' in o and float(o['price']) > 0 else None,
+                      limit=float(o["price"]) if 'price' in o and len(o['price']) and float(o['price']) > 0 else None,
                       amount=float(o["qty"]) * sideMulti)
         if "orderStatus" in o.keys():
             order.stop_triggered = (o["orderStatus"] == "New" and stop is not None) or o["orderStatus"] in ['Triggered','Active']
