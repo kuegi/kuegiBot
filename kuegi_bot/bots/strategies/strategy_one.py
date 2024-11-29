@@ -50,7 +50,7 @@ class StrategyOne(TrendStrategy):
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 2, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_bull: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
-                 bbands_4h_period: int = 10, bband_history_size: int =10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
+                 bbands_4h_period: int = 10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
                  plotIndicators: bool = False, plot_RSI: bool = False, use_shapes: bool = False, plotBackgroundColor4Trend: bool = False,
                  plotTrailsAndEMAs: bool = False, plotBBands:bool=False, plotATR:bool=False, trend_atr_fac: float = 0.5,
                  trend_var_1: float = 0,
@@ -72,7 +72,7 @@ class StrategyOne(TrendStrategy):
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
             lows_trail_4h_period= lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_bull= days_buffer_bull,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, trend_atr_fac = trend_atr_fac,
-            bbands_4h_period= bbands_4h_period, bband_history_size = bband_history_size, rsi_4h_period = rsi_4h_period,
+            bbands_4h_period= bbands_4h_period, rsi_4h_period = rsi_4h_period,
             volume_sma_4h_period =volume_sma_4h_period,
             plotIndicators = plotIndicators, plot_RSI = plot_RSI,
             trend_var_1 = trend_var_1,

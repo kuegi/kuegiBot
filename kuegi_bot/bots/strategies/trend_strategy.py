@@ -38,7 +38,7 @@ class TrendStrategy(StrategyWithTradeManagement):
                  # TrendStrategy
                  timeframe: int = 240, ema_w_period: int = 1, highs_trail_4h_period: int = 1, lows_trail_4h_period: int = 1,
                  days_buffer_bear: int = 2, days_buffer_bull: int = 0, atr_4h_period: int = 10, natr_4h_period_slow: int = 10,
-                 bbands_4h_period: int = 10, bband_history_size: int = 10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
+                 bbands_4h_period: int = 10, rsi_4h_period: int = 10, volume_sma_4h_period: int = 100,
                  plotIndicators: bool = False, plot_RSI: bool = False, trend_atr_fac: float = 0.5,
                  trend_var_1: float = 0,
                  # Risk
@@ -70,7 +70,7 @@ class TrendStrategy(StrategyWithTradeManagement):
             timeframe = timeframe, ema_w_period= ema_w_period, highs_trail_4h_period= highs_trail_4h_period,
             lows_trail_4h_period = lows_trail_4h_period, days_buffer_bear= days_buffer_bear, days_buffer_bull= days_buffer_bull,
             atr_4h_period= atr_4h_period, natr_4h_period_slow= natr_4h_period_slow, bbands_4h_period= bbands_4h_period,
-            bband_history_size = bband_history_size, sl_upper_bb_std_fac = sl_upper_bb_std_fac,
+            sl_upper_bb_std_fac = sl_upper_bb_std_fac,
             sl_lower_bb_std_fac = sl_lower_bb_std_fac, trend_var_1= trend_var_1, oversold_limit_w_rsi = 30, reset_level_of_oversold_rsi = 50,
             rsi_4h_period = rsi_4h_period, volume_sma_4h_period= volume_sma_4h_period, trend_atr_fac = trend_atr_fac
         )
@@ -449,7 +449,6 @@ class TATrendStrategyIndicator(Indicator):
                  timeframe: int = 240,
                  # 4h periods
                  bbands_4h_period: int = 10,
-                 bband_history_size: int = 10,
                  atr_4h_period: int = 10,
                  natr_4h_period_slow: int = 10,
                  highs_trail_4h_period: int = 10,
@@ -490,7 +489,6 @@ class TATrendStrategyIndicator(Indicator):
         self.bars_per_day = int(60 * 24 / timeframe)
         # 4H periods
         self.bbands_4h_period = bbands_4h_period
-        self.bband_history_size = bband_history_size
         self.atr_4h_period = atr_4h_period
         self.natr_4h_period_slow = natr_4h_period_slow
         self.rsi_4h_period = rsi_4h_period
@@ -508,10 +506,10 @@ class TATrendStrategyIndicator(Indicator):
         self.rsi_w_period = rsi_w_period
         # Max period variables
         self.max_d_period = max(self.days_buffer_bull, self.days_buffer_bear, self.rsi_d_period + 1)
-        self.max_w_period = max(self.ema_w_period, self.rsi_w_period+1)
+        self.max_w_period = max(self.ema_w_period, self.rsi_w_period)
         self.max_4h_period = max(self.bbands_4h_period, self.atr_4h_period, self.natr_4h_period_slow,
                                  self.rsi_4h_period, self.highs_trail_4h_period, self.lows_trail_4h_period,
-                                 self.volume_sma_4h_period, self.max_d_period * 6, self.max_w_period * 7 * 6)
+                                 self.volume_sma_4h_period, self.max_d_period * 6, (self.max_w_period+2) * 7 * 6)
         self.max_4h_history_candles = self.max_4h_period
 
     def on_tick(self, bars: List[Bar]):
