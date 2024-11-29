@@ -108,7 +108,6 @@ def start_bot(botSettings,telegram:TelegramBot=None):
                     natr_4h_period_slow=stratSettings.NATR_4H_PERIOD_SLOW,
                     bbands_4h_period=stratSettings.BBANDS_4H_PERIOD,
                     plotIndicators=stratSettings.PLOTINDICATORS,
-                    bband_history_size=stratSettings.BBAND_HISTORY_SIZE,
                     rsi_4h_period=stratSettings.RSI_4H_PERIOD,
                     trend_var_1=stratSettings.TREND_VAR_1,
                     volume_sma_4h_period=stratSettings.VOLUME_SMA_4H_PERIOD,
