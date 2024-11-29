@@ -186,7 +186,7 @@ class StrategyOne(TrendStrategy):
                     order.amount = amount
                     self.order_interface.update_order(order)
 
-        if self.tp_fac_strat_one > 0 and not gotTp:
+        if self.tp_fac_strat_one > 0 and not gotTp and self.ta_trend_strat.taData_trend_strat.talibbars.open is not None:
             condition_1 = position.amount < 0
             condition_2 = (self.ta_trend_strat.taData_trend_strat.talibbars.open[-1] <
                            self.ta_data_trend_strat.bbands_4h.middleband - self.ta_data_trend_strat.bbands_4h.std * 2)

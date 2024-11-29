@@ -75,7 +75,7 @@ class ByBitInterface(ExchangeWithWS):
 
     def initPositions(self):
         api_positions= self.handle_result(lambda: self.pybit.get_positions(category = self.category, symbol=self.symbol)).get("list")
-        api_wallet = self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="CONTRACT", coin=self.baseCoin)).get("list")
+        api_wallet = self.handle_result(lambda: self.pybit.get_wallet_balance(accountType="UNIFIED", coin=self.baseCoin)).get("list")
         for coin in api_wallet[0]['coin']:
             if coin['coin'] == self.baseCoin:
                 balance = float(coin['walletBalance'])
@@ -443,7 +443,7 @@ class ByBitInterface(ExchangeWithWS):
                                 self.shortPos.avgEntryPrice = 0
                                 sizefac = 0
                             else:
-                                self.logger.info('WARNING: unknown value for side.')
+                                self.logger.info('WARNING: unknown value for side. Value: '+str(pos["side"]))
                                 sizefac = 0
 
                             if pos['symbol'] not in self.positions.keys():
