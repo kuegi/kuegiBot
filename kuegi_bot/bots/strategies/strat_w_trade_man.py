@@ -242,8 +242,6 @@ class StrategyWithTradeManagement(StrategyWithExitModulesAndFilter):
                     self.order_interface.update_order(order)
 
         if not gotStop:
-            if self.telegram is not None:
-                self.telegram.send_log("Could not find stop loss. Sending one...")
             order = Order(orderId=TradingBot.generate_order_id(positionId=position.id, type=OrderType.SL),
                           trigger=position.initial_stop, amount=-position.amount)
             self.order_interface.send_order(order)
