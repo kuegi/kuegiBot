@@ -167,7 +167,7 @@ class ByBitInterface(ExchangeWithWS):
                     positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
-                    self.orders[order.exchange_id] = order
+                    #self.orders[order.exchange_id] = order
             else:
                 result =  self.handle_result(lambda:self.pybit.place_order(
                     side=("Buy" if order.amount > 0 else "Sell"),
@@ -181,7 +181,7 @@ class ByBitInterface(ExchangeWithWS):
                     positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
-                    self.orders[order.exchange_id] = order
+                    #self.orders[order.exchange_id] = order
         elif orderType == OrderType.SL:
             if order.trigger_price is not None:
                 # conditional order
@@ -200,7 +200,7 @@ class ByBitInterface(ExchangeWithWS):
                     positionIdx = int(0)))
                 if result is not None:
                     order.exchange_id = result['orderId']
-                    self.orders[order.exchange_id] = order
+                    #self.orders[order.exchange_id] = order
         else:
             result = self.handle_result(lambda: self.pybit.place_order(
                 side=("Buy" if order.amount > 0 else "Sell"),
@@ -213,7 +213,7 @@ class ByBitInterface(ExchangeWithWS):
                 positionIdx=int(0)))
             if result is not None:
                 order.exchange_id = result['orderId']
-                self.orders[order.exchange_id] = order
+                #self.orders[order.exchange_id] = order
 
     def internal_update_order(self, order: Order):
         orderType = TradingBot.order_type_from_order_id(order.id)
@@ -412,7 +412,9 @@ class ByBitInterface(ExchangeWithWS):
                                 execution['orderLinkId'], float(execution['execQty']) * sideMulti,
                                 float(execution['execPrice'])))
                         else:
-                            self.logger.info("WARNING: could not find the right order!")
+                            self.initOrders()
+                            self.initPositions()
+                            self.logger.info("WARNING: could not find the executed order in database!")
                             self.logger.info("Order ID: " + str(execution['orderId']))
                 elif topic == 'position':
                     #print('position msg arrived:')
@@ -551,10 +553,10 @@ class ByBitInterface(ExchangeWithWS):
         # 'placeType': '', 'createdTime': '1701099868909', 'updatedTime': '1701099868909'}
         sideMulti = 1 if o["side"] == "Buy" else -1
         ext = o['extFields'] if 'extFields' in o.keys() else None
-        stop = float(o['triggerPrice']) if 'triggerPrice' in o.keys() else None
+        stop = float(o['triggerPrice']) if 'triggerPrice' in o.keys() and len(o['triggerPrice'])>0 else None
         if stop is None:
             stop = o['stopPx'] if 'stopPx' in o.keys() else None
-        if stop is None and ext is not None and 'triggerPrice' in ext.keys():
+        if stop is None and ext is not None and 'triggerPrice' in ext.keys() and len(ext['triggerPrice'])>0:
             stop = ext['triggerPrice']
         order = Order(orderId=o["orderLinkId"],
                       trigger=float(stop) if stop is not None else None,
