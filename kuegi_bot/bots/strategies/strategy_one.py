@@ -44,7 +44,7 @@ class StrategyOne(TrendStrategy):
                  entry_6_atr_fac: float = 5, entry_8: bool = False, entry_9:bool = False, entry_10: bool = False,
                  entry_8_vol_fac: float = 2.0,
                  entry_9_std: float = 1, entry_9_4h_rsi: int = 50, entry_9_atr: float = 2,
-                 entry_10_natr: float = 2, entry_10_rsi_4h: int = 50,
+                 entry_10_natr: float = 2, entry_10_natr_ath: float = 2, entry_10_rsi_4h: int = 50,
                  tp_fac_strat_one: float = 0,
                  plotStrategyOneData: bool = False, plotTrailsStatOne: bool = False,
                  # TrendStrategy
@@ -145,6 +145,7 @@ class StrategyOne(TrendStrategy):
         self.entry_9_std = entry_9_std
         self.entry_9_atr = entry_9_atr
         self.entry_10_natr = entry_10_natr
+        self.entry_10_natr_ath = entry_10_natr_ath
         self.entry_10_rsi_4h = entry_10_rsi_4h
         self.sl_atr_fac = sl_atr_fac
         self.shortsAllowed = shortsAllowed
@@ -308,7 +309,7 @@ class StrategyOne(TrendStrategy):
             ath = (self.ta_trend_strat.taData_trend_strat.talibbars.close[-1] == max(self.ta_trend_strat.taData_trend_strat.talibbars.close)).all()
             condition_1 = bars[1].close > self.ta_strat_one.taData_strat_one.h_highs_trail_vec[-2]
             condition_2 = natr_4h < self.entry_10_natr
-            condition_2b = natr_4h < 1.9
+            condition_2b = natr_4h < self.entry_10_natr_ath
             condition_3 = self.ta_data_trend_strat.rsi_4h_vec[-1] < self.entry_10_rsi_4h
             condition_4 = not market_bearish
             conditions_set_1 = condition_1 and condition_2 and condition_3 and condition_4
