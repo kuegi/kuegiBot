@@ -262,7 +262,7 @@ class StrategyOne(TrendStrategy):
 
         self.logger.info("New bar. Checking for new entry options")
         self.logger.info("Market Regime: "+str(self.ta_data_trend_strat.marketRegime))
-        if self.telegram is not None:
+        if self.telegram is not None and not self.symbol.baseCoin == 'USDT':
             self.telegram.send_log("Market Regime: "+str(self.ta_data_trend_strat.marketRegime))
             self.telegram.send_log("NATR: %.2f" % self.ta_data_trend_strat.natr_4h)
 
@@ -590,7 +590,7 @@ class StrategyOne(TrendStrategy):
             self.logger.info("Shorts not allowed.")
             if self.telegram is not None:
                 self.telegram.send_log("Shorts not allowed.")
-        if not longed and not shorted:
+        if not longed and not shorted and not self.symbol.baseCoin == 'USDT':
             self.logger.info("No new entries for now.")
             if self.telegram is not None:
                 self.telegram.send_log("No new entries for now.")
