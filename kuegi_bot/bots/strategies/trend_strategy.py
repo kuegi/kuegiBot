@@ -105,7 +105,7 @@ class TrendStrategy(StrategyWithTradeManagement):
 
     def init(self, bars: List[Bar], account: Account, symbol: Symbol):
         super().init(bars, account, symbol)
-        self.logger.info(vars(self))
+        #self.logger.info(vars(self))
 
     def myId(self):
         return "TrendStrategy"
@@ -117,6 +117,8 @@ class TrendStrategy(StrategyWithTradeManagement):
         if is_new_bar:
             self.ta_trend_strat.taData_trend_strat.talibbars.on_tick(bars)
             self.ta_trend_strat.on_tick(bars)
+            self.logger.info('Current ta indicator values of trend strat:')
+            self.logger.info(vars(self.ta_trend_strat.taData_trend_strat))
 
     def get_ta_data_trend_strategy(self):
         return self.ta_trend_strat.taData_trend_strat

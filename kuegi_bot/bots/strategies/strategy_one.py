@@ -172,6 +172,8 @@ class StrategyOne(TrendStrategy):
             self.ta_data_trend_strat = self.get_ta_data_trend_strategy()
             self.ta_strat_one.set_ta_data_trend_strat(self.ta_data_trend_strat)
             self.ta_strat_one.on_tick(bars)
+            self.logger.info('Current ta indicator values of strat one:')
+            self.logger.info(vars(self.ta_strat_one.taData_strat_one))
 
     def position_got_opened_or_changed(self, position: Position, bars: List[Bar], account: Account, open_positions):
         super().position_got_opened_or_changed(position, bars, account, open_positions)
@@ -519,8 +521,7 @@ class StrategyOne(TrendStrategy):
             condition_7 = self.ta_data_trend_strat.volume_sma_4h_vec[-3] < self.ta_data_trend_strat.volume_4h * self.entry_7_vol_fac
             condition_8 = bars[1].open > middleband + std * self.entry_7_std_fac
             condition_9 = self.ta_trend_strat.taData_trend_strat.rsi_4h_vec[-1] < self.entry_7_4h_rsi
-            condition_10 = not market_bullish#market_bearish
-            if condition_1 and condition_2 and condition_4 and condition_7 and condition_8 and condition_9:# and condition_10:
+            if condition_1 and condition_2 and condition_4 and condition_7 and condition_8 and condition_9:
                 self.logger.info("Shorting 4H SFP")
                 if self.telegram is not None:
                     self.telegram.send_log("Shorting 4H SFP")
