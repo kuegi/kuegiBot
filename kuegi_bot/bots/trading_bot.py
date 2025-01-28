@@ -331,6 +331,9 @@ class TradingBot:
             self.unaccounted_position_cool_off = 0
             return
 
+        # safety sake
+        self.order_interface.resyncOrders()
+
         self.logger.info("Has to start order/pos sync with bot vs acc: %.3f vs. %.3f and %i vs %i, remaining: %i,  %i"
                          % (
                              open_pos, account.open_position.quantity, len(self.open_positions),
@@ -418,11 +421,15 @@ class TradingBot:
                     pos.current_open_amount = pos.amount
                     self.handle_opened_or_changed_position(position=pos, bars=bars, account=account)
                     remainingPosition -= pos.amount
-                else:
+                elif self.unaccounted_position_cool_off > 2:
                     self.logger.warn(
                         "pending position with no entry order and no sign of opening -> close missed: %s" % (posId))
                     pos.status = PositionStatus.MISSED
                     self.position_closed(pos, account)
+                else:
+                    self.logger.warn(
+                        "pending position with no entry order and no sign of opening, glitch? give it a cooldown: %s" % (posId))
+                    self.unaccounted_position_cool_off += 1
             elif pos.status == PositionStatus.OPEN:
                 if pos.changed:
                     self.logger.info(f"pos has no exit, but is marked changed, so its probably just a race {pos}")
@@ -449,7 +456,7 @@ class TradingBot:
         remainingPosition = round(remainingPosition, self.symbol.quantityPrecision)
         # now there should not be any mismatch between positions and orders.
         if remainingPosition != 0:
-            if self.unaccounted_position_cool_off > 1:
+            if self.unaccounted_position_cool_off > 2:
                 unmatched_stop = self.get_stop_for_unmatched_amount(remainingPosition, bars)
                 signalId = str(bars[1].tstamp) + '+' + str(randint(0, 99))
                 if unmatched_stop is not None:
