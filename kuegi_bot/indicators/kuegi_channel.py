@@ -85,8 +85,8 @@ class KuegiChannel(Indicator):
 
         sinceReset = min(sinceLongReset, sinceShortReset)
 
-        if sinceReset >= 3:
-            last_data: Data = self.get_data(bars[1])
+        last_data: Data = self.get_data(bars[1])
+        if sinceReset >= 3 or (last_data is not None and last_data.longSwing and last_data.shortSwing): #if there is an active channel, reset doesn't count (within swings)
             lastLongSwing = self.calc_swing(bars, 1, last_data.longSwing, sinceReset, buffer)
             lastShortSwing = self.calc_swing(bars, -1, last_data.shortSwing, sinceReset, buffer)
             if last_data.longSwing is not None and last_data.longSwing < bars[0].high:
