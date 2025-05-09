@@ -117,6 +117,10 @@ class LiveTrading(OrderInterface):
         order.active = False  # already mark it as cancelled, so not to mess up next loop
         self.exchange.cancel_order(order)
 
+
+    def resyncOrders(self):
+        self.logger.info("need to resync orders")
+        self.exchange.resyncOrders()
     ###
     # Sanity
     ##

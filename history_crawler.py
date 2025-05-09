@@ -22,7 +22,7 @@ batchsize = 50000
 
 urls = {
     "bitmex": "https://www.bitmex.com/api/v1/trade/bucketed?binSize=1m&partial=false&symbol=##symbol##&count=1000&reverse=false",
-    "bybit": "https://api.bybit.com/v2/public/kline/list?symbol=##symbol##&interval=1",
+    "bybit": "https://api.bybit.com/v5/market/kline/?category=inverse&symbol=##symbol##&interval=1",
     "bybit-linear": "https://api.bybit.com/public/linear/kline?symbol=##symbol##&interval=1",
     "binance_future": "https://fapi.binance.com/fapi/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
     "binanceSpot": "https://api.binance.com/api/v1/klines?symbol=##symbol##&interval=1m&limit=1000",
@@ -33,7 +33,8 @@ urls = {
 URL = urls[exchange].replace("##symbol##",symbol)
 
 result = []
-start = 1 if exchange in ['bybit', 'bybit-linear'] else 0
+start = 1542211200000 if exchange in ['bybit', 'bybit-linear'] else 0
+
 if exchange == 'phemex':
     start= 1574726400 # start of phemex
 elif exchange == 'bitstamp':
@@ -66,7 +67,7 @@ if lastknown >= 0:
             if exchange == 'bitmex':
                 start = lastknown * batchsize + len(result)
             elif exchange in ['bybit','bybit-linear']:
-                start = int(result[-1]['open_time']) + 1
+                start = int(result[-1][0]) + 1
             elif exchange in ['phemex']:
                 start = int(result[-1][0]) + 1
             elif exchange in ['binance_future','binanceSpot']:
@@ -84,7 +85,7 @@ while True:
     # sending get request and saving the response as response object
     url= URL+"&start="+str(start)
     if exchange in ['bybit','bybit-linear']:
-        url = URL + "&from=" + str(start)
+        url = URL + "&start=" + str(start)+"&limit=1000&end="+str(start+1000*1000*60) #needs end to filter correctly, otherwise we always get the latest
     elif exchange in ['binance_future','binanceSpot']:
         url= URL + "&startTime="+str(start)
     elif exchange == 'phemex':
@@ -96,7 +97,10 @@ while True:
     jsonData= r.json()
     data=jsonData
     if  exchange in ['bybit','bybit-linear']:
-        data = jsonData["result"]
+        if "list" in jsonData["result"]:
+            data = list(reversed(jsonData["result"]["list"]))
+        else:
+            data= []
     elif exchange == 'phemex':
         if jsonData['msg'] == 'OK':
             data = jsonData['data']['rows']
@@ -110,6 +114,8 @@ while True:
         print(str(data)[:100])
         if exchange == "bitstamp" and len(result) == 0:
             start+= 1000*60
+        if exchange == "bybit" and len(result) == 0:
+            start += 1000*1000*60
     else:
         wroteData= False
         if exchange == 'bitmex':
@@ -122,7 +128,7 @@ while True:
         if exchange == 'bitmex':
             start= start +len(data)
         elif exchange in ['bybit','bybit-linear']:
-            start = int(data[-1]['open_time'])+1
+            start = int(data[-1][0])+1
         elif exchange == 'phemex':
             if len(data) == 0:
                 start += 2000*60

@@ -26,7 +26,7 @@ class TradingBot:
         self.myId = "GenericBot"
         self.logger = logger
         self.directionFilter = directionFilter
-        self.order_interface: ExchangeInterface = None
+        self.order_interface: OrderInterface = None
         self.symbol: Symbol = None
         self.unique_id: str = ""
         self.last_time = 0

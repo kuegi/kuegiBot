@@ -112,7 +112,7 @@ bars_b = load_bars(30 * monthsBack, tf,0,exchange,pair)
 
 symbol=None
 if pair == "BTCUSD":
-    symbol=Symbol(symbol="BTCUSD", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
+    symbol=Symbol(symbol="BTCUSD", basecoin="BTC", isInverse=True, tickSize=0.5, lotSize=1.0, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=2)
 elif pair == "XRPUSD":
     symbol=Symbol(symbol="XRPUSD", isInverse=True, tickSize=0.0001, lotSize=0.01, makerFee=-0.025,takerFee=0.075, quantityPrecision=2,pricePrecision=4)
 elif pair == "ETHUSD":

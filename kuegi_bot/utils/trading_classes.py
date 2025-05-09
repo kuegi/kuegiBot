@@ -181,6 +181,9 @@ class OrderInterface:
     def cancel_order(self, order: Order):
         pass
 
+    def resyncOrders(self):
+        pass
+
 
 class PositionStatus(Enum):
     PENDING = "pending"

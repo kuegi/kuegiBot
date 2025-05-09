@@ -35,6 +35,15 @@ class KuegiWebsocket(object):
     def __del__(self):
         self.exit()
 
+    def is_connected(self):
+        try:
+            if self.ws is not None and self.ws.sock is not None and self.ws.sock.connected:
+                return True
+            else:
+                return False
+        except AttributeError:
+            return False
+
     def __connect(self):
         """Connect to the websocket in a thread."""
         self.lastUsedUrlIdx +=1
@@ -52,6 +61,7 @@ class KuegiWebsocket(object):
                                          on_open=self.__on_open,
                                          on_error=self.on_error,
                                          on_pong=lambda ws, *args: self.on_pong(),
+                                         on_ping= lambda ws,*args: self.on_ping(),
                                          keep_running=True)
 
 
@@ -98,6 +108,9 @@ class KuegiWebsocket(object):
         pass
 
     def on_pong(self):
+        pass
+
+    def on_ping(self):
         pass
 
     def try_restart(self):
@@ -160,6 +173,8 @@ class KuegiWebsocket(object):
         """Call this to exit - will close websocket."""
         self.exited = True
         self.ws.close()
+        while self.ws.sock:
+            continue
 
 
 class ExchangeWithWS(ExchangeInterface):

@@ -55,7 +55,7 @@ def history_file_name(index, exchange,symbol='') :
 
 known_history_files= {
     "bitmex_XBTUSD": 49,
-    "bybit_BTCUSD": 28,
+    "bybit_BTCUSD": 68,
     "bybit_ETHUSD":23,
     "bybit_XRPUSD":14,
     "bybit_BTCUSDM21":1,
@@ -102,9 +102,9 @@ def load_bars(days_in_history, wanted_tf, start_offset_minutes=0,exchange='bybit
     subbars: List[Bar] = []
     for b in m1_bars:
         if exchange == 'bybit':
-            if b['open'] is None:
+            if len(b) < 5:
                 continue
-            subbars.append(ByBitInterface.barDictToBar(b))
+            subbars.append(ByBitInterface.barDataToBar(b))
         elif exchange == 'bybit-linear':
             if b['open'] is None:
                 continue

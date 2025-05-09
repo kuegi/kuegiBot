@@ -131,6 +131,9 @@ class BackTest(OrderInterface):
                 self.logger.debug("canceled order " + order_to_cancel.id)
                 break
 
+    def resyncOrders(self):
+        self.logger.warning("backtest need to resync orders?!?!")
+
     # ----------
     def handle_order_execution(self, order: Order, intrabar: Bar, force_taker=False):
         amount = order.amount - order.executed_amount
